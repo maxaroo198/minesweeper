@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Minefield
+Comment=A calm minesweeper playground
+Exec=minefield-desktop
+Icon=com.minefield.app
+Type=Application
+Categories=Game;LogicGame;

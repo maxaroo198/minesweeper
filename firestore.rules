@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Public leaderboard: anyone can read scores, but writes are restricted to
+    // well-formed win records so the board can't be spammed with junk.
+    match /scores/{doc} {
+      allow read: if true;
+      allow create: if request.resource.data.name is string
+        && request.resource.data.name.size() <= 24
+        && request.resource.data.mode in ['classic', 'blitz', 'zen', 'daily']
+        && request.resource.data.difficulty in ['easy', 'medium', 'hard']
+        && request.resource.data.seconds is number
+        && request.resource.data.seconds >= 1
+        && request.resource.data.seconds <= 86400
+        && request.resource.data.date is string;
+      allow update, delete: if false;
+    }
+  }
+}

@@ -126,14 +126,14 @@ function playSound(sense: Sense) {
   switch (sense) {
     case 'tap':
       // A soft, rounded "tock".
-      tone(context, { frequency: 660, endFrequency: 460, duration: 0.075, type: 'sine', volume: 0.055 });
+      tone(context, { frequency: 622, endFrequency: 440, duration: 0.085, type: 'sine', volume: 0.052 });
       noiseHit(context, 0.018, 0.04, 3200);
       break;
     case 'expand':
       // A rising sparkle plus a warm whoosh.
-      tone(context, { frequency: 420, endFrequency: 760, duration: 0.18, type: 'triangle', volume: 0.038 });
-      tone(context, { frequency: 840, duration: 0.12, type: 'sine', volume: 0.02, delay: 0.06 });
-      noiseHit(context, 0.03, 0.22, 1800);
+      tone(context, { frequency: 392, endFrequency: 720, duration: 0.22, type: 'triangle', volume: 0.034 });
+      tone(context, { frequency: 784, duration: 0.14, type: 'sine', volume: 0.018, delay: 0.07 });
+      noiseHit(context, 0.026, 0.26, 1500);
       break;
     case 'flag':
       // Cloth "thwip": a short filtered noise whip with a little wooden click.
@@ -142,32 +142,33 @@ function playSound(sense: Sense) {
       tone(context, { frequency: 240, duration: 0.06, type: 'sine', volume: 0.05, delay: 0.02 });
       break;
     case 'unflag':
-      noiseHit(context, 0.04, 0.08, 1900);
-      tone(context, { frequency: 520, endFrequency: 380, duration: 0.08, type: 'sine', volume: 0.03 });
+      noiseHit(context, 0.034, 0.1, 1600);
+      tone(context, { frequency: 494, endFrequency: 349, duration: 0.1, type: 'sine', volume: 0.027 });
       break;
     case 'mine':
       // Deep, muted thud — nothing that startles.
-      tone(context, { frequency: 140, endFrequency: 48, duration: 0.36, type: 'sine', volume: 0.24 });
-      tone(context, { frequency: 92, endFrequency: 38, duration: 0.42, type: 'triangle', volume: 0.1 });
-      noiseHit(context, 0.12, 0.26, 340);
+      tone(context, { frequency: 130, endFrequency: 44, duration: 0.42, type: 'sine', volume: 0.22 });
+      tone(context, { frequency: 87, endFrequency: 36, duration: 0.48, type: 'triangle', volume: 0.09 });
+      noiseHit(context, 0.1, 0.3, 300);
       break;
     case 'chord':
-      tone(context, { frequency: 560, duration: 0.1, type: 'sine', volume: 0.045 });
-      tone(context, { frequency: 840, duration: 0.14, type: 'sine', volume: 0.035, delay: 0.06 });
+      tone(context, { frequency: 523.25, duration: 0.12, type: 'sine', volume: 0.04 });
+      tone(context, { frequency: 783.99, duration: 0.16, type: 'sine', volume: 0.032, delay: 0.07 });
       break;
     case 'win':
-      // A small major arpeggio.
+      // A small major arpeggio with a gentle shimmer on top.
       [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
         tone(context, { frequency, duration: 0.32, type: 'sine', volume: 0.07, delay: index * 0.1 });
+        tone(context, { frequency: frequency * 2, duration: 0.2, type: 'sine', volume: 0.012, delay: index * 0.1 });
       });
       tone(context, { frequency: 261.63, duration: 0.65, type: 'triangle', volume: 0.035 });
       break;
     case 'lose':
-      tone(context, { frequency: 260, endFrequency: 130, duration: 0.5, type: 'sine', volume: 0.09 });
-      tone(context, { frequency: 196, endFrequency: 98, duration: 0.6, type: 'triangle', volume: 0.045, delay: 0.12 });
+      tone(context, { frequency: 246.94, endFrequency: 123.47, duration: 0.55, type: 'sine', volume: 0.08 });
+      tone(context, { frequency: 185, endFrequency: 92.5, duration: 0.65, type: 'triangle', volume: 0.04, delay: 0.14 });
       break;
     case 'ui':
-      tone(context, { frequency: 880, duration: 0.05, type: 'sine', volume: 0.025 });
+      tone(context, { frequency: 783.99, duration: 0.06, type: 'sine', volume: 0.02 });
       break;
   }
 }

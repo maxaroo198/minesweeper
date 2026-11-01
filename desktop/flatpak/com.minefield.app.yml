@@ -1,0 +1,27 @@
+# Flatpak manifest for Minefield.
+# Build with: flatpak-builder --user --install --force-clean build-dir desktop/flatpak/com.minefield.app.yml
+# Produces a .flatpak bundle: flatpak build-bundle repo minefield.flatpak com.minefield.app
+id: com.minefield.app
+runtime: org.freedesktop.Platform
+runtime-version: "24.08"
+sdk: org.freedesktop.Sdk
+command: minefield-desktop
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+modules:
+  - name: minefield
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 minefield-desktop /app/bin/minefield-desktop
+      - install -Dm644 com.minefield.app.desktop /app/share/applications/com.minefield.app.desktop
+      - install -Dm644 icon.png /app/share/icons/hicolor/256x256/apps/com.minefield.app.png
+    sources:
+      - type: file
+        path: ../target/release/minefield-desktop
+      - type: file
+        path: com.minefield.app.desktop
+      - type: file
+        path: ../icons/256x256.png
+        dest-filename: icon.png

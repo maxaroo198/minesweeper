@@ -5,7 +5,7 @@ import {
   ChevronDown, ChevronLeft, ChevronRight, Clock3, Flag, Flame, Grid2X2, Infinity as InfinityIcon,
   Leaf, Lightbulb, Menu, Moon, MousePointer2, Play, RotateCcw, Settings2,
   ShieldCheck, Smartphone, Sparkles, Sun, Target, Trophy, Volume2, VolumeX, X, Zap,
-  Expand, Minimize2, Trash2, Heart, CheckCircle2,
+  Expand, Minimize2, Trash2, Heart, CheckCircle2, GitBranch,
 } from 'lucide-react';
 import {
   BLITZ_SECONDS, DIFFICULTIES, MODE_NAMES, dayKey, formatTime, freshGame,
@@ -17,6 +17,10 @@ import BootScreen from './BootScreen';
 import SourceDownload from './SourceDownload';
 import { sense, unlockAudio } from './sensory';
 import type { Sense } from './sensory';
+import { boardFromArea, clearArea, failArea, layoutWorld, loadWorld, newWorld, openAreaIds, saveWorld, syncArea } from './zen';
+import type { ZenWorld } from './zen';
+import { playerName, publicBoardEnabled, setPlayerName, submitPublicScore, topPublicScores } from './publicBoard';
+import type { PublicScore } from './publicBoard';
 import '@fontsource-variable/dm-sans';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
@@ -30,7 +34,7 @@ const ANDROID_BRIDGE = 'MinefieldAndroid';
 const MODES: { id: Mode; description: string; tag: string; icon: typeof Grid2X2 }[] = [
   { id: 'classic', description: 'The original. At your own pace.', tag: 'THE ORIGINAL', icon: Grid2X2 },
   { id: 'blitz', description: '60 seconds. Make every move count.', tag: '60-SECOND RUSH', icon: Zap },
-  { id: 'zen', description: 'No clock. No pressure. Just flow.', tag: 'TAKE IT SLOW', icon: Leaf },
+  { id: 'zen', description: 'An endless branching field. Sweep, grow, wander forever.', tag: 'INFINITE FLOW', icon: Leaf },
   { id: 'daily', description: 'One puzzle. A new possibility.', tag: 'FRESH EVERY DAY', icon: Sun },
 ];
 
@@ -77,6 +81,99 @@ function HelpContent({ compact = false }: { compact?: boolean }) {
     <div className="keyboard-guide"><span><kbd>N</kbd> New game</span><span><kbd>F</kbd> Flag mode</span><span><kbd>?</kbd> Help</span><span><MousePointer2 size={14} /> Long press to flag</span></div>
   </div>;
 }
+function ZenMap({ world, onJump, onClose }: { world: ZenWorld; onJump: (id: string) => void; onClose: () => void }) {
+  const { nodes, edges, width, height } = useMemo(() => layoutWorld(world), [world]);
+  const pos = useMemo(() => new Map(nodes.map(n => [n.area.id, n])), [nodes]);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const drag = useRef<{ moved: boolean; pinchDist: number } | null>(null);
+
+  // Center the tree in the viewport on open / when the world changes.
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const scale = Math.min(1, (el.clientWidth - 60) / width, (el.clientHeight - 60) / height);
+    setView({ x: (el.clientWidth - width * scale) / 2, y: (el.clientHeight - height * scale) / 2, scale });
+  }, [width, height]);
+
+  const clampScale = (s: number) => Math.min(3, Math.max(0.2, s));
+  // Native non-passive wheel listener so the page doesn't scroll while zooming.
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+      setView(v => {
+        const scale = clampScale(v.scale * (e.deltaY < 0 ? 1.12 : 1 / 1.12));
+        const k = scale / v.scale;
+        return { scale, x: cx - (cx - v.x) * k, y: cy - (cy - v.y) * k };
+      });
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+  const onPointerDown = (e: React.PointerEvent) => {
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    drag.current = { moved: false, pinchDist: 0 };
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const active = pointers.current.get(e.pointerId);
+    if (!active || !drag.current) return;
+    const dx = e.clientX - active.x, dy = e.clientY - active.y;
+    if (Math.abs(dx) + Math.abs(dy) > 4 && drag.current) drag.current.moved = true;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2) {
+      // Pinch zoom.
+      const [a, b] = [...pointers.current.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (drag.current && drag.current.pinchDist > 0) {
+        setView(v => ({ ...v, scale: clampScale(v.scale * (dist / drag.current!.pinchDist)) }));
+      }
+      if (drag.current) drag.current.pinchDist = dist;
+    } else {
+      setView(v => ({ ...v, x: v.x + dx, y: v.y + dy }));
+    }
+  };
+  const endPointer = (e: React.PointerEvent) => {
+    const wasTap = drag.current && !drag.current.moved && pointers.current.size <= 1;
+    pointers.current.delete(e.pointerId);
+    drag.current = null;
+    // Tap on a node (click) is handled by the node's own onClick; taps on empty
+    // space just stop panning.
+    void wasTap;
+  };
+  return <div className="modal-backdrop" onClick={onClose}><div className="modal zen-map-modal" role="dialog" aria-modal="true" aria-label="Zen branch map" onClick={e => e.stopPropagation()}>
+    <button className="icon-button modal-close" onClick={onClose} aria-label="Close map"><X size={19} /></button>
+    <div className="eyebrow">ZEN · YOUR BRANCH SO FAR</div>
+    <h2>Every sweep grows the tree<span className="heading-dot">.</span></h2>
+    <p className="modal-intro">Cleared areas are filled. Glowing tips are open to play. Dim areas are still locked — sweep the area before them to unlock. Drag to pan, scroll or pinch to zoom.</p>
+    <div className="zen-map-viewport" ref={viewportRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endPointer} onPointerCancel={endPointer}>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Branch map of your Zen progress" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, transformOrigin: '0 0' }} className="zen-map-canvas">
+        {edges.map(({ from, to }) => {
+          const a = pos.get(from.area.id)!, b = pos.get(to.area.id)!;
+          const x1 = a.x + 46, y1 = a.y + 40, x2 = b.x - 14, y2 = b.y + 40;
+          const midX = (x1 + x2) / 2;
+          return <path key={`${from.area.id}-${to.area.id}`} d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`} fill="none" className={`zen-edge ${to.area.state}`} strokeWidth={to.area.state === 'locked' ? 2 : 3.5} />;
+        })}
+        {nodes.map(n => {
+          const x = n.x + 40, y = n.y + 40;
+          const clickable = n.area.state === 'open';
+          return <g key={n.area.id} className={`zen-node ${n.area.state} ${clickable ? 'clickable' : ''}`} onClick={() => clickable && onJump(n.area.id)} transform={`translate(${x},${y})`}>
+            <circle r={n.area.state === 'open' ? 15 : 13} className="zen-node-circle" />
+            {n.area.state === 'open' && <circle r={5.5} className="zen-node-tip" />}
+            {n.area.state === 'cleared' && <Check size={15} strokeWidth={2.5} className="zen-node-check" />}
+            <title>{`Area ${n.area.id} — ${n.area.state}`}</title>
+          </g>;
+        })}
+      </svg>
+    </div>
+    <div className="zen-map-legend"><span><i className="dot cleared" />Cleared</span><span><i className="dot open" />Open — tap to play</span><span><i className="dot locked" />Locked</span></div>
+  </div></div>;
+}
 function App() {
   const [view, setView] = useState<View>('play');
   const [game, setGame] = useState<BoardState>(() => previewBoard());
@@ -90,6 +187,10 @@ function App() {
   const [resultVisible, setResultVisible] = useState(false);
   const [pendingGame, setPendingGame] = useState<PendingGame | null>(null);
   const [toast, setToast] = useState('');
+  const [zenWorld, setZenWorld] = useState<ZenWorld | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [publicRows, setPublicRows] = useState<PublicScore[]>([]);
+  const [nameDraft, setNameDraft] = useState(() => playerName());
   const [helpTab, setHelpTab] = useState<'basics' | 'modes'>('basics');
   const [leaderMode, setLeaderMode] = useState<Mode>('classic');
   const [leaderDifficulty, setLeaderDifficulty] = useState<Difficulty>('easy');
@@ -106,6 +207,7 @@ function App() {
   });
   const [reducedMotion, setReducedMotion] = useState(() => { try { return localStorage.getItem('minefield-motion') === 'true'; } catch { return false; } });
   const [highContrast, setHighContrast] = useState(() => { try { return localStorage.getItem('minefield-contrast') === 'true'; } catch { return false; } });
+  const isDesktopApp = typeof (window as Window & { __TAURI__?: unknown }).__TAURI__ !== 'undefined';
   const isAndroidApp = useMemo(() => /MinefieldAndroid\//.test(navigator.userAgent) || typeof (window as Window & { MinefieldAndroid?: unknown }).MinefieldAndroid === 'object' || (/Android/i.test(navigator.userAgent) && !/wv/i.test(navigator.userAgent) && window.matchMedia?.('(display-mode: standalone)').matches), []);
   const androidPkg = useMemo(() => getAndroidDownloads(), []);
   const [androidUrls, setAndroidUrls] = useState<{ apkUrl: string | null; xapkUrl: string | null; apkDirectDataUrl: string | null }>({ apkUrl: null, xapkUrl: null, apkDirectDataUrl: null });
@@ -152,6 +254,7 @@ function App() {
     recorded.current = game.id;
     const record: GameRecord = { id: game.id, mode: game.mode, difficulty: game.difficulty, won: game.status === 'won', seconds: elapsed, date: new Date().toISOString() };
     setRecords(previous => previous.some(r => r.id === record.id) ? previous : [record, ...previous].slice(0, 200));
+    void submitPublicScore(record);
     setResultVisible(true);
   }, [isFinished, game.id, game.mode, game.difficulty, game.status, elapsed]);
   useEffect(() => {
@@ -171,8 +274,42 @@ function App() {
   }, []);
 
   const startGame = (mode: Mode, difficulty: Difficulty) => {
-    setGame(freshGame(mode, difficulty)); setShowPreview(false); setFlagMode(false); setResultVisible(false); setNow(Date.now());
+    if (mode === 'zen') {
+      const world = newWorld();
+      saveWorld(world);
+      setZenWorld(world);
+      setGame(boardFromArea(world, world.current));
+      setMapOpen(false);
+    } else {
+      setZenWorld(null);
+      setGame(freshGame(mode, difficulty));
+    }
+    setShowPreview(false); setFlagMode(false); setResultVisible(false); setNow(Date.now());
     setView(mode === 'daily' ? 'daily' : 'play'); setModal(null); setSidebarOpen(false); boardRef.current?.scrollTo({ top: 0, left: 0 });
+  };
+  const continueZen = () => {
+    // Entering Zen resumes the saved branch if there is one.
+    const saved = loadWorld();
+    if (saved) {
+      setZenWorld(saved);
+      setGame(boardFromArea(saved, saved.current));
+    } else {
+      startGame('zen', 'easy');
+      return;
+    }
+    setShowPreview(false); setFlagMode(false); setResultVisible(false); setNow(Date.now());
+    setView('play'); setModal(null); setSidebarOpen(false);
+  };
+  const jumpToArea = (id: string) => {
+    setZenWorld(world => {
+      if (!world || !world.areas[id] || world.areas[id].state === 'locked') return world;
+      const next = { ...world, current: id };
+      saveWorld(next);
+      setGame(boardFromArea(next, id));
+      setMapOpen(false);
+      setResultVisible(false);
+      return next;
+    });
   };
   const requestGame = (mode = game.mode, difficulty = game.difficulty) => {
     if (game.status === 'playing') { setPendingGame({ mode, difficulty }); setModal('confirm'); }
@@ -194,6 +331,26 @@ function App() {
     if (!change.opened.length) return;
     setGame(next); setNow(Date.now());
     setRevealFx({ opened: change.opened, wave: change.wave, origin: index, nonce: Date.now() });
+    if (next.mode === 'zen') {
+      setZenWorld(world => {
+        if (!world) return world;
+        let nextWorld = syncArea(world, next);
+        if (next.status === 'won') {
+          nextWorld = clearArea(nextWorld, nextWorld.current);
+          saveWorld(nextWorld);
+          notify('Area swept — the branch grows. New areas unlocked.');
+        } else if (next.status === 'lost') {
+          const result = failArea(nextWorld, nextWorld.current);
+          nextWorld = { ...result.world, current: result.next };
+          saveWorld(nextWorld);
+          setGame(boardFromArea(nextWorld, result.next));
+          notify(result.fallback ? 'That area locked and reshuffled. Re-clear the area before it to re-open the branch.' : 'That area locked and reshuffled. Try another open area.');
+        } else {
+          saveWorld(nextWorld);
+        }
+        return nextWorld;
+      });
+    }
     if (change.hit !== null) {
       feel('mine');
     } else if (next.status === 'won') {
@@ -213,6 +370,14 @@ function App() {
     const next = toggleFlag(game, index);
     if (next === game) return;
     setShowPreview(false); setGame(next);
+    if (next.mode === 'zen') {
+      setZenWorld(world => {
+        if (!world) return world;
+        const updated = syncArea(world, next);
+        saveWorld(updated);
+        return updated;
+      });
+    }
     feel(game.cells[index].flagged ? 'unflag' : 'flag');
   };
   useEffect(() => {
@@ -249,6 +414,12 @@ function App() {
     }
   };
   const leaderboardRows = useMemo(() => records.filter(r => r.mode === leaderMode && r.difficulty === leaderDifficulty && r.won).sort((a, b) => a.seconds - b.seconds).slice(0, 20), [records, leaderMode, leaderDifficulty]);
+  useEffect(() => {
+    if (!publicBoardEnabled()) { setPublicRows([]); return; }
+    let cancelled = false;
+    topPublicScores(leaderMode, leaderDifficulty).then(rows => { if (!cancelled) setPublicRows(rows); });
+    return () => { cancelled = true; };
+  }, [leaderMode, leaderDifficulty, view, records]);
   const totalSafe = game.cells.length - game.mines;
   const pageDescription = game.mode === 'zen' ? 'A little less hurry. A little more headspace.' : game.mode === 'blitz' ? 'Trust your instincts. Beat the clock.' : game.mode === 'daily' ? 'One board for everyone. A new challenge every day.' : 'A timeless test of deduction.';
 
@@ -267,17 +438,17 @@ function App() {
         <div className="nav-label">A LITTLE KNOW-HOW</div>
         <button className={`nav-item ${view === 'guide' ? 'active' : ''}`} onClick={() => navigate('guide')}><BookOpen size={18} /><span>How to play</span><ArrowUpRight size={14} className="nav-end-icon" /></button>
         <button className="nav-item" onClick={() => setModal('settings')}><Settings2 size={18} /><span>Preferences</span></button>
-        {!isAndroidApp && <SourceDownload />}
+        {!isAndroidApp && !isDesktopApp && <SourceDownload />}
       </nav>
       <div className="sidebar-bottom">
         <div className="sidebar-promo"><TileArt small /><div className="promo-copy"><h3>A little less scrolling.<br />A little more sweeping.</h3><p>Your next good break is here.</p></div><span className="promo-spark">✳</span></div>
-        {!isAndroidApp && <button className="sidebar-android" onClick={() => setModal('android')}><Smartphone size={17} /><span>Download Android APK</span><ArrowDownToLine size={15} /></button>}
+        {!isAndroidApp && !isDesktopApp && <button className="sidebar-android" onClick={() => setModal('android')}><Smartphone size={17} /><span>Download Android APK</span><ArrowDownToLine size={15} /></button>}
         <button className="profile" onClick={() => setModal('profile')}><div className="avatar">Y<span /></div><div className="profile-text"><b>You, the player</b><span>Just here for a good game</span></div><ChevronDown size={15} /></button>
       </div>
     </aside>
 
     <div className="main-shell">
-      <header className="topbar">{isAndroidApp ? <>{view !== 'play' && <button className="icon-button native-back" aria-label="Back to the playground" onClick={() => navigate('play')}><ChevronLeft size={21} /></button>}<button className="native-brand" onClick={() => setSidebarOpen(true)} aria-label="Open menu"><BrandMark /><span>minefield<span className="brand-period">.</span></span><span className="native-mode-pill">{view === 'play' ? 'PLAYGROUND' : view === 'daily' ? 'DAILY' : view === 'leaderboard' ? 'BEST TIMES' : view === 'stats' ? 'YOUR STATS' : 'HOW TO PLAY'}</span></button></> : <div className="breadcrumb"><button className="icon-button mobile-menu" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}><Menu size={20} /></button><span className="desktop-breadcrumb">Playground<ChevronRight size={14} /></span><span>{navName[view]}</span></div>}<div className="topbar-actions"><span className="local-status"><i />A little play goes a long way</span><div className="topbar-divider" /><button className="icon-button sound-button" onClick={() => { setSound(!sound); notify(sound ? 'Sound is off. Enjoy the quiet.' : 'Sound is on. A little audio, a little joy.'); }} aria-label={sound ? 'Mute sounds' : 'Enable sounds'} title={sound ? 'Sound on' : 'Sound off'}>{sound ? <Volume2 size={18} /> : <VolumeX size={18} />}</button><button className="icon-button theme-button" onClick={() => { const next = theme === 'dark' ? 'light' : 'dark'; setTheme(next); notify(next === 'dark' ? 'Night mode is on. Your eyes will thank you.' : 'Daylight mode is on. Bright and breezy.'); }} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'} data-theme-state={theme}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>{!isAndroidApp && (androidUrls.apkUrl ? <a className="download-button primary-download" href={androidUrls.apkUrl} download="minefield-android-v1.0.2.apk" onClick={() => { setModal('android'); notify('Downloading minefield-android-v1.0.2.apk…'); }}><Smartphone size={16} /><span>Download APK</span><ArrowDownToLine size={14} /></a> : <button className="download-button" onClick={() => setModal('android')}><Smartphone size={16} /><span>Download APK</span><ArrowDownToLine size={14} /></button>)}</div></header>
+      <header className="topbar">{isAndroidApp ? <>{view !== 'play' && <button className="icon-button native-back" aria-label="Back to the playground" onClick={() => navigate('play')}><ChevronLeft size={21} /></button>}<button className="native-brand" onClick={() => setSidebarOpen(true)} aria-label="Open menu"><BrandMark /><span>minefield<span className="brand-period">.</span></span><span className="native-mode-pill">{view === 'play' ? 'PLAYGROUND' : view === 'daily' ? 'DAILY' : view === 'leaderboard' ? 'BEST TIMES' : view === 'stats' ? 'YOUR STATS' : 'HOW TO PLAY'}</span></button></> : <div className="breadcrumb"><button className="icon-button mobile-menu" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}><Menu size={20} /></button><span className="desktop-breadcrumb">Playground<ChevronRight size={14} /></span><span>{navName[view]}</span></div>}<div className="topbar-actions"><span className="local-status"><i />A little play goes a long way</span><div className="topbar-divider" /><button className="icon-button sound-button" onClick={() => { setSound(!sound); notify(sound ? 'Sound is off. Enjoy the quiet.' : 'Sound is on. A little audio, a little joy.'); }} aria-label={sound ? 'Mute sounds' : 'Enable sounds'} title={sound ? 'Sound on' : 'Sound off'}>{sound ? <Volume2 size={18} /> : <VolumeX size={18} />}</button><button className="icon-button theme-button" onClick={() => { const next = theme === 'dark' ? 'light' : 'dark'; setTheme(next); notify(next === 'dark' ? 'Night mode is on. Your eyes will thank you.' : 'Daylight mode is on. Bright and breezy.'); }} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Light mode' : 'Dark mode'} data-theme-state={theme}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>{!isAndroidApp && !isDesktopApp && (androidUrls.apkUrl ? <a className="download-button primary-download" href={androidUrls.apkUrl} download="minefield-android-v1.0.2.apk" onClick={() => { setModal('android'); notify('Downloading minefield-android-v1.0.2.apk…'); }}><Smartphone size={16} /><span>Download APK</span><ArrowDownToLine size={14} /></a> : <button className="download-button" onClick={() => setModal('android')}><Smartphone size={16} /><span>Download APK</span><ArrowDownToLine size={14} /></button>)}</div></header>
 
       <main className={`main-content ${focusMode ? 'focus-mode' : ''}`}>
         {(view === 'play' || view === 'daily') && <>
@@ -287,7 +458,7 @@ function App() {
 
           <div className="play-layout">
             <section className="game-panel" aria-label={`${MODE_NAMES[game.mode]} Minesweeper game`}>
-              <div className="game-panel-head"><div className="game-title"><div className={`mode-icon mode-${game.mode}`}><ModeIcon mode={game.mode} size={20} /></div><div><h2>{MODE_NAMES[game.mode]}<span className={`game-mode-tag ${game.mode === 'blitz' ? 'purple' : ''}`}>{game.mode === 'classic' ? 'THE CLASSIC' : game.mode === 'blitz' ? 'BEAT THE CLOCK' : game.mode === 'zen' ? 'NO PRESSURE' : 'DAILY #'+Math.floor((Date.now()-new Date('2025-01-01').getTime())/86400000)}</span></h2><p>{pageDescription}</p></div></div><button className="icon-button" onClick={() => setFocusMode(!focusMode)} aria-label={focusMode ? 'Exit focus mode' : 'Enter focus mode'} title={focusMode ? 'Exit focus mode' : 'Focus mode'}>{focusMode ? <Minimize2 size={17} /> : <Expand size={17} />}</button></div>
+              <div className="game-panel-head"><div className="game-title"><div className={`mode-icon mode-${game.mode}`}><ModeIcon mode={game.mode} size={20} /></div><div><h2>{MODE_NAMES[game.mode]}<span className={`game-mode-tag ${game.mode === 'blitz' ? 'purple' : ''}`}>{game.mode === 'classic' ? 'THE CLASSIC' : game.mode === 'blitz' ? 'BEAT THE CLOCK' : game.mode === 'zen' ? 'NO PRESSURE' : 'DAILY #'+Math.floor((Date.now()-new Date('2025-01-01').getTime())/86400000)}</span></h2><p>{pageDescription}</p></div></div><div style={{ display: 'flex', gap: 6 }}>{game.mode === 'zen' && <button className="icon-button" onClick={() => setMapOpen(true)} aria-label="Open branch map" title="Branch map — zoom out"><GitBranch size={17} /></button>}<button className="icon-button" onClick={() => setFocusMode(!focusMode)} aria-label={focusMode ? 'Exit focus mode' : 'Enter focus mode'} title={focusMode ? 'Exit focus mode' : 'Focus mode'}>{focusMode ? <Minimize2 size={17} /> : <Expand size={17} />}</button></div></div>
               <div className="difficulty-row"><div className="difficulty-tabs" role="group" aria-label="Difficulty">{(Object.keys(DIFFICULTIES) as Difficulty[]).map(diff => <button key={diff} className={game.difficulty === diff ? 'selected' : ''} aria-pressed={game.difficulty === diff} onClick={() => { if (diff !== game.difficulty) requestGame(game.mode, diff); }}><span className={`difficulty-dot dot-${diff}`} />{DIFFICULTIES[diff].label}</button>)}</div><span className="board-dimensions">{game.rows} × {game.cols}<span> · </span>{game.mines} mines</span></div>
               <div className="board-area">
                 <div className="board-toolbar"><div className="board-stat"><span>{game.mode === 'blitz' ? 'TIME LEFT' : 'YOUR TIME'}</span><div className={game.mode === 'blitz' && visibleTime < 15 ? 'timer-urgent' : ''}><Clock3 size={16} /><b>{game.mode === 'zen' ? <InfinityIcon size={26} /> : formatTime(visibleTime)}</b></div></div><button className={`reset-button ${game.status === 'lost' ? 'lost' : ''}`} title="New game (N)" onClick={() => requestGame()} aria-label="Start a new game"><RotateCcw size={18} /></button><div className="board-stat mines-stat"><span>MINES LEFT</span><div><Flag size={15} /><b>{String(game.mines - flags).padStart(3, '0')}</b></div></div></div>
@@ -305,28 +476,29 @@ function App() {
                   </div>
                 </div>
 
-                {isFinished && resultVisible && <div className={`result-overlay ${game.status === 'won' ? 'won' : ''}`}><div className="result-card"><div className="result-icon">{game.status === 'won' ? <Trophy size={30} /> : <BrandMark />}</div><div className="eyebrow">{game.status === 'won' ? 'A LITTLE WIN. A BIG FEELING.' : game.mode === 'blitz' && elapsed >= BLITZ_SECONDS ? 'TIME’S UP, NOT GAME OVER' : 'THERE’S ALWAYS ANOTHER SQUARE'}</div><h3>{game.status === 'won' ? 'Beautifully swept.' : 'A mine. Not the end.'}</h3><p>{game.status === 'won' ? `You cleared all ${totalSafe} safe squares. Nicely done.` : 'Take a breath. Your next great game is one click away.'}</p><div className="result-stats"><span><Clock3 size={15} />{formatTime(elapsed)}</span><span><Target size={15} />{progress}% cleared</span></div><button className="primary-button" onClick={() => startGame(game.mode, game.difficulty)}><RotateCcw size={16} />{game.status === 'won' ? 'One more good game' : 'Let’s try again'}</button><div className="result-secondary"><button onClick={() => setResultVisible(false)}>See the board</button><span>·</span><button onClick={shareResult}>Share result <ArrowUpRight size={13} /></button></div></div></div>}
+                {isFinished && resultVisible && <div className={`result-overlay ${game.status === 'won' ? 'won' : ''}`}><div className="result-card"><div className="result-icon">{game.status === 'won' ? <Trophy size={30} /> : <BrandMark />}</div><div className="eyebrow">{game.status === 'won' ? 'A LITTLE WIN. A BIG FEELING.' : game.mode === 'blitz' && elapsed >= BLITZ_SECONDS ? 'TIME’S UP, NOT GAME OVER' : 'THERE’S ALWAYS ANOTHER SQUARE'}</div><h3>{game.status === 'won' ? 'Beautifully swept.' : 'A mine. Not the end.'}</h3><p>{game.status === 'won' ? `You cleared all ${totalSafe} safe squares. Nicely done.` : 'Take a breath. Your next great game is one click away.'}</p><div className="result-stats"><span><Clock3 size={15} />{formatTime(elapsed)}</span><span><Target size={15} />{progress}% cleared</span></div><button className="primary-button" onClick={() => { if (game.mode === 'zen' && game.status === 'won' && zenWorld) { const next = openAreaIds(zenWorld)[0]; if (next) jumpToArea(next); else setMapOpen(true); } else startGame(game.mode, game.difficulty); }}><RotateCcw size={16} />{game.mode === 'zen' && game.status === 'won' ? 'Continue the branch' : game.status === 'won' ? 'One more good game' : 'Let’s try again'}</button><div className="result-secondary"><button onClick={() => setResultVisible(false)}>See the board</button><span>·</span><button onClick={shareResult}>Share result <ArrowUpRight size={13} /></button></div></div></div>}
                 {game.mode === 'blitz' && game.status === 'playing' && <div className="blitz-progress"><span style={{ width: `${Math.max(0, visibleTime / BLITZ_SECONDS) * 100}%` }} /></div>}
               </div>
               <div className="game-controls"><button className={`flag-toggle ${flagMode ? 'enabled' : ''}`} onClick={() => setFlagMode(!flagMode)} aria-pressed={flagMode}><Flag size={15} fill={flagMode ? 'currentColor' : 'none'} /><span>Flag mode</span><span className="toggle-track"><i /></span></button><span className="board-tip"><MousePointer2 size={13} /><span>Right-click to flag</span></span><button className="new-game-text" onClick={() => requestGame()}><RotateCcw size={14} />New game</button></div>
               <div className={`board-message ${isFinished ? 'finished' : ''}`}>{isFinished ? <><Check size={13} />{game.status === 'won' ? 'A little victory, saved to your stats.' : 'Every game is a chance to get a little better.'}</> : <><ShieldCheck size={14} />{game.status === 'ready' ? 'Your first move is always safe. Go on, pick a square.' : flagMode ? 'Flag mode is on. Tap a square to mark a possible mine.' : `${game.cells.filter(c => c.revealed && !c.mine).length} safe squares found. You’ve got this.`}</>}</div>
             </section>
 
-            <aside className="mode-column"><div className="section-title"><h2>Find your kind of focus.</h2><span>4 MODES</span></div><div className="mode-cards">{MODES.map(mode => <button key={mode.id} className={`mode-card ${game.mode === mode.id ? 'selected' : ''} mode-card-${mode.id}`} onClick={() => { if (mode.id !== game.mode) requestGame(mode.id, mode.id === 'daily' ? 'medium' : 'easy'); }} aria-pressed={game.mode === mode.id}><div className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={21} /></div><div className="mode-card-copy"><div className="mode-card-title"><h3>{MODE_NAMES[mode.id]}</h3>{mode.id === 'daily' && <span className="small-new">NEW</span>}</div><p>{mode.description}</p><span className="mode-tag">{mode.tag}</span></div><span className="mode-select">{game.mode === mode.id ? <Check size={12} strokeWidth={2.5} /> : <ArrowUpRight size={17} />}</span></button>)}</div>
+            <aside className="mode-column"><div className="section-title"><h2>Find your kind of focus.</h2><span>4 MODES</span></div><div className="mode-cards">{MODES.map(mode => <button key={mode.id} className={`mode-card ${game.mode === mode.id ? 'selected' : ''} mode-card-${mode.id}`} onClick={() => { if (mode.id === game.mode) return; if (mode.id === 'zen' && loadWorld()) continueZen(); else requestGame(mode.id, mode.id === 'daily' ? 'medium' : 'easy'); }} aria-pressed={game.mode === mode.id}><div className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={21} /></div><div className="mode-card-copy"><div className="mode-card-title"><h3>{MODE_NAMES[mode.id]}</h3>{mode.id === 'daily' && <span className="small-new">NEW</span>}</div><p>{mode.description}</p><span className="mode-tag">{mode.tag}</span></div><span className="mode-select">{game.mode === mode.id ? <Check size={12} strokeWidth={2.5} /> : <ArrowUpRight size={17} />}</span></button>)}</div>
               <div className="gentle-tip"><div className="tip-icon"><Lightbulb size={21} strokeWidth={1.5} /></div><div><h3>Small clues. Clever moves.</h3><p>A number tells you how many mines are nearby. The rest? A little intuition.</p><button onClick={() => setModal('help')}>Meet your new favorite brain break <ArrowRight size={14} /></button></div></div>
               <button className="daily-teaser" onClick={() => { if (game.mode !== 'daily') requestGame('daily', 'medium'); else setView('daily'); }}><span className="daily-teaser-icon"><Sun size={20} /></span><span><b>A fresh start, every day.</b><span>Your daily puzzle is ready when you are.</span></span><ArrowUpRight size={17} /></button>
             </aside>
           </div>
+          {mapOpen && zenWorld && <ZenMap world={zenWorld} onJump={jumpToArea} onClose={() => setMapOpen(false)} />}
 
           <section className="progress-strip" aria-label="Your personal progress"><div className="progress-intro"><span className="progress-icon"><Flame size={21} strokeWidth={1.5} /></span><div><h3>Little games. Little wins.</h3><p>Your progress, one square at a time.</p></div></div><div className="progress-stat"><span>GAMES PLAYED</span><b>{String(records.length).padStart(2, '0')}</b></div><div className="progress-stat"><span>WIN RATE</span><b>{records.length ? winRate : '—'}<small>{records.length ? '%' : ''}</small></b></div><div className="progress-stat"><span>BEST TIME · EASY</span><b>{Number.isFinite(best) ? formatTime(best) : '—'}</b></div><button className="icon-button" onClick={() => navigate('stats')} title="View your statistics" aria-label="View your statistics"><ArrowUpRight size={19} /></button></section>
           <footer className="page-footer"><span><Heart size={12} />A classic game. A calmer kind of play.</span><span>Made for your next little break.<span className="footer-dot">✳</span></span></footer>
         </>}
 
-        {view === 'leaderboard' && <><section className="page-heading"><div><div className="eyebrow"><Trophy size={14} />PERSONAL BESTS, NOT PEER PRESSURE</div><h1>Your own kind of first place<span className="heading-dot">.</span></h1><p>The only person to beat? Yesterday’s you. All scores stay on this device.</p></div><span className="view-decoration"><Trophy size={39} strokeWidth={1.2} /></span></section><section className="leaderboard-panel"><div className="leaderboard-heading"><h2>Your best sweeps</h2><span className="local-badge"><ShieldCheck size={13} />Local leaderboard</span></div><div className="leaderboard-filters"><div className="difficulty-tabs">{MODES.map(mode => <button key={mode.id} className={leaderMode === mode.id ? 'selected' : ''} onClick={() => setLeaderMode(mode.id)}>{MODE_NAMES[mode.id]}</button>)}</div><select aria-label="Leaderboard difficulty" value={leaderDifficulty} onChange={e => setLeaderDifficulty(e.target.value as Difficulty)}>{(Object.keys(DIFFICULTIES) as Difficulty[]).map(d => <option key={d} value={d}>{DIFFICULTIES[d].label}</option>)}</select></div>{leaderboardRows.length ? <div className="table-scroll"><table className="score-table"><thead><tr><th>RANK</th><th>PLAYER</th><th>DATE</th><th>TIME</th><th>RESULT</th></tr></thead><tbody>{leaderboardRows.map((r, i) => <tr key={r.id}><td><span className={`rank rank-${i}`}>{i === 0 ? <Trophy size={17} /> : String(i + 1).padStart(2, '0')}</span></td><td><span className="table-player"><span className="avatar tiny">Y</span>You, the player{i === 0 && <span className="best-label">PERSONAL BEST</span>}</span></td><td>{new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td><td className="mono">{formatTime(r.seconds)}</td><td><span className="win-badge"><CheckCircle2 size={13} />All clear</span></td></tr>)}</tbody></table></div> : <div className="empty-state"><div className="empty-illustration"><TileArt /><span><Trophy size={25} /></span></div><h3>Your name belongs here.</h3><p>Finish a {DIFFICULTIES[leaderDifficulty].label.toLowerCase()} {MODE_NAMES[leaderMode].toLowerCase()} game to set your first personal best.<br />There’s a little champion in every square.</p><button className="primary-button" onClick={() => requestGame(leaderMode, leaderDifficulty)}>Make your first mark <ArrowRight size={16} /></button></div>}<div className="leaderboard-note"><ShieldCheck size={15} />Your best 20 wins are shown. No account, no tracking, just you and your progress.</div></section></>}
+        {view === 'leaderboard' && <><section className="page-heading"><div><div className="eyebrow"><Trophy size={14} />PERSONAL BESTS, NOT PEER PRESSURE</div><h1>Your own kind of first place<span className="heading-dot">.</span></h1><p>The only person to beat? Yesterday’s you. All scores stay on this device.</p></div><span className="view-decoration"><Trophy size={39} strokeWidth={1.2} /></span></section><section className="leaderboard-panel"><div className="leaderboard-heading"><h2>Your best sweeps</h2><span className="local-badge"><ShieldCheck size={13} />Local leaderboard</span></div><div className="leaderboard-filters"><div className="difficulty-tabs">{MODES.map(mode => <button key={mode.id} className={leaderMode === mode.id ? 'selected' : ''} onClick={() => setLeaderMode(mode.id)}>{MODE_NAMES[mode.id]}</button>)}</div><select aria-label="Leaderboard difficulty" value={leaderDifficulty} onChange={e => setLeaderDifficulty(e.target.value as Difficulty)}>{(Object.keys(DIFFICULTIES) as Difficulty[]).map(d => <option key={d} value={d}>{DIFFICULTIES[d].label}</option>)}</select></div>{leaderboardRows.length ? <div className="table-scroll"><table className="score-table"><thead><tr><th>RANK</th><th>PLAYER</th><th>DATE</th><th>TIME</th><th>RESULT</th></tr></thead><tbody>{leaderboardRows.map((r, i) => <tr key={r.id}><td><span className={`rank rank-${i}`}>{i === 0 ? <Trophy size={17} /> : String(i + 1).padStart(2, '0')}</span></td><td><span className="table-player"><span className="avatar tiny">Y</span>You, the player{i === 0 && <span className="best-label">PERSONAL BEST</span>}</span></td><td>{new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td><td className="mono">{formatTime(r.seconds)}</td><td><span className="win-badge"><CheckCircle2 size={13} />All clear</span></td></tr>)}</tbody></table></div> : <div className="empty-state"><div className="empty-illustration"><TileArt /><span><Trophy size={25} /></span></div><h3>Your name belongs here.</h3><p>Finish a {DIFFICULTIES[leaderDifficulty].label.toLowerCase()} {MODE_NAMES[leaderMode].toLowerCase()} game to set your first personal best.<br />There’s a little champion in every square.</p><button className="primary-button" onClick={() => requestGame(leaderMode, leaderDifficulty)}>Make your first mark <ArrowRight size={16} /></button></div>}{publicBoardEnabled() && <div className="public-board"><div className="leaderboard-heading"><h2>Public leaderboard</h2><span className="local-badge"><Trophy size={13} />Everyone’s best</span></div><div className="name-row"><label htmlFor="player-name">Shown as</label><input id="player-name" value={nameDraft} maxLength={24} onChange={e => { setNameDraft(e.target.value); setPlayerName(e.target.value); }} /><span className="name-hint">Saved on this device, sent with your wins.</span></div>{publicRows.length ? <div className="table-scroll"><table className="score-table"><thead><tr><th>RANK</th><th>PLAYER</th><th>DATE</th><th>TIME</th></tr></thead><tbody>{publicRows.map((r, i) => <tr key={i}><td><span className={`rank rank-${i}`}>{i === 0 ? <Trophy size={17} /> : String(i + 1).padStart(2, '0')}</span></td><td><span className="table-player">{r.name}</span></td><td>{new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td><td className="mono">{formatTime(r.seconds)}</td></tr>)}</tbody></table></div> : <div className="empty-state small"><h3>No public marks yet.</h3><p>Be the first name on the board — win a game and it posts automatically.</p></div>}</div>}<div className="leaderboard-note"><ShieldCheck size={15} />Your best 20 wins are shown locally. Public scores need a Firebase project configured in <code>.env</code> — see README.</div></section></>}
 
         {view === 'stats' && <><section className="page-heading"><div><div className="eyebrow"><BarChart3 size={14} />SMALL STEPS. REAL PROGRESS.</div><h1>Look how far you’ve swept<span className="heading-dot">.</span></h1><p>Your little victories, all in one place. Saved right here on your device.</p></div><button className="secondary-button" onClick={() => setModal('reset-stats')}><Trash2 size={15} />Reset statistics</button></section><div className="stats-grid">{[{ label: 'GAMES PLAYED', value: records.length, icon: Grid2X2, detail: 'Every game is a little brain break.' }, { label: 'BOARDS CLEARED', value: wins.length, icon: Trophy, detail: 'A very good use of your free time.' }, { label: 'WIN RATE', value: `${winRate}%`, icon: Target, detail: 'Progress, not perfection.' }, { label: 'BEST CLASSIC · EASY', value: Number.isFinite(best) ? formatTime(best) : '—', icon: Clock3, detail: 'Your quickest little victory.' }].map(stat => <div className="stat-card" key={stat.label}><div><span>{stat.label}</span><stat.icon size={19} /></div><h2>{stat.value}</h2><p>{stat.detail}</p></div>)}</div><section className="history-panel"><div className="section-title"><h2>Recently in your playground</h2><span>{records.length} GAMES</span></div>{records.length ? <div className="history-list">{records.slice(0, 10).map(r => <div className="history-row" key={r.id}><span className={`mode-icon mode-${r.mode}`}><ModeIcon mode={r.mode} size={18} /></span><div><b>{MODE_NAMES[r.mode]}</b><span>{DIFFICULTIES[r.difficulty].label} · {new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span></div><span className={r.won ? 'history-win' : 'history-loss'}>{r.won ? <CheckCircle2 size={14} /> : <Flag size={14} />}{r.won ? 'Board cleared' : 'Next time’s yours'}</span><span className="mono">{formatTime(r.seconds)}</span></div>)}</div> : <div className="empty-state small"><BarChart3 size={40} strokeWidth={1.2} /><h3>A clean slate. A world of possibilities.</h3><p>Your game history will appear here. Let’s make a little progress.</p><button className="primary-button" onClick={() => navigate('play')}>Head to the playground <ArrowRight size={16} /></button></div>}</section></>}
 
-        {view === 'guide' && <><section className="page-heading"><div><div className="eyebrow"><BookOpen size={14} />A LITTLE KNOW-HOW GOES A LONG WAY</div><h1>Easy to learn. Lovely to master<span className="heading-dot">.</span></h1><p>A few simple rules. An endless supply of “aha” moments.</p></div><span className="view-decoration"><Lightbulb size={40} strokeWidth={1.2} /></span></section><section className="guide-panel"><div className="guide-tabs"><button className={helpTab === 'basics' ? 'selected' : ''} onClick={() => setHelpTab('basics')}>The basics</button><button className={helpTab === 'modes' ? 'selected' : ''} onClick={() => setHelpTab('modes')}>Find your mode</button></div>{helpTab === 'basics' ? <HelpContent /> : <div className="mode-guide-grid">{MODES.map(mode => <div key={mode.id} className={`mode-guide-card mode-card-${mode.id}`}><div className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={22} /></div><h3>{MODE_NAMES[mode.id]}</h3><p>{mode.id === 'classic' ? 'The game you know, with three ways to challenge yourself. Easy: 9 × 9, 10 mines. Medium: 16 × 16, 40 mines. Hard: 30 × 16, 99 mines.' : mode.id === 'blitz' ? 'One minute on the clock. Clear the board before time runs out. Easy is a good place to warm up; Hard is a real test of speed and strategy.' : mode.id === 'zen' ? 'All the satisfying logic, none of the ticking clock. Take as much time as you like. The game ends when you say it does.' : 'The same seeded puzzle for every player, updated at midnight UTC. Choose your difficulty, compare notes, and come back tomorrow for something new.'}</p><button onClick={() => requestGame(mode.id, mode.id === 'daily' ? 'medium' : 'easy')}>Give it a go <ArrowRight size={15} /></button></div>)}</div>}<div className="guide-bottom"><span><Heart size={15} />You don’t need to be an expert. Just a little curious.</span><button className="primary-button" onClick={() => navigate('play')}>I’m ready to play <Play size={15} fill="currentColor" /></button></div></section></>}
+        {view === 'guide' && <><section className="page-heading"><div><div className="eyebrow"><BookOpen size={14} />A LITTLE KNOW-HOW GOES A LONG WAY</div><h1>Easy to learn. Lovely to master<span className="heading-dot">.</span></h1><p>A few simple rules. An endless supply of “aha” moments.</p></div><span className="view-decoration"><Lightbulb size={40} strokeWidth={1.2} /></span></section><section className="guide-panel"><div className="guide-tabs"><button className={helpTab === 'basics' ? 'selected' : ''} onClick={() => setHelpTab('basics')}>The basics</button><button className={helpTab === 'modes' ? 'selected' : ''} onClick={() => setHelpTab('modes')}>Find your mode</button></div>{helpTab === 'basics' ? <HelpContent /> : <div className="mode-guide-grid">{MODES.map(mode => <div key={mode.id} className={`mode-guide-card mode-card-${mode.id}`}><div className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={22} /></div><h3>{MODE_NAMES[mode.id]}</h3><p>{mode.id === 'classic' ? 'The game you know, with three ways to challenge yourself. Easy: 9 × 9, 10 mines. Medium: 16 × 16, 40 mines. Hard: 30 × 16, 99 mines.' : mode.id === 'blitz' ? 'One minute on the clock. Clear the board before time runs out. Easy is a good place to warm up; Hard is a real test of speed and strategy.' : mode.id === 'zen' ? 'An infinite, branching field — no clock, no pressure. Sweep a 9 × 9 area to unlock the areas behind it; the branch grows 2, then 3, then 4 wide as you go. Hit a mine and that area locks and reshuffles — move to another open area, or re-clear the one before it. Your progress is saved on this device.' : 'The same seeded puzzle for every player, updated at midnight UTC. Choose your difficulty, compare notes, and come back tomorrow for something new.'}</p><button onClick={() => requestGame(mode.id, mode.id === 'daily' ? 'medium' : 'easy')}>Give it a go <ArrowRight size={15} /></button></div>)}</div>}<div className="guide-bottom"><span><Heart size={15} />You don’t need to be an expert. Just a little curious.</span><button className="primary-button" onClick={() => navigate('play')}>I’m ready to play <Play size={15} fill="currentColor" /></button></div></section></>}
       </main>
     </div>
 
@@ -337,7 +509,7 @@ function App() {
     {modal === 'confirm' && <Modal title="A fresh board, a fresh start?" eyebrow="ONE LITTLE THING" close={() => setModal(null)}><p className="modal-intro">You’re in the middle of a game. Starting a new one will leave this round behind — your previous results stay safe.</p><div className="confirm-preview"><span className={`mode-icon mode-${pendingGame?.mode || game.mode}`}><ModeIcon mode={pendingGame?.mode || game.mode} /></span><div><b>{MODE_NAMES[pendingGame?.mode || game.mode]}</b><span>{DIFFICULTIES[pendingGame?.difficulty || game.difficulty].label} · {formatTime(elapsed)} played</span></div></div><div className="modal-actions"><button className="secondary-button" onClick={() => setModal(null)}>Keep playing</button><button className="primary-button" onClick={() => { if (pendingGame) startGame(pendingGame.mode, pendingGame.difficulty); setPendingGame(null); }}><RotateCcw size={15} />Start fresh</button></div></Modal>}
     {modal === 'reset-stats' && <Modal title="A completely clean slate?" eyebrow="RESET YOUR STATISTICS" close={() => setModal(null)}><p className="modal-intro">This will permanently clear {records.length} game records and all your personal bests from this device. Your preferences and current game won’t change.</p><div className="modal-actions"><button className="secondary-button" onClick={() => setModal(null)}>Keep my progress</button><button className="primary-button danger" onClick={() => { setRecords([]); recorded.current = game.id; setModal(null); notify('A clean slate. Here’s to your next little win.'); }}><Trash2 size={15} />Clear my stats</button></div></Modal>}
     {modal === 'profile' && <Modal title="Hey there, curious mind." eyebrow="NO ACCOUNT. JUST A GOOD GAME." close={() => setModal(null)}><div className="profile-summary"><div className="avatar big">Y</div><div><h3>You, the player</h3><p>Local player · All your progress stays with you.</p></div></div><div className="profile-numbers"><span><b>{records.length}</b>games played</span><span><b>{wins.length}</b>little victories</span><span><b>{winRate}%</b>win rate</span></div><div className="settings-note"><ShieldCheck size={17} /><span>No sign-ups, no cloud, no tracking. Your Android app and browser keep separate local saves.</span></div><button className="primary-button full-width" onClick={() => { setModal(null); navigate('stats'); }}>See your little wins <ArrowRight size={16} /></button></Modal>}
-    {modal === 'android' && <Modal title="Your next break. To go." eyebrow="MINEFIELD FOR ANDROID" close={() => setModal(null)} className="android-modal"><div className="android-hero"><div className="app-icon"><BrandMark /></div><div><h3>minefield<span>.</span></h3><p>All your favorite little challenges.<br />Right in your pocket.</p></div><span className="android-version">v1.0.2</span></div><div className="android-features"><span><CheckCircle2 size={17} />All 4 game modes</span><span><CheckCircle2 size={17} />Light & dark themes</span><span><CheckCircle2 size={17} />100% offline play</span><span><CheckCircle2 size={17} />Your scores, saved locally</span></div>{isAndroidApp ? <div className="native-installed"><CheckCircle2 size={18} /><span>You’ve already got the Android app. Happy sweeping!</span></div> : androidUrls.apkUrl ? <div className="android-download-stack"><a className="primary-button full-width android-download" href={androidUrls.apkUrl} download="minefield-android-v1.0.2.apk" onClick={() => notify('Downloading minefield-android-v1.0.2.apk…')}><Smartphone size={19} /><span>Download Android APK ({androidPkg.apkSizeKb} KB)</span><ArrowDownToLine size={18} /></a>{androidUrls.xapkUrl && <a className="secondary-button full-width android-download-xapk" href={androidUrls.xapkUrl} download="minefield-android-v1.0.2.xapk" onClick={() => notify('Downloading minefield-android-v1.0.2.xapk…')}><Smartphone size={17} /><span>Download XAPK Package ({androidPkg.xapkSizeKb} KB)</span><ArrowDownToLine size={16} /></a>}{androidUrls.apkDirectDataUrl && <a className="android-fallback-link" href={androidUrls.apkDirectDataUrl} download="minefield-android-v1.0.2.apk">Having trouble? Use direct data download</a>}</div> : <div className="apk-building"><Smartphone size={20} /><div><b>Preparing Android package…</b><p>In the meantime, enjoy every mode right here in your browser.</p></div></div>}<p className="android-requirements"><Smartphone size={13} />Android 8.0 or newer · Signed APK & XAPK · Free, forever</p>{!isAndroidApp && <SourceDownload className="secondary-button full-width source-download-inline" />}<div className="install-guide"><h4>Three taps to a little more play.</h4><p><span>1</span>If you installed v1.0 earlier, uninstall the old Minefield app first.</p><p><span>2</span>Tap Download Android APK above and open the downloaded v1.0.2 file.</p><p><span>3</span>Tap Install (choose “Install anyway” if Android prompts about an independent app).</p></div><div className="android-security"><ShieldCheck size={16} /><p>This is a direct, self-signed APK — not a Google Play release. Android may show an “unknown app” warning. Only install the package you downloaded here.</p></div></Modal>}
+    {modal === 'android' && <Modal title="Your next break. To go." eyebrow="MINEFIELD FOR ANDROID" close={() => setModal(null)} className="android-modal"><div className="android-hero"><div className="app-icon"><BrandMark /></div><div><h3>minefield<span>.</span></h3><p>All your favorite little challenges.<br />Right in your pocket.</p></div><span className="android-version">v1.0.2</span></div><div className="android-features"><span><CheckCircle2 size={17} />All 4 game modes</span><span><CheckCircle2 size={17} />Light & dark themes</span><span><CheckCircle2 size={17} />100% offline play</span><span><CheckCircle2 size={17} />Your scores, saved locally</span></div>{isAndroidApp ? <div className="native-installed"><CheckCircle2 size={18} /><span>You’ve already got the Android app. Happy sweeping!</span></div> : androidUrls.apkUrl ? <div className="android-download-stack"><a className="primary-button full-width android-download" href={androidUrls.apkUrl} download="minefield-android-v1.0.2.apk" onClick={() => notify('Downloading minefield-android-v1.0.2.apk…')}><Smartphone size={19} /><span>Download Android APK ({androidPkg.apkSizeKb} KB)</span><ArrowDownToLine size={18} /></a>{androidUrls.xapkUrl && <a className="secondary-button full-width android-download-xapk" href={androidUrls.xapkUrl} download="minefield-android-v1.0.2.xapk" onClick={() => notify('Downloading minefield-android-v1.0.2.xapk…')}><Smartphone size={17} /><span>Download XAPK Package ({androidPkg.xapkSizeKb} KB)</span><ArrowDownToLine size={16} /></a>}{androidUrls.apkDirectDataUrl && <a className="android-fallback-link" href={androidUrls.apkDirectDataUrl} download="minefield-android-v1.0.2.apk">Having trouble? Use direct data download</a>}</div> : <div className="apk-building"><Smartphone size={20} /><div><b>Preparing Android package…</b><p>In the meantime, enjoy every mode right here in your browser.</p></div></div>}<p className="android-requirements"><Smartphone size={13} />Android 8.0 or newer · Signed APK & XAPK · Free, forever</p>{!isAndroidApp && !isDesktopApp && <SourceDownload className="secondary-button full-width source-download-inline" />}<div className="install-guide"><h4>Three taps to a little more play.</h4><p><span>1</span>If you installed v1.0 earlier, uninstall the old Minefield app first.</p><p><span>2</span>Tap Download Android APK above and open the downloaded v1.0.2 file.</p><p><span>3</span>Tap Install (choose “Install anyway” if Android prompts about an independent app).</p></div><div className="android-security"><ShieldCheck size={16} /><p>This is a direct, self-signed APK — not a Google Play release. Android may show an “unknown app” warning. Only install the package you downloaded here.</p></div></Modal>}
     {toast && <div className="toast" role="status"><CheckCircle2 size={18} /><span>{toast}</span><button onClick={() => setToast('')} aria-label="Dismiss notification"><X size={15} /></button></div>}
   </div>;
 }

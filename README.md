@@ -59,3 +59,38 @@ The browser checks expect the Vite server at `http://127.0.0.1:4173` and Playwri
 - **Tab / Enter / Space:** Standard navigation and tile activation
 
 The initial Classic board is an illustrative preview. Your first move generates a fresh, safe board. No game or time is recorded until you actually start playing.
+
+## Desktop (Windows & Linux)
+
+The game is wrapped with [Tauri](https://tauri.app) in `desktop/`.
+
+```sh
+npm install
+npm run desktop:icon        # generates tray/window icons from public/favicon.svg (run once)
+npm run build               # web bundle into dist/
+npm run desktop:build       # bundles installers
+```
+
+Outputs in `desktop/target/release/bundle/`:
+- **Windows:** `nsis/` → a signed-setup `.exe` installer
+- **Linux:** `appimage/` → `.AppImage`, and `deb/` → `.deb`
+- **Flatpak:** build the bundled desktop binary, then
+  `flatpak-builder --user --install --force-clean build-dir desktop/flatpak/com.minefield.app.yml`
+  and `flatpak build-bundle` to get a `.flatpak` file.
+
+Cross-building (e.g. the `.exe` from Linux) needs the target toolchain or CI — easiest via GitHub Actions on `windows-latest` / `ubuntu-latest`.
+
+## Public leaderboard (Firebase)
+
+1. Create a free project at https://console.firebase.google.com, add a **Web app**, and enable **Firestore** (start in production mode).
+2. Copy `firestore.rules` into the Firestore rules editor and publish.
+3. Create `.env` in the project root with the web app config:
+
+```
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_APP_ID=...
+VITE_FIREBASE_AUTH_DOMAIN=...   (optional)
+```
+
+Wins post automatically to the public board on the Leaderboard page; without a config the game stays fully local.
