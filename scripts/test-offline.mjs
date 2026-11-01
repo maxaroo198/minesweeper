@@ -1,0 +1,26 @@
+import { chromium } from '@playwright/test';
+import assert from 'node:assert/strict';
+import { pathToFileURL } from 'node:url';
+import path from 'node:path';
+
+const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, userAgent: 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36 MinefieldAndroid/1.0' });
+const errors = [], remote = [];
+page.on('pageerror', error => errors.push(error.message));
+page.on('request', request => { if (/^https?:/.test(request.url())) remote.push(request.url()); });
+await page.goto(pathToFileURL(path.resolve('.android-build/offline/assets/index.html')).href, { waitUntil: 'load' });
+await page.locator('.mine-board').waitFor();
+await page.evaluate(() => document.fonts.ready);
+assert.equal(await page.locator('.tile').count(), 81);
+assert.ok(await page.evaluate(() => Array.from(document.fonts).some(font => font.status === 'loaded')), 'bundled fonts loaded from the APK');
+await page.locator('.tile').nth(40).tap();
+assert.equal(await page.locator('.tile.exploded').count(), 0);
+assert.ok(await page.locator('.tile.revealed').count() > 0);
+await page.locator('.download-button').tap();
+assert.ok(await page.locator('.native-installed').isVisible());
+assert.equal(await page.locator('.android-download').count(), 0);
+assert.equal(await page.evaluate(() => localStorage.getItem('minefield-games-v1')), '[]');
+assert.deepEqual(errors, []);
+assert.deepEqual(remote, [], 'the APK must not request any external resources');
+await browser.close();
+console.log('Offline APK check passed: bundled game, local fonts, safe opening, native detection, and zero network requests.');
