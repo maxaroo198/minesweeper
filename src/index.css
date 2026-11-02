@@ -1253,3 +1253,120 @@ color-scheme:dark;
 .public-post-row input{flex:1;min-width:0;background:var(--sf127);border:1px solid var(--sf98);border-radius:6px;padding:8px 10px;font-size:11px;color:var(--tx17)}
 .public-post-row .primary-button,.public-post-row .secondary-button{padding:8px 12px;font-size:9px}
 .blitz-time{background:var(--sf127);border:1px solid var(--sf98);border-radius:5px;color:var(--tx17);font-family:var(--mono);font-size:9px;padding:2px 3px;margin-left:6px}
+
+/* ============================================================================
+   Flags are always the same orange
+   The tile also carries its number class (number-1 … number-8) with an
+   !important colour, which used to tint the flag itself: a flag on a mine
+   (number-0, no colour) looked different from a flag on a safe square. Now the
+   flag colour is pinned, so a flag tells you nothing about what is underneath.
+   ============================================================================ */
+.tile.flagged,
+.tile.flagged .flag-marker,
+.tile.flagged .flag-marker svg{color:var(--orange)!important}
+.tile.covered.flagged{background:var(--sf145);border-color:var(--sf103)}
+[data-theme="dark"] .tile.covered.flagged{background:#3a2a1d;border-color:#513825}
+.high-contrast .tile.flagged{background:var(--sf145);border-color:var(--sf103)}
+
+/* ============================================================================
+   Square boards that always fit
+   Tiles are sized from the space available (see useBoardFit), so a 30×30 board
+   lands on screen whole instead of scrolling inside a 430px window.
+   ============================================================================ */
+.board-scroll{overflow:visible;max-height:none;overscroll-behavior:auto}
+.mine-board:not(.dense-board),
+.mine-board.dense-board{width:max-content;max-width:100%;gap:3px;grid-template-columns:repeat(var(--columns),var(--tile-size))}
+.mine-board .tile{width:var(--tile-size);height:var(--tile-size);aspect-ratio:auto;min-width:0;font-size:clamp(7px,calc(var(--tile-size) * .46),15px);border-radius:max(2px,calc(var(--tile-size) * .1))}
+.mine-board .tile svg,
+.mine-board .tile.flagged svg{width:calc(var(--tile-size) * .46);height:calc(var(--tile-size) * .46)}
+.mine-board .tile.exploded .brand-mark svg,
+.mine-board .tile.mine-visible .brand-mark svg{width:calc(var(--tile-size) * .52);height:calc(var(--tile-size) * .52)}
+.mine-board .flag-marker{width:auto;height:auto}
+
+/* ============================================================================
+   Sidebar flyout — hover "Let's play" for the modes, daily challenge underneath
+   ============================================================================ */
+.nav-flyout{position:relative}
+.nav-flyout .nav-flyout-caret{margin-left:auto;color:var(--tx160);opacity:0;transition:opacity .15s,transform .15s}
+.nav-flyout:hover .nav-flyout-caret,.nav-flyout:focus-within .nav-flyout-caret{opacity:1;transform:translateX(1px)}
+.nav-flyout-panel{position:absolute;left:calc(100% + 9px);top:-9px;width:248px;padding:9px;background:var(--sf167);border:1px solid var(--sf64);border-radius:11px;box-shadow:0 14px 36px var(--sh09),0 2px 6px var(--sh04);opacity:0;visibility:hidden;transform:translateX(-6px);transition:opacity .14s ease,transform .14s ease,visibility .14s;z-index:60}
+.nav-flyout-panel::before{content:'';position:absolute;left:-11px;top:0;bottom:0;width:11px}
+.nav-flyout:hover .nav-flyout-panel,.nav-flyout:focus-within .nav-flyout-panel{opacity:1;visibility:visible;transform:none}
+.nav-flyout-eyebrow{font-family:var(--mono);font-size:6.5px;letter-spacing:1px;color:var(--tx160);padding:4px 8px 8px}
+.nav-flyout-item{display:flex;align-items:center;gap:9px;width:100%;padding:7px 8px;border-radius:7px;text-align:left;transition:background .12s}
+.nav-flyout-item:hover{background:var(--sf148)}
+.nav-flyout-item.selected{background:var(--sf170)}
+.nav-flyout-item .mode-icon{width:27px;height:27px;border-radius:7px;flex-shrink:0}
+.nav-flyout-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.nav-flyout-copy b{font-size:11.5px;font-weight:550;color:var(--tx07);letter-spacing:-.1px;white-space:nowrap}
+.nav-flyout-copy i{font-style:normal;font-size:8px;color:var(--tx129);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-flyout-item>svg{color:var(--tx160);flex-shrink:0}
+.nav-flyout-item.selected>svg{color:var(--tx235)}
+.nav-flyout-arrow{opacity:0;transition:opacity .12s}
+.nav-flyout-item:hover .nav-flyout-arrow{opacity:1}
+.nav-flyout-divider{height:1px;background:var(--line);margin:7px 5px}
+.nav-flyout-item .new-badge{margin-left:auto;font-size:5.5px;padding:2px 4px}
+@media(max-width:960px){.nav-flyout-panel{display:none}.nav-flyout-caret{display:none}}
+.native-app .nav-flyout-panel,.native-app .nav-flyout-caret{display:none}
+
+/* ============================================================================
+   Daily challenge hub — puzzle number, today's twist, streak and last 7 days
+   ============================================================================ */
+.daily-hub{border:1px solid var(--sf64);background:var(--sf167);border-radius:12px;padding:15px 16px;margin-bottom:14px;box-shadow:0 2px 4px var(--sh04)}
+.daily-hub-head{display:flex;align-items:center;gap:11px}
+.daily-hub-blurb{font-size:9.5px;color:var(--tx129);line-height:1.55;margin-top:11px}
+.daily-hub-top{display:flex;align-items:center;gap:14px}
+.daily-seal{width:52px;height:52px;border-radius:12px;background:var(--orange-tint);border:1px solid var(--sf109);color:var(--orange);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;flex-shrink:0}
+.daily-seal span{font-family:var(--mono);font-size:16px;line-height:1;letter-spacing:.5px}
+.daily-seal i{font-style:normal;font-family:var(--mono);font-size:5.5px;letter-spacing:1.2px;opacity:.8}
+.daily-hub-copy{flex:1;min-width:0}
+.daily-hub-title{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.daily-hub-title b{font-size:13.5px;font-weight:550;color:var(--tx07);letter-spacing:-.25px}
+.daily-hub-copy p{font-size:9.5px;color:var(--tx129);line-height:1.55;margin-top:5px}
+.daily-hub-copy{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.daily-twist-chip{display:inline-flex;align-items:center;font-family:var(--mono);font-size:6.5px;letter-spacing:.6px;padding:3px 6px;border-radius:4px;background:var(--sf139);color:var(--tx155);border:1px solid var(--sf98);white-space:nowrap;text-transform:uppercase}
+.daily-twist-chip.twist-packed{background:var(--sf125);color:var(--tx128);border-color:var(--sf78)}
+.daily-twist-chip.twist-noflags{background:var(--sf110);color:var(--tx110);border-color:var(--sf78)}
+.daily-twist-chip.twist-sprint{background:var(--sf151);color:var(--tx235);border-color:var(--sf122)}
+.daily-hub-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:11px;border-top:1px dashed var(--sf106)}
+.daily-countdown{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:7.5px;color:var(--tx120);letter-spacing:.4px}
+.daily-countdown svg{color:var(--orange)}
+.daily-countdown b{font-size:10.5px;color:var(--tx17);letter-spacing:.8px;font-weight:400}
+.daily-countdown i{font-style:normal;font-family:inherit;font-size:7.5px;color:var(--tx160);letter-spacing:0}
+.daily-hub-bottom{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:13px;padding-top:12px;border-top:1px dashed var(--sf106);flex-wrap:wrap}
+.daily-hub .daily-week{display:flex;gap:5px;margin-top:12px;justify-content:space-between}
+.daily-hub .daily-day{flex:1;width:auto;min-width:0}
+.daily-hub .daily-records{margin-top:11px;justify-content:space-between;gap:8px}
+.daily-hub .daily-records span{font-size:8px}
+.daily-hub .daily-records b{font-size:9.5px}
+.daily-week{display:flex;gap:6px}
+.daily-day{width:26px;height:34px;border-radius:6px;border:1px solid var(--sf98);background:var(--sf127);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--tx160)}
+.daily-day i{font-style:normal;font-family:var(--mono);font-size:6px;letter-spacing:.4px}
+.daily-day b{display:flex;align-items:center;justify-content:center;font-size:10px;line-height:1;font-weight:400}
+.daily-day.won{background:var(--orange-tint);border-color:var(--sf109);color:var(--orange)}
+.daily-day.lost{background:var(--sf136);border-color:var(--sf89);color:var(--tx208)}
+.daily-day.today{box-shadow:0 0 0 1.5px var(--orange)}
+.daily-records{display:flex;align-items:center;gap:15px;flex-wrap:wrap}
+.daily-records span{display:flex;align-items:center;gap:5px;font-size:8.5px;color:var(--tx129)}
+.daily-records svg{color:var(--tx160)}
+.daily-records b{font-family:var(--mono);font-size:10px;color:var(--tx17);font-weight:400}
+.daily-result-tag{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:11px;font-family:var(--mono);font-size:7px;letter-spacing:.4px;color:var(--tx160);flex-wrap:wrap}
+.daily-result-tag>span{display:flex;align-items:center;gap:4px}
+.daily-result-tag svg{color:var(--orange)}
+.flag-toggle.locked{opacity:.6;cursor:default}
+.flag-toggle.locked>svg{color:var(--tx112)}
+@media(max-width:960px){
+  .daily-hub{padding:13px 14px;margin-bottom:12px}
+  .daily-seal{width:44px;height:44px}
+  .daily-day{height:31px}
+}
+
+/* Focus mode: give the whole window to the board (no page scrolling). */
+.focus-mode .mine-board:not(.dense-board){width:max-content;max-width:100%}
+.focus-mode .page-heading{display:none}
+.focus-mode .main-content{padding-top:18px}
+.focus-mode .board-toolbar{max-width:640px}
+
+/* Mode-card blurb: let it wrap instead of running past the card edge. */
+.mode-card p{white-space:normal;overflow-wrap:break-word}
+.nav-flyout-copy i{white-space:nowrap}

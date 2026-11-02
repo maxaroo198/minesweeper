@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, ReactNode, RefObject } from 'react';
 import {
   ArrowDownToLine, ArrowRight, ArrowUpRight, BarChart3, BookOpen, Check,
   ChevronDown, ChevronLeft, ChevronRight, Clock3, Flag, Flame, Grid2X2, Infinity as InfinityIcon,
@@ -8,10 +8,10 @@ import {
   Expand, Minimize2, Trash2, Heart, CheckCircle2, GitBranch,
 } from 'lucide-react';
 import {
-  BLITZ_SECONDS, DIFFICULTIES, MODE_NAMES, dayKey, formatTime, freshGame,
-  previewBoard, readRecords, reveal, toggleFlag,
+  BLITZ_OPTIONS, DIFFICULTIES, MODE_NAMES, blitzLabel, dailyBoard, dailyNumber,
+  dailyTwist, dayKey, formatTime, freshGame, previewBoard, readRecords, reveal, toggleFlag,
 } from './game';
-import type { BoardState, Difficulty, GameRecord, Mode } from './game';
+import type { BoardState, DailyTwist, Difficulty, GameRecord, Mode } from './game';
 import { createAndroidUrls, getAndroidDownloads } from './apkPackage';
 import BootScreen from './BootScreen';
 import SourceDownload from './SourceDownload';
@@ -33,9 +33,9 @@ const THEME_COLOR: Record<Theme, string> = { light: '#fafbf8', dark: '#14160f' }
 const ANDROID_BRIDGE = 'MinefieldAndroid';
 const MODES: { id: Mode; description: string; tag: string; icon: typeof Grid2X2 }[] = [
   { id: 'classic', description: 'The original. At your own pace.', tag: 'THE ORIGINAL', icon: Grid2X2 },
-  { id: 'blitz', description: '60 seconds. Make every move count.', tag: '60-SECOND RUSH', icon: Zap },
+  { id: 'blitz', description: 'Beat the clock — anywhere from 15 seconds to 5 minutes.', tag: 'BEAT THE CLOCK', icon: Zap },
   { id: 'zen', description: 'An endless branching field. Sweep, grow, wander forever.', tag: 'INFINITE FLOW', icon: Leaf },
-  { id: 'daily', description: 'One puzzle. A new possibility.', tag: 'FRESH EVERY DAY', icon: Sun },
+  { id: 'daily', description: 'One puzzle, one shared seed, one fresh twist each day.', tag: 'FRESH EVERY DAY', icon: Sun },
 ];
 
 function BrandMark({ className = '' }: { className?: string }) {
@@ -174,6 +174,72 @@ function ZenMap({ world, onJump, onClose }: { world: ZenWorld; onJump: (id: stri
     <div className="zen-map-legend"><span><i className="dot cleared" />Cleared</span><span><i className="dot open" />Open — tap to play</span><span><i className="dot locked" />Locked</span></div>
   </div></div>;
 }
+/**
+ * Sizes the board so a perfectly square grid fits the space it has. The old
+ * layout pinned tiles at 25px and let the board scroll inside a 430px window,
+ * which meant hunting for rows with the mouse. Now the tile size is measured
+ * from the container, so every board fits with no scrolling.
+ */
+function useBoardFit(ref: RefObject<HTMLDivElement | null>, rows: number, cols: number, extraDeps: unknown[] = []) {
+  const [tile, setTile] = useState(34);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const width = el.clientWidth - 28;                        // board padding + slack
+      // Measured against the document, not the scroll position, so panning the
+      // page never resizes the grid under your cursor.
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      // Reserve the row below the grid: controls, the little status line, padding.
+      const panel = el.closest('.game-panel');
+      const reserve = panel
+        ? (panel.querySelector('.game-controls')?.clientHeight ?? 44) + (panel.querySelector('.board-message')?.clientHeight ?? 48) + 18
+        : 110;
+      const height = Math.min(Math.max(window.innerHeight - top - reserve, 240), 1000);
+      const byWidth = (width - (cols - 1) * 3 - 10) / cols;
+      const byHeight = (height - (rows - 1) * 3 - 10) / rows;
+      // Width drives the size so the board fills its column; height trims it back so
+      // the whole grid stays on screen. If the grid cannot fit legibly (a 30 × 30 on
+      // a short window), keep 17px tiles and let the page scroll instead of handing
+      // back a 9px grid nobody can tap.
+      const fitted = byHeight >= 15 ? byHeight : 17;
+      setTile(Math.max(10, Math.min(46, Math.floor(Math.min(byWidth, fitted)))));
+    };
+    const frame = requestAnimationFrame(measure);
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    window.addEventListener('resize', measure);
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); window.removeEventListener('resize', measure); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, cols, ...extraDeps]);
+  return tile;
+}
+interface DailyWeekDay { key: string; label: string; status: string; today: boolean }
+function DailyHub({ idx, dateLabel, twist, countdown, finished, streak, best, solved, week }: {
+  idx: number; dateLabel: string; twist: DailyTwist; countdown: string; finished: boolean;
+  streak: number; best: number; solved: number; week: DailyWeekDay[];
+}) {
+  return <section className="daily-hub" aria-label="Today’s daily challenge">
+    <div className="daily-hub-head">
+      <div className="daily-seal" aria-hidden="true"><span>{idx}</span><i>DAILY</i></div>
+      <div className="daily-hub-copy">
+        <div className="daily-hub-title"><b>{dateLabel}’s puzzle</b></div>
+        <span className={`daily-twist-chip twist-${twist.id}`}>{twist.name}</span>
+      </div>
+    </div>
+    <p className="daily-hub-blurb">{twist.blurb} One seeded board, the same for everyone.</p>
+    <div className="daily-hub-meta">
+      <span className="daily-countdown"><Clock3 size={13} /><b>{countdown}</b><i>until the next one</i></span>
+      <span className={`daily-status ${finished ? 'complete' : ''}`}>{finished ? <><CheckCircle2 size={14} /> Attempt recorded</> : 'Your move awaits'}</span>
+    </div>
+    <div className="daily-week" aria-label="Your last seven dailies">{week.map(day => <span key={day.key} className={`daily-day ${day.status} ${day.today ? 'today' : ''}`} title={`${day.key} · ${day.status === 'won' ? 'cleared' : day.status === 'lost' ? 'a mine' : 'not played'}`}><i>{day.label}</i><b>{day.status === 'won' ? <Check size={11} strokeWidth={3} /> : day.status === 'lost' ? <X size={11} strokeWidth={3} /> : '·'}</b></span>)}</div>
+    <div className="daily-records">
+      <span><Flame size={13} /><b>{streak}</b>day streak</span>
+      <span><Clock3 size={13} /><b>{Number.isFinite(best) ? formatTime(best) : '—'}</b>best daily</span>
+      <span><Trophy size={13} /><b>{solved}</b>solved</span>
+    </div>
+  </section>;
+}
 function App() {
   const [view, setView] = useState<View>('play');
   const [game, setGame] = useState<BoardState>(() => previewBoard());
@@ -192,7 +258,7 @@ function App() {
   const [publicRows, setPublicRows] = useState<PublicScore[]>([]);
   const [nameDraft, setNameDraft] = useState(() => playerName());
   const [pendingPublic, setPendingPublic] = useState<GameRecord | null>(null);
-  const [blitzSeconds, setBlitzSeconds] = useState(() => { try { const v = parseInt(localStorage.getItem('minefield-blitz') || '60', 10); return [30, 60, 90, 120, 180, 300].includes(v) ? v : 60; } catch { return 60; } });
+  const [blitzSeconds, setBlitzSeconds] = useState(() => { try { const v = parseInt(localStorage.getItem('minefield-blitz') || '60', 10); return BLITZ_OPTIONS.includes(v) ? v : 60; } catch { return 60; } });
   const [helpTab, setHelpTab] = useState<'basics' | 'modes'>('basics');
   const [leaderMode, setLeaderMode] = useState<Mode>('classic');
   const [leaderDifficulty, setLeaderDifficulty] = useState<Difficulty>('easy');
@@ -219,16 +285,49 @@ function App() {
   const boardRef = useRef<HTMLDivElement>(null);
   const isFinished = game.status === 'won' || game.status === 'lost';
   const elapsed = game.startedAt === null ? 0 : Math.max(0, Math.floor(((game.finishedAt ?? now) - game.startedAt) / 1000));
-  const visibleTime = game.mode === 'blitz' ? blitzSeconds - elapsed : elapsed;
   const flags = game.cells.filter(c => c.flagged).length;
   const revealed = game.cells.filter(c => c.revealed && !c.mine).length;
   const progress = Math.round(revealed / (game.cells.length - game.mines) * 100);
   const displayCells = showPreview ? previewBoard().cells : game.cells;
+  const tileSize = useBoardFit(boardRef, game.rows, game.cols, [view, focusMode, showPreview, game.mode]);
   const wins = records.filter(r => r.won);
   const best = wins.filter(r => r.mode === 'classic' && r.difficulty === 'easy').reduce((min, r) => Math.min(min, r.seconds), Infinity);
   const winRate = records.length ? Math.round(wins.length / records.length * 100) : 0;
   const dailyDate = new Date(`${dayKey()}T12:00:00`);
   const dailyFinished = records.some(r => r.mode === 'daily' && r.date.slice(0, 10) === dayKey());
+  const dailyIdx = dailyNumber();
+  const twist: DailyTwist = dailyTwist(dailyIdx);
+  // Flag-free day: the daily twist can take flags away entirely.
+  const flagsLocked = game.mode === 'daily' && !!twist.noFlags && !showPreview;
+  // Blitz always has a limit; a Sprint daily borrows one.
+  const timeLimit = game.mode === 'blitz' ? blitzSeconds : game.mode === 'daily' ? twist.seconds ?? null : null;
+  const timeLeft = timeLimit === null ? null : timeLimit - elapsed;
+  const runningOut = timeLimit !== null && game.status === 'playing' && (timeLeft ?? 0) <= 15;
+  const dailyWins = wins.filter(r => r.mode === 'daily');
+  const dailySolved = dailyWins.length;
+  const dailyBest = dailyWins.reduce((min, r) => Math.min(min, r.seconds), Infinity);
+  const dailyWeek = useMemo(() => {
+    const today = new Date();
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - (6 - i)));
+      const key = day.toISOString().slice(0, 10);
+      const result = records.find(r => r.mode === 'daily' && r.date.slice(0, 10) === key);
+      return { key, label: 'SMTWTFS'[day.getUTCDay()], status: result ? (result.won ? 'won' : 'lost') : 'none', today: i === 6 };
+    });
+  }, [records]);
+  // Countdown to the next daily (midnight UTC) — ticked separately from the game clock.
+  const [dailyTick, setDailyTick] = useState(() => Date.now());
+  useEffect(() => {
+    if (view !== 'daily') return;
+    const id = setInterval(() => setDailyTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [view]);
+  const nextDaily = useMemo(() => {
+    const midnight = new Date(dailyTick);
+    midnight.setUTCHours(24, 0, 0, 0);
+    const left = Math.max(0, Math.floor((midnight.getTime() - dailyTick) / 1000));
+    return `${String(Math.floor(left / 3600)).padStart(2, '0')}:${String(Math.floor(left % 3600 / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`;
+  }, [dailyTick]);
   const dailyStreak = useMemo(() => {
     const days = new Set(records.filter(r => r.mode === 'daily' && r.won).map(r => r.date.slice(0, 10)));
     let streak = 0;
@@ -256,10 +355,10 @@ function App() {
     return () => clearInterval(clock);
   }, [game.status]);
   useEffect(() => {
-    if (game.status === 'playing' && game.mode === 'blitz' && game.startedAt && now - game.startedAt >= blitzSeconds * 1000) {
-      setGame(g => g.status === 'playing' ? { ...g, status: 'lost', finishedAt: g.startedAt! + blitzSeconds * 1000 } : g);
+    if (game.status === 'playing' && timeLimit !== null && game.startedAt && now - game.startedAt >= timeLimit * 1000) {
+      setGame(g => g.status === 'playing' ? { ...g, status: 'lost', finishedAt: g.startedAt! + timeLimit * 1000 } : g);
     }
-  }, [game.mode, game.status, game.startedAt, now, blitzSeconds]);
+  }, [game.mode, game.status, game.startedAt, now, timeLimit]);
   useEffect(() => {
     if (!isFinished || recorded.current === game.id) return;
     recorded.current = game.id;
@@ -293,7 +392,8 @@ function App() {
       setMapOpen(false);
     } else {
       setZenWorld(null);
-      setGame(freshGame(mode, difficulty));
+      // Daily games carry today's twist (extra mines), so build them from the seeded helper.
+      setGame(mode === 'daily' ? dailyBoard(difficulty) : freshGame(mode, difficulty));
     }
     setShowPreview(false); setFlagMode(false); setResultVisible(false); setNow(Date.now());
     setView(mode === 'daily' ? 'daily' : 'play'); setModal(null); setSidebarOpen(false); boardRef.current?.scrollTo({ top: 0, left: 0 });
@@ -322,13 +422,19 @@ function App() {
       return next;
     });
   };
+  /** One place to switch modes, shared by the mode cards and the sidebar flyout. */
+  const pickMode = (mode: Mode) => {
+    if (mode === game.mode) { if (mode === 'daily') setView('daily'); return; }
+    if (mode === 'zen' && loadWorld()) { continueZen(); return; }
+    requestGame(mode, mode === 'daily' ? 'medium' : 'easy');
+  };
   const requestGame = (mode = game.mode, difficulty = game.difficulty) => {
     if (game.status === 'playing') { setPendingGame({ mode, difficulty }); setModal('confirm'); }
     else startGame(mode, difficulty);
   };
   const navigate = (next: View) => {
     setSidebarOpen(false); setFocusMode(false);
-    if (next === 'daily' && game.mode !== 'daily') { requestGame('daily', 'hard'); return; }
+    if (next === 'daily' && game.mode !== 'daily') { requestGame('daily', 'medium'); return; }
     setView(next);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -337,7 +443,7 @@ function App() {
     if (flagMode) { handleFlag(index); return; }
     setShowPreview(false);
     const chording = game.cells[index]?.revealed === true;
-    const base = game.status === 'ready' && showPreview ? freshGame(game.mode, game.difficulty) : game;
+    const base = game.status === 'ready' && showPreview ? (game.mode === 'daily' ? dailyBoard(game.difficulty) : freshGame(game.mode, game.difficulty)) : game;
     const { state: next, change } = reveal(base, index);
     if (!change.opened.length) return;
     setGame(next); setNow(Date.now());
@@ -376,6 +482,7 @@ function App() {
   };
   const handleFlag = (index: number) => {
     if (isFinished || modal) return;
+    if (flagsLocked) { notify('No flags today — this daily is pure deduction.'); return; }
     if (game.cells[index].revealed) return;
     if (!game.cells[index].flagged && flags >= game.mines) { notify('All your flags are in use. Move one to keep going.'); return; }
     const next = toggleFlag(game, index);
@@ -405,7 +512,17 @@ function App() {
   useEffect(() => () => { if (longPress.current) clearTimeout(longPress.current); }, []);
 
   const shareResult = async () => {
-    const message = `Minefield ${MODE_NAMES[game.mode]} · ${DIFFICULTIES[game.difficulty].label}\n${game.status === 'won' ? '🟧 All clear!' : 'A fresh start is one move away.'} ${formatTime(elapsed)}\nA little logic. A lot of possibility.${isAndroidApp ? '' : `\n${window.location.origin}`}`;
+    // Daily results get a spoiler-free progress grid plus the shared puzzle number.
+    const filled = Math.max(0, Math.min(10, Math.round(progress / 10)));
+    const grid = `${'🟧'.repeat(filled)}${'⬜'.repeat(10 - filled)}`;
+    const { rows, cols } = DIFFICULTIES[game.difficulty];
+    const headline = game.mode === 'daily'
+      ? `Minefield Daily #${dailyIdx} · ${rows}×${cols} · ${twist.name}`
+      : `Minefield ${MODE_NAMES[game.mode]} · ${DIFFICULTIES[game.difficulty].label}`;
+    const body = game.mode === 'daily'
+      ? `${grid} ${progress}%\n${game.status === 'won' ? '✅ Cleared' : '💥 A mine'} in ${formatTime(elapsed)} · ${dailyStreak} day streak`
+      : `${game.status === 'won' ? '🟧 All clear!' : 'A fresh start is one move away.'} ${formatTime(elapsed)}`;
+    const message = `${headline}\n${body}\nA little logic. A lot of possibility.${isAndroidApp ? '' : `\n${window.location.origin}`}`;
     const android = (window as Window & { MinefieldAndroid?: { share: (text: string) => void } }).MinefieldAndroid;
     try {
       if (android) { android.share(message); return; }
@@ -432,7 +549,7 @@ function App() {
     return () => { cancelled = true; };
   }, [leaderMode, leaderDifficulty, view, records]);
   const totalSafe = game.cells.length - game.mines;
-  const pageDescription = game.mode === 'zen' ? 'A little less hurry. A little more headspace.' : game.mode === 'blitz' ? 'Trust your instincts. Beat the clock.' : game.mode === 'daily' ? 'One board for everyone. A new challenge every day.' : 'A timeless test of deduction.';
+  const pageDescription = game.mode === 'zen' ? 'A little less hurry. A little more headspace.' : game.mode === 'blitz' ? `Trust your instincts. Beat the clock — ${blitzLabel(blitzSeconds)} on the timer.` : game.mode === 'daily' ? `Today’s twist: ${twist.name.toLowerCase()}. ${twist.blurb}` : 'A timeless test of deduction.';
 
   return <div className={`app ${reducedMotion ? 'reduce-motion' : ''} ${highContrast ? 'high-contrast' : ''} ${isAndroidApp ? 'native-app' : ''}`}>{!booted && <BootScreen onDone={() => setBooted(true)} compact={isAndroidApp} />}
     {sidebarOpen && <button className="sidebar-scrim" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />}
@@ -441,7 +558,23 @@ function App() {
       <div className="sidebar-intro">Small squares. Big possibilities.</div>
       <nav className="main-nav" aria-label="Main navigation">
         <div className="nav-label">YOUR PLAYGROUND</div>
-        <button className={`nav-item ${view === 'play' ? 'active' : ''}`} onClick={() => navigate('play')}><Grid2X2 size={18} /><span>Let’s play</span>{view === 'play' && <span className="nav-active-dot" />}</button>
+        <div className="nav-flyout">
+          <button className={`nav-item ${view === 'play' ? 'active' : ''}`} onClick={() => navigate('play')} aria-haspopup="true"><Grid2X2 size={18} /><span>Let’s play</span>{view === 'play' ? <span className="nav-active-dot" /> : <ChevronRight size={13} className="nav-flyout-caret" />}</button>
+          <div className="nav-flyout-panel" role="group" aria-label="Choose a game mode">
+            <div className="nav-flyout-eyebrow">PICK A MODE</div>
+            {MODES.filter(m => m.id !== 'daily').map(mode => <button key={mode.id} className={`nav-flyout-item ${game.mode === mode.id ? 'selected' : ''}`} onClick={() => pickMode(mode.id)} aria-pressed={game.mode === mode.id}>
+              <span className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={16} /></span>
+              <span className="nav-flyout-copy"><b>{MODE_NAMES[mode.id]}</b><i>{mode.id === 'blitz' ? `15s – 5 min` : mode.id === 'zen' ? 'No clock, no pressure' : '9×9 · 16×16 · 30×30'}</i></span>
+              {game.mode === mode.id ? <Check size={13} /> : <ArrowUpRight size={13} className="nav-flyout-arrow" />}
+            </button>)}
+            <div className="nav-flyout-divider" />
+            <button className={`nav-flyout-item daily ${view === 'daily' ? 'selected' : ''}`} onClick={() => navigate('daily')}>
+              <span className="mode-icon mode-daily"><Sun size={16} /></span>
+              <span className="nav-flyout-copy"><b>Daily challenge</b><i>#{dailyIdx} · {twist.name}</i></span>
+              <span className="new-badge">NEW</span>
+            </button>
+          </div>
+        </div>
         <button className={`nav-item ${view === 'daily' ? 'active' : ''}`} onClick={() => navigate('daily')}><Sun size={19} /><span>Daily challenge</span><span className="new-badge">NEW</span></button>
         <button className={`nav-item ${view === 'leaderboard' ? 'active' : ''}`} onClick={() => navigate('leaderboard')}><Trophy size={18} /><span>Leaderboard</span></button>
         <button className={`nav-item ${view === 'stats' ? 'active' : ''}`} onClick={() => navigate('stats')}><BarChart3 size={18} /><span>My statistics</span></button>
@@ -465,16 +598,15 @@ function App() {
         {(view === 'play' || view === 'daily') && <>
           <section className="page-heading"><div><div className="eyebrow"><span className="tiny-spark">✳</span>{view === 'daily' ? 'A FRESH CHALLENGE, EVERY SINGLE DAY' : 'MINESWEEPER, WITH A LITTLE MORE SOUL'}</div><h1>{view === 'daily' ? 'A new day. A new little win.' : 'Make your next move'}<span className="heading-dot">.</span></h1><p>{view === 'daily' ? 'The same board for every curious mind. Make today’s yours.' : <><span className="desktop-copy">Clear the board. Find your flow. A small escape for a curious mind.</span><span className="mobile-copy">A little logic. A lot of possibility.</span></>}</p></div><div className="heading-note"><div className="note-doodle"><Sparkles size={25} strokeWidth={1.3} /></div><div>No rush. No noise.<br /><b>Just one good move.</b></div></div></section>
 
-          {view === 'daily' && <div className="daily-banner"><Sun size={24} /><div><b>{dailyDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}’s daily</b><span>Hard board, one seeded puzzle, shared across all devices · Resets at midnight UTC · <Flame size={11} style={{ verticalAlign: '-1px' }} /> {dailyStreak} day streak</span></div><span className={`daily-status ${dailyFinished ? 'complete' : ''}`}>{dailyFinished ? <><CheckCircle2 size={15} /> Attempt recorded</> : 'Your move awaits'}</span></div>}
 
           <div className="play-layout">
             <section className="game-panel" aria-label={`${MODE_NAMES[game.mode]} Minesweeper game`}>
-              <div className="game-panel-head"><div className="game-title"><div className={`mode-icon mode-${game.mode}`}><ModeIcon mode={game.mode} size={20} /></div><div><h2>{MODE_NAMES[game.mode]}<span className={`game-mode-tag ${game.mode === 'blitz' ? 'purple' : ''}`}>{game.mode === 'classic' ? 'THE CLASSIC' : game.mode === 'blitz' ? 'BEAT THE CLOCK' : game.mode === 'zen' ? 'NO PRESSURE' : 'DAILY #'+Math.floor((Date.now()-new Date('2025-01-01').getTime())/86400000)}</span></h2><p>{pageDescription}</p></div></div><div style={{ display: 'flex', gap: 6 }}>{game.mode === 'zen' && <button className="icon-button" onClick={() => setMapOpen(true)} aria-label="Open branch map" title="Branch map — zoom out"><GitBranch size={17} /></button>}<button className="icon-button" onClick={() => setFocusMode(!focusMode)} aria-label={focusMode ? 'Exit focus mode' : 'Enter focus mode'} title={focusMode ? 'Exit focus mode' : 'Focus mode'}>{focusMode ? <Minimize2 size={17} /> : <Expand size={17} />}</button></div></div>
-              <div className="difficulty-row"><div className="difficulty-tabs" role="group" aria-label="Difficulty">{(Object.keys(DIFFICULTIES) as Difficulty[]).map(diff => <button key={diff} className={game.difficulty === diff ? 'selected' : ''} aria-pressed={game.difficulty === diff} onClick={() => { if (game.mode !== 'daily' && diff !== game.difficulty) requestGame(game.mode, diff); }}><span className={`difficulty-dot dot-${diff}`} />{DIFFICULTIES[diff].label}</button>)}</div><span className="board-dimensions">{game.rows} × {game.cols}<span> · </span>{game.mines} mines</span></div>
+              <div className="game-panel-head"><div className="game-title"><div className={`mode-icon mode-${game.mode}`}><ModeIcon mode={game.mode} size={20} /></div><div><h2>{MODE_NAMES[game.mode]}<span className={`game-mode-tag ${game.mode === 'blitz' ? 'purple' : ''}`}>{game.mode === 'classic' ? 'THE CLASSIC' : game.mode === 'blitz' ? 'BEAT THE CLOCK' : game.mode === 'zen' ? 'NO PRESSURE' : 'DAILY #'+dailyIdx+(twist.id === 'standard' ? '' : ' · '+twist.name.toUpperCase())}</span></h2><p>{pageDescription}</p></div></div><div style={{ display: 'flex', gap: 6 }}>{game.mode === 'zen' && <button className="icon-button" onClick={() => setMapOpen(true)} aria-label="Open branch map" title="Branch map — zoom out"><GitBranch size={17} /></button>}<button className="icon-button" onClick={() => setFocusMode(!focusMode)} aria-label={focusMode ? 'Exit focus mode' : 'Enter focus mode'} title={focusMode ? 'Exit focus mode' : 'Focus mode'}>{focusMode ? <Minimize2 size={17} /> : <Expand size={17} />}</button></div></div>
+              <div className="difficulty-row"><div className="difficulty-tabs" role="group" aria-label="Difficulty">{(Object.keys(DIFFICULTIES) as Difficulty[]).map(diff => <button key={diff} className={game.difficulty === diff ? 'selected' : ''} aria-pressed={game.difficulty === diff} onClick={() => { if (diff !== game.difficulty) requestGame(game.mode, diff); }}><span className={`difficulty-dot dot-${diff}`} />{DIFFICULTIES[diff].label}</button>)}</div><span className="board-dimensions">{game.rows} × {game.cols}<span> · </span>{game.mines} mines</span></div>
               <div className="board-area">
-                <div className="board-toolbar"><div className="board-stat"><span>{game.mode === 'blitz' ? 'TIME LEFT' : 'YOUR TIME'}</span><div className={game.mode === 'blitz' && visibleTime < 15 ? 'timer-urgent' : ''}><Clock3 size={16} /><b>{game.mode === 'zen' ? <InfinityIcon size={26} /> : formatTime(visibleTime)}</b>{game.mode === 'blitz' && game.status !== 'lost' && <select className="blitz-time" aria-label="Blitz time limit" value={blitzSeconds} onChange={e => setBlitzSeconds(parseInt(e.target.value, 10))}>{[30, 60, 90, 120, 180, 300].map(t => <option key={t} value={t}>{t >= 60 ? `${t / 60} min` : `${t}s`}</option>)}</select>}</div></div><button className={`reset-button ${game.status === 'lost' ? 'lost' : ''}`} title="New game (N)" onClick={() => requestGame()} aria-label="Start a new game"><RotateCcw size={18} /></button><div className="board-stat mines-stat"><span>MINES LEFT</span><div><Flag size={15} /><b>{String(game.mines - flags).padStart(3, '0')}</b></div></div></div>
+                <div className="board-toolbar"><div className="board-stat"><span>{timeLimit !== null ? 'TIME LEFT' : 'YOUR TIME'}</span><div className={runningOut ? 'timer-urgent' : ''}><Clock3 size={16} /><b>{game.mode === 'zen' ? <InfinityIcon size={26} /> : formatTime(timeLimit !== null ? Math.max(0, timeLeft ?? 0) : elapsed)}</b>{game.mode === 'blitz' && game.status !== 'lost' && <select className="blitz-time" aria-label="Blitz time limit" value={blitzSeconds} onChange={e => { const next = parseInt(e.target.value, 10); setBlitzSeconds(next); if (game.status !== 'ready') notify(`Blitz limit set to ${blitzLabel(next)}. Your next game starts fresh.`); }}>{BLITZ_OPTIONS.map(t => <option key={t} value={t}>{blitzLabel(t)}</option>)}</select>}</div></div><button className={`reset-button ${game.status === 'lost' ? 'lost' : ''}`} title="New game (N)" onClick={() => requestGame()} aria-label="Start a new game"><RotateCcw size={18} /></button><div className="board-stat mines-stat"><span>MINES LEFT</span><div><Flag size={15} /><b>{String(game.mines - flags).padStart(3, '0')}</b></div></div></div>
                 <div className={`board-scroll ${game.cols > 16 ? 'wide-board' : ''}`} ref={boardRef}>
-                  <div className={`mine-board ${game.status === 'playing' ? 'playing' : ''} ${isFinished ? 'is-finished' : ''} ${game.cols > 9 ? 'dense-board' : ''} ${revealFx ? 'has-reveal-fx' : ''} ${revealFx && revealFx.opened.length > 2 ? 'has-expansion-fx' : ''}`} style={{ '--columns': game.cols, '--tile-size': game.cols > 9 ? '25px' : '34px' } as CSSProperties} role="group" aria-label={`${game.rows} by ${game.cols} minefield. Click to reveal. Right-click or long press to flag.`}>
+                  <div className={`mine-board ${game.status === 'playing' ? 'playing' : ''} ${isFinished ? 'is-finished' : ''} ${game.cols > 9 ? 'dense-board' : ''} ${revealFx ? 'has-reveal-fx' : ''} ${revealFx && revealFx.opened.length > 2 ? 'has-expansion-fx' : ''}`} style={{ '--columns': game.cols, '--tile-size': `${tileSize}px` } as CSSProperties} role="group" aria-label={`${game.rows} by ${game.cols} minefield. Click to reveal. Right-click or long press to flag.`}>
                     {displayCells.map((cell, index) => {
                       // On a loss we reveal nothing — only the mine you hit shows.
                       const exposedMine = false;
@@ -488,16 +620,16 @@ function App() {
                   </div>
                 </div>
 
-                {isFinished && resultVisible && <div className={`result-overlay ${game.status === 'won' ? 'won' : ''}`}><div className="result-card"><div className="result-icon">{game.status === 'won' ? <Trophy size={30} /> : <BrandMark />}</div><div className="eyebrow">{game.status === 'won' ? 'A LITTLE WIN. A BIG FEELING.' : game.mode === 'blitz' && elapsed >= BLITZ_SECONDS ? 'TIME’S UP, NOT GAME OVER' : 'THERE’S ALWAYS ANOTHER SQUARE'}</div><h3>{game.status === 'won' ? 'Beautifully swept.' : 'A mine. Not the end.'}</h3><p>{game.status === 'won' ? `You cleared all ${totalSafe} safe squares. Nicely done.` : 'Take a breath. Your next great game is one click away.'}</p><div className="result-stats"><span><Clock3 size={15} />{formatTime(elapsed)}</span><span><Target size={15} />{progress}% cleared</span></div><button className="primary-button" onClick={() => { if (game.mode === 'zen' && game.status === 'won' && zenWorld) { const next = openAreaIds(zenWorld)[0]; if (next) jumpToArea(next); else setMapOpen(true); } else startGame(game.mode, game.difficulty); }}><RotateCcw size={16} />{game.mode === 'zen' && game.status === 'won' ? 'Continue the branch' : game.status === 'won' ? 'One more good game' : 'Let’s try again'}</button><div className="result-secondary"><button onClick={() => setResultVisible(false)}>See the board</button><span>·</span><button onClick={shareResult}>Share result <ArrowUpRight size={13} /></button></div>{game.status === 'won' && pendingPublic && <div className="public-post"><label htmlFor="win-name">Post this win to the public leaderboard as</label><div className="public-post-row"><input id="win-name" value={nameDraft} maxLength={24} onChange={e => setNameDraft(e.target.value)} /><button className="primary-button" onClick={() => { setPlayerName(nameDraft); void submitPublicScore(pendingPublic).then(ok => notify(ok ? 'Posted to the public leaderboard.' : 'Couldn’t reach the leaderboard — it stays local.')); setPendingPublic(null); }}>Post</button><button className="secondary-button" onClick={() => setPendingPublic(null)}>Skip</button></div></div>}</div></div>}
-                {game.mode === 'blitz' && game.status === 'playing' && <div className="blitz-progress"><span style={{ width: `${Math.max(0, visibleTime / BLITZ_SECONDS) * 100}%` }} /></div>}
+                {isFinished && resultVisible && <div className={`result-overlay ${game.status === 'won' ? 'won' : ''}`}><div className="result-card"><div className="result-icon">{game.status === 'won' ? <Trophy size={30} /> : <BrandMark />}</div><div className="eyebrow">{game.status === 'won' ? 'A LITTLE WIN. A BIG FEELING.' : timeLimit !== null && elapsed >= timeLimit ? 'TIME’S UP, NOT GAME OVER' : 'THERE’S ALWAYS ANOTHER SQUARE'}</div><h3>{game.status === 'won' ? 'Beautifully swept.' : 'A mine. Not the end.'}</h3><p>{game.status === 'won' ? `You cleared all ${totalSafe} safe squares. Nicely done.` : game.mode === 'daily' ? 'Today’s board is still out there until midnight. One more go?' : 'Take a breath. Your next great game is one click away.'}</p>{game.mode === 'daily' && <div className="daily-result-tag"><span className={`daily-twist-chip twist-${twist.id}`}>{twist.name}</span><span>Daily #{dailyIdx}</span>{game.status === 'won' && <span><Flame size={11} />{dailyStreak} day streak</span>}</div>}<div className="result-stats"><span><Clock3 size={15} />{formatTime(elapsed)}</span><span><Target size={15} />{progress}% cleared</span></div><button className="primary-button" onClick={() => { if (game.mode === 'zen' && game.status === 'won' && zenWorld) { const next = openAreaIds(zenWorld)[0]; if (next) jumpToArea(next); else setMapOpen(true); } else startGame(game.mode, game.difficulty); }}><RotateCcw size={16} />{game.mode === 'zen' && game.status === 'won' ? 'Continue the branch' : game.status === 'won' ? 'One more good game' : 'Let’s try again'}</button><div className="result-secondary"><button onClick={() => setResultVisible(false)}>See the board</button><span>·</span><button onClick={shareResult}>{game.mode === 'daily' ? 'Share your grid' : 'Share result'} <ArrowUpRight size={13} /></button></div>{game.status === 'won' && pendingPublic && <div className="public-post"><label htmlFor="win-name">Post this win to the public leaderboard as</label><div className="public-post-row"><input id="win-name" value={nameDraft} maxLength={24} onChange={e => setNameDraft(e.target.value)} /><button className="primary-button" onClick={() => { setPlayerName(nameDraft); void submitPublicScore(pendingPublic).then(ok => notify(ok ? 'Posted to the public leaderboard.' : 'Couldn’t reach the leaderboard — it stays local.')); setPendingPublic(null); }}>Post</button><button className="secondary-button" onClick={() => setPendingPublic(null)}>Skip</button></div></div>}</div></div>}
+                {timeLimit !== null && game.status === 'playing' && <div className="blitz-progress"><span style={{ width: `${Math.max(0, Math.min(1, (timeLeft ?? 0) / timeLimit)) * 100}%` }} /></div>}
               </div>
-              <div className="game-controls"><button className={`flag-toggle ${flagMode ? 'enabled' : ''}`} onClick={() => setFlagMode(!flagMode)} aria-pressed={flagMode}><Flag size={15} fill={flagMode ? 'currentColor' : 'none'} /><span>Flag mode</span><span className="toggle-track"><i /></span></button><span className="board-tip"><MousePointer2 size={13} /><span>Right-click to flag</span></span><button className="new-game-text" onClick={() => requestGame()}><RotateCcw size={14} />New game</button></div>
+              <div className="game-controls">{flagsLocked ? <span className="flag-toggle locked" title="Today’s twist removes flags"><Flag size={15} /><span>No flags today</span></span> : <button className={`flag-toggle ${flagMode ? 'enabled' : ''}`} onClick={() => setFlagMode(!flagMode)} aria-pressed={flagMode}><Flag size={15} fill={flagMode ? 'currentColor' : 'none'} /><span>Flag mode</span><span className="toggle-track"><i /></span></button>}<span className="board-tip"><MousePointer2 size={13} /><span>{flagsLocked ? 'Every square is a guess worth making' : 'Right-click to flag'}</span></span><button className="new-game-text" onClick={() => requestGame()}><RotateCcw size={14} />New game</button></div>
               <div className={`board-message ${isFinished ? 'finished' : ''}`}>{isFinished ? <><Check size={13} />{game.status === 'won' ? 'A little victory, saved to your stats.' : 'Every game is a chance to get a little better.'}</> : <><ShieldCheck size={14} />{game.status === 'ready' ? 'Your first move is always safe. Go on, pick a square.' : flagMode ? 'Flag mode is on. Tap a square to mark a possible mine.' : `${game.cells.filter(c => c.revealed && !c.mine).length} safe squares found. You’ve got this.`}</>}</div>
             </section>
 
-            <aside className="mode-column"><div className="section-title"><h2>Find your kind of focus.</h2><span>4 MODES</span></div><div className="mode-cards">{MODES.map(mode => <button key={mode.id} className={`mode-card ${game.mode === mode.id ? 'selected' : ''} mode-card-${mode.id}`} onClick={() => { if (mode.id === game.mode) return; if (mode.id === 'zen' && loadWorld()) continueZen(); else requestGame(mode.id, mode.id === 'daily' ? 'hard' : 'easy'); }} aria-pressed={game.mode === mode.id}><div className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={21} /></div><div className="mode-card-copy"><div className="mode-card-title"><h3>{MODE_NAMES[mode.id]}</h3>{mode.id === 'daily' && <span className="small-new">NEW</span>}</div><p>{mode.description}</p><span className="mode-tag">{mode.tag}</span></div><span className="mode-select">{game.mode === mode.id ? <Check size={12} strokeWidth={2.5} /> : <ArrowUpRight size={17} />}</span></button>)}</div>
+            <aside className="mode-column">{view === 'daily' && <DailyHub idx={dailyIdx} dateLabel={dailyDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} twist={twist} countdown={nextDaily} finished={dailyFinished} streak={dailyStreak} best={dailyBest} solved={dailySolved} week={dailyWeek} />}<div className="section-title"><h2>Find your kind of focus.</h2><span>4 MODES</span></div><div className="mode-cards">{MODES.map(mode => <button key={mode.id} className={`mode-card ${game.mode === mode.id ? 'selected' : ''} mode-card-${mode.id}`} onClick={() => pickMode(mode.id)} aria-pressed={game.mode === mode.id}><div className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={21} /></div><div className="mode-card-copy"><div className="mode-card-title"><h3>{MODE_NAMES[mode.id]}</h3>{mode.id === 'daily' && <span className="small-new">NEW</span>}</div><p>{mode.description}</p><span className="mode-tag">{mode.tag}</span></div><span className="mode-select">{game.mode === mode.id ? <Check size={12} strokeWidth={2.5} /> : <ArrowUpRight size={17} />}</span></button>)}</div>
               <div className="gentle-tip"><div className="tip-icon"><Lightbulb size={21} strokeWidth={1.5} /></div><div><h3>Small clues. Clever moves.</h3><p>A number tells you how many mines are nearby. The rest? A little intuition.</p><button onClick={() => setModal('help')}>Meet your new favorite brain break <ArrowRight size={14} /></button></div></div>
-              <button className="daily-teaser" onClick={() => { if (game.mode !== 'daily') requestGame('daily', 'hard'); else setView('daily'); }}><span className="daily-teaser-icon"><Sun size={20} /></span><span><b>A fresh start, every day.</b><span>Your daily puzzle is ready when you are.</span></span><ArrowUpRight size={17} /></button>
+              <button className="daily-teaser" onClick={() => { if (game.mode !== 'daily') requestGame('daily', 'medium'); else setView('daily'); }}><span className="daily-teaser-icon"><Sun size={20} /></span><span><b>A fresh start, every day.</b><span>Your daily puzzle is ready when you are.</span></span><ArrowUpRight size={17} /></button>
             </aside>
           </div>
           {mapOpen && zenWorld && <ZenMap world={zenWorld} onJump={jumpToArea} onClose={() => setMapOpen(false)} />}

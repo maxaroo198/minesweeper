@@ -30,12 +30,18 @@ export interface GameRecord {
   date: string;
 }
 export const DIFFICULTIES: Record<Difficulty, { label: string; rows: number; cols: number; mines: number }> = {
+  // Every board is a perfect square: 9 × 9, 16 × 16, 30 × 30.
   easy: { label: 'Easy', rows: 9, cols: 9, mines: 10 },
   medium: { label: 'Medium', rows: 16, cols: 16, mines: 40 },
-  hard: { label: 'Hard', rows: 16, cols: 30, mines: 99 },
+  hard: { label: 'Hard', rows: 30, cols: 30, mines: 99 },
 };
 export const MODE_NAMES: Record<Mode, string> = { classic: 'Classic', blitz: 'Blitz', zen: 'Zen', daily: 'Daily challenge' };
 export const BLITZ_SECONDS = 60;
+/** Selectable Blitz limits, shortest first. 15 seconds is a real knife-fight. */
+export const BLITZ_OPTIONS = [15, 30, 45, 60, 90, 120, 180, 300];
+export function blitzLabel(seconds: number) {
+  return seconds >= 60 ? `${seconds / 60} min` : `${seconds}s`;
+}
 
 export function dayKey() { return new Date().toISOString().slice(0, 10); }
 export function seededRandom(seed: string) {
@@ -151,4 +157,48 @@ export function readRecords(): GameRecord[] {
     if (!Array.isArray(data)) return [];
     return data.filter((r): r is GameRecord => !!r && typeof r.id === 'string' && typeof r.seconds === 'number' && typeof r.won === 'boolean' && ['classic', 'blitz', 'zen', 'daily'].includes(r.mode) && ['easy', 'medium', 'hard'].includes(r.difficulty) && typeof r.date === 'string');
   } catch { return []; }
+}
+
+/* --- Daily challenge: a numbered puzzle with a rotating twist --- */
+
+/** Days since the first daily, 1-based, so every puzzle has a number. */
+export function dailyNumber(date = new Date()) {
+  const start = Date.UTC(2025, 0, 1);
+  const today = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  return Math.floor((today - start) / 86400000) + 1;
+}
+
+export interface DailyTwist {
+  id: 'standard' | 'packed' | 'noflags' | 'sprint';
+  name: string;
+  blurb: string;
+  /** Multiplier on the difficulty's usual mine count. */
+  mineScale?: number;
+  /** Flags are not available today. */
+  noFlags?: boolean;
+  /** Competing against a clock, in seconds. */
+  seconds?: number;
+}
+
+/** Same twist for every player, rotating once a day. */
+export const DAILY_TWISTS: DailyTwist[] = [
+  { id: 'standard', name: 'Classic rules', blurb: 'A clean, honest board. Nothing extra.' },
+  { id: 'packed', name: 'Packed', blurb: 'A third more mines than usual. Every clue counts.', mineScale: 1.33 },
+  { id: 'noflags', name: 'Flag-free', blurb: 'No flags today. Pure deduction, one square at a time.', noFlags: true },
+  { id: 'sprint', name: 'Sprint', blurb: 'Two minutes on the clock. Clear it before the timer does.', seconds: 120 },
+];
+
+export function dailyTwist(index = dailyNumber()): DailyTwist {
+  return DAILY_TWISTS[((index % DAILY_TWISTS.length) + DAILY_TWISTS.length) % DAILY_TWISTS.length];
+}
+
+/** A daily board, with today's twist already applied. */
+export function dailyBoard(difficulty: Difficulty, index = dailyNumber()): BoardState {
+  const twist = dailyTwist(index);
+  const board = freshGame('daily', difficulty);
+  if (twist.mineScale) {
+    // Keep at least one safe ring around the opening move plantable.
+    board.mines = Math.min(Math.round(board.mines * twist.mineScale), board.cells.length - 9);
+  }
+  return board;
 }

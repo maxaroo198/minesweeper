@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 const output = ts.transpileModule(readFileSync(new URL('../src/game.ts', import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext } }).outputText;
-const { freshGame, plantBoard, reveal, toggleFlag, neighbors, seededRandom, DIFFICULTIES } = await import(`data:text/javascript;base64,${Buffer.from(output).toString('base64')}`);
+const { freshGame, plantBoard, reveal, toggleFlag, neighbors, seededRandom, DIFFICULTIES, DAILY_TWISTS, dailyBoard, dailyTwist } = await import(`data:text/javascript;base64,${Buffer.from(output).toString('base64')}`);
 
 let checks = 0;
 for (const mode of ['classic', 'blitz', 'zen', 'daily']) {
@@ -53,4 +53,24 @@ assert.equal(cascade.change.opened[0], 0);
 assert.equal(cascade.change.wave[0], 0);
 assert.ok(Object.values(cascade.change.wave).every(d => d >= 0 && Number.isInteger(d)));
 assert.equal(plantBoard(board, 0).cells.filter(c => c.mine).length, 10);
+
+// Daily twists: same puzzle for everyone, rotating day by day, mines scaled to match.
+for (let day = 0; day < 8; day++) {
+  const twist = dailyTwist(day);
+  for (const difficulty of ['easy', 'medium', 'hard']) {
+    const board = dailyBoard(difficulty, day);
+    const base = DIFFICULTIES[difficulty].mines;
+    const expected = twist.mineScale ? Math.round(base * twist.mineScale) : base;
+    assert.equal(board.mines, expected, `day ${day} ${difficulty} carries the twist's mine count`);
+    assert.ok(board.mines <= board.cells.length - 9, 'the safe opening always has room');
+    assert.equal(board.cells.filter(c => c.mine).length, 0, 'mines are planted on the first move, never before');
+    const planted = plantBoard(board, 40);
+    assert.equal(planted.cells.filter(c => c.mine).length, expected, 'the planted board matches the twist');
+    assert.deepEqual(plantBoard(board, 40).cells, planted.cells, 'the daily stays deterministic with a twist');
+  }
+}
+assert.equal(new Set([0, 1, 2, 3].map(d => dailyTwist(d).id)).size, 4, 'four days, four different twists');
+assert.equal(dailyTwist(0).id, dailyTwist(DAILY_TWISTS.length).id, 'the twist cycle repeats on schedule');
+assert.ok(DAILY_TWISTS.some(t => t.noFlags) && DAILY_TWISTS.some(t => t.seconds), 'twists include a flag-free day and a timed day');
+console.log(`Daily twists: ${DAILY_TWISTS.map(t => t.name).join(' → ')}`);
 console.log(`Passed ${checks} randomized, full-game engine tests plus daily, flags, and safety checks.`);

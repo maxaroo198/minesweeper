@@ -12,12 +12,18 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
 
 ## A little logic. A lot of possibility.
 
-- **Classic:** Easy (9 × 9, 10 mines), Medium (16 × 16, 40 mines), and Hard (30 × 16, 99 mines).
-- **Blitz:** A one-minute race against the clock, with all three board sizes.
+- **Classic:** Perfect squares — Easy (9 × 9, 10 mines), Medium (16 × 16, 40 mines), and Hard (30 × 30, 99 mines).
+- **Blitz:** A race against the clock, from 15 seconds to 5 minutes, on all three board sizes.
 - **Zen:** No pressure and no visible timer.
-- **Daily:** A seeded daily puzzle, refreshed at midnight UTC. All daily games use a shared seed, with first-move protection.
+- **Daily:** A numbered, seeded puzzle refreshed at midnight UTC. All daily games use a shared seed
+  with first-move protection, and each day carries a twist: Classic rules, Packed (+33% mines),
+  Flag-free (no flags at all), or Sprint (two minutes on the clock). Streaks, a seven-day result
+  strip and a spoiler-free share grid are built in.
 - Safe opening: Your first square and its neighbors are mine-free.
 - Reveal, chord, flag, and restart controls; right-click, touch, and long-press support.
+- Every board is a perfect square that scales to fit the window, so you never scroll mid-sweep.
+- Flags are always the same orange — a flag never hints at what is underneath it.
+- Hover **Let's play** in the sidebar for the mode switcher (daily challenge included).
 - Locally saved game history, personal bests, sound settings, and high-contrast/reduced-motion options.
 - No accounts, advertising, analytics, or remote APIs.
 

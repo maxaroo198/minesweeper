@@ -6,7 +6,7 @@ import { mkdirSync } from 'node:fs';
 import ts from 'typescript';
 import { readFileSync } from 'node:fs';
 const output = ts.transpileModule(readFileSync(new URL('../src/game.ts', import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext } }).outputText;
-const { freshGame, plantBoard } = await import(`data:text/javascript;base64,${Buffer.from(output).toString('base64')}`);
+const { freshGame, plantBoard, dailyBoard } = await import(`data:text/javascript;base64,${Buffer.from(output).toString('base64')}`);
 
 mkdirSync('.screenshots', { recursive: true });
 const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -39,7 +39,8 @@ await page.getByRole('button', { name: 'Medium', exact: true }).click();
 await page.getByRole('button', { name: 'Start fresh', exact: true }).click();
 assert.equal(await page.locator('.tile').count(), 256);
 await page.getByRole('button', { name: 'Hard', exact: true }).click();
-assert.equal(await page.locator('.tile').count(), 480);
+assert.equal(await page.locator('.tile').count(), 900);
+assert.equal(await page.locator('.board-dimensions').innerText().then(t => t.includes('30 × 30')), true, 'hard is a 30 x 30 square');
 await page.locator('.mode-card-zen').click();
 assert.equal(await page.locator('.tile').count(), 81);
 await page.locator('.tile').nth(40).click();
@@ -56,7 +57,7 @@ await page.getByRole('button', { name: 'See the board', exact: true }).click();
 await page.locator('.mode-card-daily').click();
 assert.equal(await page.locator('.tile').count(), 256);
 await page.locator('.tile').nth(40).click();
-const solved = plantBoard(freshGame('daily', 'medium'), 40);
+const solved = plantBoard(dailyBoard('medium'), 40);
 for (let i = 0; i < solved.cells.length; i++) {
   if (!solved.cells[i].mine && !(await page.locator('.tile').nth(i).isDisabled())) {
     await page.locator('.tile').nth(i).click();
@@ -76,6 +77,74 @@ await page.getByRole('button', { name: 'Just right', exact: false }).click();
 await page.locator('.nav-item').filter({ hasText: 'How to play' }).click();
 await page.getByRole('button', { name: 'Find your mode', exact: true }).click();
 assert.equal(await page.locator('.mode-guide-card').count(), 4);
+
+// Every board is a square grid that fits without scrolling inside the board box.
+const layoutPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+layoutPage.on('pageerror', e => errors.push(e.message));
+await layoutPage.goto(BASE, { waitUntil: 'networkidle' });
+await layoutPage.waitForTimeout(400);
+for (const [label, count, size] of [['Easy', 81, 9], ['Medium', 256, 16], ['Hard', 900, 30]]) {
+  await layoutPage.locator('.difficulty-tabs button', { hasText: label }).first().click();
+  await layoutPage.waitForTimeout(120);
+  await layoutPage.evaluate(() => { const d = document.querySelector('[role="dialog"]'); if (d) [...d.querySelectorAll('button')].find(b => b.textContent.includes('Start fresh'))?.click(); });
+  await layoutPage.waitForTimeout(350);
+  const grid = await layoutPage.evaluate(() => {
+    const board = document.querySelector('.mine-board');
+    const scroll = document.querySelector('.board-scroll');
+    const tile = board.querySelector('.tile').getBoundingClientRect();
+    const rect = board.getBoundingClientRect();
+    return {
+      tiles: board.querySelectorAll('.tile').length,
+      columns: getComputedStyle(board).gridTemplateColumns.split(' ').length,
+      squareTile: Math.abs(tile.width - tile.height) < 0.6,
+      squareBoard: Math.abs(rect.width - rect.height) < 2,
+      innerScrollY: scroll.scrollHeight - scroll.clientHeight,
+      innerScrollX: scroll.scrollWidth - scroll.clientWidth,
+    };
+  });
+  assert.equal(grid.tiles, count, `${label} has ${count} tiles`);
+  assert.equal(grid.columns, size, `${label} has ${size} columns`);
+  assert.ok(grid.squareTile, `${label} tiles are square`);
+  assert.ok(grid.squareBoard, `${label} board is square`);
+  assert.ok(grid.innerScrollY <= 0 && grid.innerScrollX <= 0, `${label} board needs no scrolling`);
+}
+
+// A flag looks identical whether or not a mine sits under it.
+await layoutPage.locator('.difficulty-tabs button', { hasText: 'Easy' }).first().click();
+await layoutPage.waitForTimeout(120);
+await layoutPage.evaluate(() => { const d = document.querySelector('[role="dialog"]'); if (d) [...d.querySelectorAll('button')].find(b => b.textContent.includes('Start fresh'))?.click(); });
+await layoutPage.waitForTimeout(350);
+await layoutPage.locator('.tile').nth(40).click();
+for (let i = 0; i < 81; i++) {
+  const tile = layoutPage.locator(".tile").nth(i);
+  if ((await tile.getAttribute('class')).includes('covered')) await tile.click({ button: 'right' });
+}
+const flagStyles = await layoutPage.evaluate(() => [...document.querySelectorAll('.tile.flagged')].map(t => {
+  const marker = getComputedStyle(t.querySelector('.flag-marker')).color;
+  return `${marker}|${getComputedStyle(t).backgroundColor}`;
+}));
+assert.ok(flagStyles.length > 5, 'several flags planted');
+assert.equal(new Set(flagStyles).size, 1, 'every flag is the same colour, mine or not');
+assert.deepEqual([...new Set(flagStyles.map(s => s.split('|')[0]))], ['rgb(233, 120, 72)'], 'flags are the brand orange');
+
+// Blitz reaches 15 seconds.
+await layoutPage.locator('.mode-card-blitz').click();
+await layoutPage.waitForTimeout(120);
+await layoutPage.evaluate(() => { const d = document.querySelector('[role="dialog"]'); if (d) [...d.querySelectorAll('button')].find(b => b.textContent.includes('Start fresh'))?.click(); });
+await layoutPage.waitForTimeout(250);
+const blitzOptions = await layoutPage.locator('.blitz-time option').evaluateAll(opts => opts.map(o => o.value));
+assert.ok(blitzOptions.includes('15'), 'blitz offers a 15 second limit');
+await layoutPage.locator('.blitz-time').selectOption('15');
+await layoutPage.waitForTimeout(250);
+assert.ok((await layoutPage.locator('.board-stat').first().innerText()).includes('00:15'), 'blitz timer starts at 15 seconds');
+
+// Hovering "Let's play" on desktop reveals the modes with the daily underneath.
+await layoutPage.hover('.nav-flyout');
+await layoutPage.waitForTimeout(250);
+assert.equal(await layoutPage.locator('.nav-flyout-panel').evaluate(el => getComputedStyle(el).visibility), 'visible', 'mode flyout opens on hover');
+assert.equal(await layoutPage.locator('.nav-flyout-item').count(), 4, 'flyout lists three modes plus the daily');
+assert.ok(await layoutPage.locator('.nav-flyout-item.daily').innerText().then(t => t.includes('Daily challenge')), 'daily sits under the modes in the flyout');
+await layoutPage.close();
 await page.locator('.download-button').click();
 await page.locator('.android-download').waitFor();
 const apk = await page.request.get(`${BASE}/minefield.apk`);
