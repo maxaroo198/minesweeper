@@ -131,9 +131,60 @@ classic board can be solved move-by-move in CI without guessing.
 
 ---
 
-# Still to come (your call)
+# Round 3
 
-* **Nightfall** — hidden numbers, escalating, 12 × 12, with a *Blackout* difficulty at 1-in-3.
-* **New board sizes** — medium 12 × 12, hard 20 × 20 (also shrinks daily Hard to 400 tiles).
-* **Custom** difficulty with its own leaderboard.
-* **The other new mode** — waiting on your answers.
+## New board sizes
+
+Medium is now **12 × 12 with 24 mines** and Hard is **20 × 20 with 70 mines**, chosen so density
+still climbs gently with the size (12% → 17% → 18%) instead of turning Hard into a wall of mines.
+Daily Hard follows along at 400 tiles.
+
+## Nightfall (and Blackout)
+
+A 12 × 12 board where the numbers are not guaranteed.
+
+* Base chance a freshly opened square shows nothing: **1 in 10**, rising **5% every five seconds**,
+  capped at a coin flip.
+* **Two fogged squares never touch.** The mist skips any square with a fogged neighbour, so there is
+  always honest information on screen.
+* Numbers you have already earned never come back, and a fogged square cannot be chorded — chording
+  is a promise you know what the number says.
+* Empty squares are never fogged; they show nothing anyway, and fogging them would stall the board.
+* **Blackout** sits beside Easy/Medium/Hard in Nightfall's difficulty row: same 12 × 12 board, base
+  chance **1 in 3**, capped at two in three.
+* The board header shows the live hiding percentage so you can feel it climbing.
+
+## Custom
+
+A size picker instead of fixed difficulties: width, height and mine count with sliders from 5 to 40
+squares a side, three presets (Tiny, Wide, Monster), and a running summary of squares, density and
+tiles left to clear. The size is remembered on the device, custom boards are never square by
+accident, and every result lands on one shared Custom leaderboard that shows each board's dimensions.
+
+## Three more modes
+
+* **Riptide** — every fifteen seconds the tide slides one row and one column, carrying the mines with
+  it and recounting every number. Mines only ever move among covered squares, so an opened square can
+  never become a mine; your deductions, however, have a shelf life. The header counts down to the
+  next tide and the squares that moved flash.
+* **Contract** — three objectives dealt per board from a pool of five (beat a time limit, win with no
+  flags, win without chording, never flag a safe square, open all four corners). Each kept objective
+  is a star, shown live in the side panel and in the header, and the Contract leaderboard sorts by
+  stars before time.
+* **Scan** — three charges to start. Arm Scan, tap a covered square, and it shows the true mine count
+  around that square without opening it. Flag a real mine and you earn a charge back; wrong flags
+  earn nothing. Untimed.
+
+## Under the hood
+
+* `Cell` gained `hidden` and `scanned`; `BoardState` gained `chords`, `flagsPlaced`, `charges`, `scans`,
+  `objectives` and an optional `custom` size — all saved with the record where it matters.
+* New modules: `src/contract.ts` (objective pool, dealing, live rating, stars) and `src/riptide.ts`
+  (the drift, which provably preserves the mine count and never mines an open square).
+* `MODE_DIFFICULTIES` now decides which rungs a mode offers, so Blackout exists inside Nightfall and
+  nowhere else.
+* The engine suite covers fog adjacency and escalation, tide invariants (25 tides), scan charges,
+  contract dealing and stars, custom clamping, and the new sizes. The browser suite plays all nine
+  modes, including a fog-only page that verifies no two fogged squares touch and that the hiding
+  chance rises on the clock.
+* Reveal ripples are now cleared after they play, so no stale outline is left on the board.

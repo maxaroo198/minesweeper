@@ -12,19 +12,33 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
 
 ## A little logic. A lot of possibility.
 
-- **Classic:** Perfect squares — Easy (9 × 9, 10 mines), Medium (16 × 16, 40 mines), and Hard (30 × 30, 99 mines).
+- **Classic:** Perfect squares — Easy (9 × 9, 10 mines), Medium (12 × 12, 24 mines), and Hard (20 × 20, 70 mines).
 - **Blitz:** A race against the clock, from 15 seconds to 5 minutes, on all three board sizes.
 - **Branch:** No pressure and no visible timer. Clear a 9 × 9 square to grow the limbs behind
   it — the tree forks wider the deeper you go, and your tree is saved on the device.
 - **Daily:** A numbered, seeded puzzle refreshed at midnight UTC. All daily games use a shared seed
   with first-move protection, and each day carries a twist: Classic rules, Packed (+33% mines),
   Flag-free (no flags at all), or Sprint (two minutes on the clock). Streaks, a seven-day result
-  strip and a spoiler-free share grid are built in.
+  strip and a spoiler-free share grid are built in. The daily is locked to Hard, or Medium and Hard
+  when the day's twist runs on a clock.
+- **Nightfall:** A 12 × 12 board where opening a square has a chance of showing you nothing at all.
+  The chance starts at one in ten, climbs 5% every five seconds and stops at a coin flip, and two
+  fogged squares never touch — so there is always something left to read. **Blackout** is a fourth
+  rung on the difficulty row that starts at one in three.
+- **Custom:** Pick any field from 5 to 40 squares a side and any mine count it can hold. The board
+  size is remembered, and every result lands on one shared Custom leaderboard with its size shown.
+- **Riptide:** Every fifteen seconds the tide slides one row and one column, dragging the mines with
+  it and rewriting the numbers on squares you have already opened.
+- **Contract:** Three objectives ride along with each board — clear it in time, win without flags,
+  win without chording, never flag a safe square, open the corners. Each one kept is a star, and the
+  Contract board ranks stars before time.
+- **Scan:** Start with three charges; arm Scan and tap a covered square to read its true mine count
+  without opening it. Flag a real mine to earn a charge back.
 - Safe opening: Your first square and its neighbors are mine-free.
 - Reveal, chord, flag, and restart controls; right-click, touch, and long-press support.
-- Every board is a perfect square that scales to fit the window, so you never scroll mid-sweep.
+- Boards are square by default and every grid — Custom's odd shapes included — scales to fit the window, so you never scroll mid-sweep.
 - Flags are always the same orange — a flag never hints at what is underneath it.
-- Hover **Let's play** in the sidebar for the mode switcher (daily challenge included).
+- Hover **Let's play** in the sidebar for the mode switcher, which lists every mode with the daily underneath.
 - Every Classic and Blitz win asks who to put on the leaderboard, and the Blitz board lists each
   entry's time and board size next to the name.
 - Locally saved game history, personal bests, sound settings, and high-contrast/reduced-motion options.
@@ -57,7 +71,7 @@ node scripts/test-engine.mjs
 node scripts/test-browser.mjs
 ```
 
-The browser checks expect the Vite server at `http://127.0.0.1:4173` and Playwright Chromium. They cover safe openings, complete wins, flagging, difficulties, modes, Blitz timeout, local statistics, mobile controls, preferences, and APK downloading.
+The browser checks expect the Vite server at `http://127.0.0.1:4173` and Playwright Chromium. They cover safe openings, complete wins, flagging, all nine modes (Nightfall fog adjacency and escalation, Custom sizing, the Riptide countdown, Contract objectives, Scan charges), the daily lock, the leaderboard name prompt, Blitz timeout, local statistics, mobile controls, preferences, and APK downloading.
 
 ## Keyboard controls
 

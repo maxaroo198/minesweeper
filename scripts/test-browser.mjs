@@ -39,10 +39,10 @@ await page.getByRole('button', { name: 'Keep playing', exact: true }).click();
 assert.equal(await page.locator('.tile').count(), 81);
 await page.getByRole('button', { name: 'Medium', exact: true }).click();
 await page.getByRole('button', { name: 'Start fresh', exact: true }).click();
-assert.equal(await page.locator('.tile').count(), 256);
+assert.equal(await page.locator('.tile').count(), 144);
 await page.getByRole('button', { name: 'Hard', exact: true }).click();
-assert.equal(await page.locator('.tile').count(), 900);
-assert.equal(await page.locator('.board-dimensions').innerText().then(t => t.includes('30 × 30')), true, 'hard is a 30 x 30 square');
+assert.equal(await page.locator('.tile').count(), 400);
+assert.equal(await page.locator('.board-dimensions').innerText().then(t => t.includes('20 × 20')), true, 'hard is a 20 x 20 square');
 await page.locator('.mode-card-zen').click();
 assert.equal(await page.locator('.tile').count(), 81);
 await page.locator('.tile').nth(40).click();
@@ -67,7 +67,7 @@ const daily = await page.evaluate(() => ({
 }));
 assert.ok(['Hard', 'Medium'].includes(daily.selected), 'the daily starts on a locked size');
 assert.deepEqual(daily.enabled, daily.selected === 'Medium' ? ['Medium', 'Hard'] : ['Hard'], 'the daily only offers its locked sizes');
-assert.equal(daily.tiles, daily.selected === 'Medium' ? 256 : 900, 'the daily board matches its locked size');
+assert.equal(daily.tiles, daily.selected === 'Medium' ? 144 : 400, 'the daily board matches its locked size');
 assert.ok(await page.locator('.daily-hub-lock').innerText().then(t => /locked to hard|medium or hard/i.test(t)), 'the hub says which sizes are locked');
 
 // Win an easy classic board — that is what feeds the records and the local board.
@@ -110,14 +110,14 @@ assert.equal(await page.locator('.app.high-contrast').count(), 1);
 await page.getByRole('button', { name: 'Just right', exact: false }).click();
 await page.locator('.nav-item').filter({ hasText: 'How to play' }).click();
 await page.getByRole('button', { name: 'Find your mode', exact: true }).click();
-assert.equal(await page.locator('.mode-guide-card').count(), 4);
+assert.equal(await page.locator('.mode-guide-card').count(), 9);
 
 // Every board is a square grid that fits without scrolling inside the board box.
 const layoutPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 layoutPage.on('pageerror', e => errors.push(e.message));
 await layoutPage.goto(BASE, { waitUntil: 'networkidle' });
 await layoutPage.waitForTimeout(400);
-for (const [label, count, size] of [['Easy', 81, 9], ['Medium', 256, 16], ['Hard', 900, 30]]) {
+for (const [label, count, size] of [['Easy', 81, 9], ['Medium', 144, 12], ['Hard', 400, 20]]) {
   await layoutPage.locator('.difficulty-tabs button', { hasText: label }).first().click();
   await layoutPage.waitForTimeout(120);
   await layoutPage.evaluate(() => { const d = document.querySelector('[role="dialog"]'); if (d) [...d.querySelectorAll('button')].find(b => b.textContent.includes('Start fresh'))?.click(); });
@@ -176,9 +176,122 @@ assert.ok((await layoutPage.locator('.board-stat').first().innerText()).includes
 await layoutPage.hover('.nav-flyout');
 await layoutPage.waitForTimeout(250);
 assert.equal(await layoutPage.locator('.nav-flyout-panel').evaluate(el => getComputedStyle(el).visibility), 'visible', 'mode flyout opens on hover');
-assert.equal(await layoutPage.locator('.nav-flyout-item').count(), 4, 'flyout lists three modes plus the daily');
+assert.equal(await layoutPage.locator('.nav-flyout-item').count(), 9, 'flyout lists eight modes plus the daily');
 assert.ok(await layoutPage.locator('.nav-flyout-item.daily').innerText().then(t => t.includes('Daily challenge')), 'daily sits under the modes in the flyout');
+// ---- The five new modes ----
+const fresh = async (target) => {
+  const dialog = target.locator('[role="dialog"]');
+  if (await dialog.count()) {
+    const start = dialog.getByRole('button', { name: 'Start fresh', exact: true });
+    if (await start.count()) { await start.click(); await target.waitForTimeout(300); }
+  }
+};
+
+// Custom: pick a size in the dialog and play exactly that board.
+await layoutPage.locator('.mode-card-custom').click();
+await layoutPage.waitForTimeout(200);
+assert.equal(await layoutPage.locator('#custom-cols').count(), 1, 'custom mode asks for a size first');
+const setRange = (selector, value) => layoutPage.locator(selector).evaluate((el, v) => {
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+  setter.call(el, String(v));
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}, value);
+await setRange('#custom-cols', 16);
+await setRange('#custom-rows', 10);
+await setRange('#custom-mines', 30);
+assert.ok(/160/i.test(await layoutPage.locator('.custom-summary').innerText()), 'the picker sums up the board');
+await layoutPage.getByRole('button', { name: 'Build this board', exact: true }).click();
+await layoutPage.waitForTimeout(250);
+await fresh(layoutPage);
+assert.equal(await layoutPage.locator('.tile').count(), 160, 'custom plays the size that was asked for');
+assert.ok((await layoutPage.locator('.resize-button').innerText()).includes('16 × 10'), 'the custom board shows its own size');
+assert.deepEqual(await layoutPage.evaluate(() => JSON.parse(localStorage.getItem('minefield-custom'))), { rows: 10, cols: 16, mines: 30 }, 'the size is remembered for next time');
+
+// Contract: three objectives on a card, each one a star.
+await layoutPage.locator('.mode-card-contract').click();
+await layoutPage.waitForTimeout(200);
+await fresh(layoutPage);
+assert.equal(await layoutPage.locator('.contract-panel li').count(), 3, 'a contract deals three objectives');
+assert.equal(await layoutPage.locator('.contract-chip').count(), 1, 'the header counts what is kept so far');
+
+// Scan: charges are spent on a square and shown on the board.
+await layoutPage.locator('.mode-card-scan').click();
+await layoutPage.waitForTimeout(200);
+await fresh(layoutPage);
+assert.ok((await layoutPage.locator('.scan-toggle').innerText()).includes('3'), 'scan mode starts with three charges');
+await layoutPage.locator('.scan-toggle').click();
+await layoutPage.locator('.tile.covered').first().click();
+await layoutPage.waitForTimeout(200);
+assert.equal(await layoutPage.locator('.tile.scanned').count(), 1, 'a spent charge marks the square it read');
+assert.ok((await layoutPage.locator('.scan-toggle b').innerText()) === '2', 'and one charge is gone');
+
+// Nightfall: 12 × 12 with Blackout sitting beside the usual three sizes.
+await layoutPage.locator('.mode-card-nightfall').click();
+await layoutPage.waitForTimeout(200);
+await fresh(layoutPage);
+const nightTabs = await layoutPage.locator('.difficulty-tabs button').allInnerTexts();
+assert.deepEqual(nightTabs.map(t => t.trim()), ['Easy', 'Medium', 'Hard', 'Blackout'], 'nightfall adds Blackout to the difficulty row');
+assert.equal(await layoutPage.locator('.tile').count(), 144, 'nightfall is always 12 × 12');
+await layoutPage.locator('.difficulty-tabs button', { hasText: 'Blackout' }).click();
+await layoutPage.waitForTimeout(250);
+await fresh(layoutPage);
+assert.equal(await layoutPage.locator('.tile').count(), 144, 'blackout keeps the 12 × 12 board');
+assert.ok((await layoutPage.locator('.fog-chip').innerText()).includes('33%'), 'blackout starts at roughly one in three');
+assert.ok((await layoutPage.locator('.board-dimensions').innerText()).includes('12 × 12'));
+
+// Riptide: the tide is always counting down.
+await layoutPage.locator('.mode-card-riptide').click();
+await layoutPage.waitForTimeout(200);
+await fresh(layoutPage);
+assert.equal((await layoutPage.locator('.tide-chip').innerText()).trim().toLowerCase(), 'tide waits', 'the tide waits for the first move');
+await layoutPage.locator('.tile').nth(40).click();
+await layoutPage.waitForTimeout(250);
+assert.ok(/tide in \d+s/i.test(await layoutPage.locator('.tide-chip').innerText()), 'riptide counts down to the next tide');
+const tideStart = parseInt((await layoutPage.locator('.tide-chip').innerText()).match(/\d+/)[0], 10);
+await layoutPage.waitForTimeout(1400);
+const tideNow = parseInt((await layoutPage.locator('.tide-chip').innerText()).match(/\d+/)[0], 10);
+assert.ok(tideNow < tideStart, `and the countdown actually runs (${tideStart}s → ${tideNow}s)`);
 await layoutPage.close();
+
+// A board where numbers go missing: fog must never sit next to fog, and it must grow.
+const fogPage = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+fogPage.on('pageerror', e => errors.push(e.message));
+await fogPage.addInitScript(() => { Math.random = () => 0.02; });
+await fogPage.clock.install();
+await fogPage.goto(BASE, { waitUntil: 'networkidle' });
+await fogPage.locator('.mode-card-nightfall').click();
+await fogPage.waitForTimeout(300);
+const fogDialog = fogPage.getByRole('dialog');
+if (await fogDialog.count()) {
+  const start = fogDialog.getByRole('button', { name: 'Start fresh', exact: true });
+  if (await start.count()) await start.click();
+  await fogPage.waitForTimeout(300);
+}
+await fogPage.locator('.tile').nth(40).click();
+await fogPage.waitForTimeout(300);
+const fogged = await fogPage.evaluate(() => ({
+  tiles: [...document.querySelectorAll('.tile')].map((t, i) => (t.classList.contains('fogged') ? i : -1)).filter(i => i >= 0),
+  cols: 12,
+  chip: document.querySelector('.fog-chip')?.textContent ?? '',
+}));
+assert.ok(fogged.tiles.length > 0, 'nightfall hides numbers as you open them');
+for (const i of fogged.tiles) {
+  const row = Math.floor(i / fogged.cols), col = i % fogged.cols;
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    if (!dr && !dc) continue;
+    const r = row + dr, c = col + dc;
+    if (r < 0 || r > 11 || c < 0 || c > 11) continue;
+    assert.ok(!fogged.tiles.includes(r * fogged.cols + c), 'two fogged squares never touch');
+  }
+}
+const before = parseInt(fogged.chip, 10);
+await fogPage.clock.fastForward(21000);
+await fogPage.waitForTimeout(200);
+const after = parseInt(await fogPage.locator('.fog-chip').innerText(), 10);
+assert.ok(after > before, `the fog chance climbs with the clock (${before}% → ${after}%)`);
+assert.ok(await fogPage.locator('.tile.fogged').first().evaluate(el => getComputedStyle(el).borderStyle.includes('dashed')), 'a fogged square looks different from an open one');
+await fogPage.screenshot({ path: '.screenshots/nightfall.png' });
+await fogPage.close();
 await page.locator('.download-button').click();
 await page.locator('.android-download').waitFor();
 const apk = await page.request.get(`${BASE}/minefield.apk`);
@@ -250,5 +363,5 @@ assert.ok(await phone.evaluate(() => getComputedStyle(document.querySelector('.g
 await phone.screenshot({ path: '.screenshots/mobile-dark.png', fullPage: false });
 await phone.locator('.theme-button').tap();
 assert.deepEqual(errors, [], 'no browser runtime errors');
-console.log('Browser tests passed: desktop, mobile, flags, difficulties, modes, timeout, winning game, records, preferences, guide, and APK download.');
+console.log('Browser tests passed: desktop, mobile, flags, sizes, daily lock, name prompt, all nine modes (Nightfall fog, Custom sizing, Riptide tide, Contract objectives, Scan charges), preferences, guide, and APK download.');
 await browser.close();

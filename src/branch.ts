@@ -102,7 +102,7 @@ export function boardFromArea(world: BranchWorld, id: string): BoardState {
   const base = freshGame('zen', 'easy');
   if (!area) return base;
   const config = DIFFICULTIES.easy;
-  const cells: Cell[] = Array.from({ length: config.rows * config.cols }, () => ({ mine: false, adjacent: 0, revealed: false, flagged: false, exploded: false }));
+  const cells: Cell[] = Array.from({ length: config.rows * config.cols }, () => ({ mine: false, adjacent: 0, revealed: false, flagged: false, exploded: false, hidden: false, scanned: null }));
   (area.mines ?? []).forEach(i => { cells[i].mine = true; });
   cells.forEach((cell, i) => { if (!cell.mine) cell.adjacent = neighbors(i, config.rows, config.cols).filter(n => cells[n].mine).length; });
   area.revealed.forEach(i => { if (!cells[i].mine) cells[i].revealed = true; });

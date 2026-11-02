@@ -1394,3 +1394,99 @@ color-scheme:dark;
 .public-post-row .primary-button{flex:1 1 auto}
 .public-board.not-connected .empty-state{padding:24px 18px}
 .public-board.not-connected .empty-state h3{font-size:15px}
+
+/* ============================================================================
+   Nightfall · Custom · Riptide · Contract · Scan
+   ============================================================================ */
+/* Mode colours for the five new cards / flyout rows. */
+.mode-nightfall{color:var(--tx57);background:var(--sf139);border-color:var(--sf64)}
+.mode-custom{color:var(--tx155);background:var(--sf168);border-color:var(--sf133)}
+.mode-riptide{color:var(--tx110);background:var(--sf101);border-color:var(--sf78)}
+.mode-contract{color:var(--tx214);background:var(--sf152);border-color:var(--sf109)}
+.mode-scan{color:var(--tx128);background:var(--sf125);border-color:var(--sf98)}
+.game-mode-tag.mint{color:var(--tx57);background:var(--sf139)}
+
+/* The difficulty row has to hold a chip or two now. */
+.difficulty-row{flex-wrap:wrap;row-gap:9px}
+.difficulty-dot.dot-blackout{background:var(--tx04);box-shadow:0 0 0 2px var(--orange-tint)}
+.difficulty-dot.dot-custom{background:var(--orange)}
+.difficulty-tabs button.blackout-tab{color:var(--tx04);font-weight:600;letter-spacing:.2px}
+.difficulty-tabs button.blackout-tab.selected{background:var(--tx04);color:var(--sf167)}
+.difficulty-tabs button.blackout-tab.selected .difficulty-dot{background:var(--orange)}
+.difficulty-badge.dot-blackout{background:var(--tx04);color:var(--sf167)}
+.difficulty-badge.dot-custom{background:var(--orange-tint);color:var(--orange)}
+
+/* Little live read-outs: fog %, tide countdown, stars, charges. */
+.fog-chip,.tide-chip,.contract-chip,.scan-chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:7px;letter-spacing:.4px;padding:4px 7px;border-radius:5px;background:var(--sf139);color:var(--tx155);white-space:nowrap;text-transform:uppercase}
+.fog-chip svg,.tide-chip svg,.contract-chip svg,.scan-chip svg{opacity:.85}
+.fog-chip.live,.tide-chip.live{color:var(--tx04);background:var(--sf152)}
+.contract-chip.full{background:var(--orange-tint);color:var(--orange)}
+
+/* A number the mist has taken. */
+.tile.fogged{background:var(--sf118);background-image:repeating-linear-gradient(45deg,rgba(233,120,72,.12) 0 2px,transparent 2px 6px);border:1px dashed rgba(233,120,72,.45);color:var(--tx160)}
+.tile.fogged .fog-marker{display:flex;align-items:center;justify-content:center;opacity:.7}
+.tile.revealed.fogged:hover{background:var(--sf118);background-image:repeating-linear-gradient(45deg,rgba(233,120,72,.16) 0 2px,transparent 2px 6px)}
+.tile.scanned{border-color:var(--orange);box-shadow:inset 0 0 0 1px var(--orange-tint)}
+.scan-marker{display:flex;align-items:center;justify-content:center;gap:1px;font-family:var(--mono);font-size:9px;color:var(--orange)}
+.scan-marker svg{width:8px;height:8px}
+.dense-board .scan-marker{font-size:8px}
+
+/* The tide landing. */
+.tile.tide-moved{animation:tide-swell .7s ease-out}
+@keyframes tide-swell{
+  0%{transform:translateY(0);background-color:var(--orange-tint)}
+  45%{transform:translateY(-2px)}
+  100%{transform:translateY(0);background-color:transparent}
+}
+
+/* Scan button in the controls row. */
+.scan-toggle{display:flex;align-items:center;gap:6px;font-size:9px;color:var(--tx79);padding:5px 8px;border:1px solid var(--sf80);border-radius:6px;background:var(--sf163)}
+.scan-toggle b{font-family:var(--mono);font-size:9px;color:var(--tx17);font-weight:400}
+.scan-toggle:hover:not(:disabled){border-color:var(--orange);color:var(--orange)}
+.scan-toggle.enabled{background:var(--orange-tint);color:var(--orange);border-color:var(--orange)}
+.scan-toggle:disabled{opacity:.4;cursor:not-allowed}
+
+/* Custom size picker. */
+.resize-button{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:500;padding:8px 11px;border-radius:6px;border:1px dashed var(--sf80);background:var(--sf127);color:var(--tx19)}
+.resize-button span{font-family:var(--mono);font-size:7px;letter-spacing:.4px;color:var(--tx160);text-transform:uppercase}
+.resize-button:hover{border-color:var(--orange);color:var(--orange)}
+.custom-presets{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0 4px}
+.custom-preset{display:flex;flex-direction:column;gap:3px;padding:10px 8px;border:1px solid var(--sf80);border-radius:7px;background:var(--sf163);text-align:left}
+.custom-preset b{font-size:11px;font-weight:550;color:var(--tx07)}
+.custom-preset span{font-family:var(--mono);font-size:7px;color:var(--tx160)}
+.custom-preset:hover{border-color:var(--orange);background:var(--orange-tint)}
+.custom-fields{display:flex;flex-direction:column;gap:14px;margin-top:16px}
+.custom-fields label{display:flex;flex-direction:column;gap:7px}
+.custom-fields label>span{display:flex;align-items:baseline;justify-content:space-between;font-size:10px;font-weight:500;color:var(--tx19)}
+.custom-fields label small{font-family:var(--mono);font-size:7px;color:var(--tx160)}
+.custom-fields input[type=range]{width:100%;accent-color:var(--orange);height:3px;cursor:pointer}
+.custom-summary{display:flex;justify-content:space-between;gap:10px;margin-top:16px;padding:10px 12px;border-radius:7px;background:var(--sf139);font-family:var(--mono);font-size:7px;letter-spacing:.4px;color:var(--tx155);text-transform:uppercase}
+
+/* Contract objectives panel. */
+.contract-panel{border:1px solid var(--sf64);border-radius:11px;background:var(--sf167);padding:18px 16px 15px;margin-bottom:19px;box-shadow:0 3px 5px var(--sh03)}
+.contract-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.contract-head h3{font-size:13px;font-weight:550;letter-spacing:-.25px;margin-top:6px;color:var(--tx14)}
+.contract-score{font-size:15px;letter-spacing:2px;color:var(--orange)}
+.contract-score.full{color:var(--orange);text-shadow:0 0 12px var(--orange-tint)}
+.contract-panel ul{display:flex;flex-direction:column;gap:11px;margin-top:15px}
+.contract-panel li{display:flex;align-items:flex-start;gap:9px;font-size:9.5px;line-height:1.5;color:var(--tx93)}
+.contract-panel li b{display:block;font-weight:500;color:var(--tx29)}
+.contract-panel li i{display:block;font-style:normal;font-size:8.5px;color:var(--tx160);margin-top:2px}
+.contract-panel li.done b{color:var(--tx04)}
+.contract-panel li.done{opacity:.95}
+.contract-check{display:flex;align-items:center;justify-content:center;height:15px;width:15px;flex-shrink:0;border-radius:50%;border:1px dashed var(--sf80);margin-top:1px;color:var(--sf167)}
+.contract-panel li.done .contract-check{background:var(--orange);border-color:var(--orange);border-style:solid}
+.contract-footer{font-size:8.5px;color:var(--tx160);margin-top:13px;line-height:1.6}
+.result-stars{letter-spacing:2px;color:var(--orange)}
+.stars-cell{color:var(--orange);letter-spacing:1px}
+
+/* Nine mode cards need slightly tighter rows than four did. */
+.mode-card{min-height:92px;padding:15px 14px}
+.mode-card p{padding-right:2px}
+.leaderboard-filters{flex-wrap:wrap}
+.leaderboard-filters .difficulty-tabs{flex-wrap:wrap;width:auto}
+@media (max-width:760px){
+  .mode-card{min-height:0;padding:15px 14px}
+  .custom-presets{grid-template-columns:1fr}
+  .contract-panel{padding:16px 14px 13px}
+}

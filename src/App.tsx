@@ -5,13 +5,17 @@ import {
   ChevronDown, ChevronLeft, ChevronRight, Clock3, Flag, Flame, Grid2X2, Infinity as InfinityIcon,
   Leaf, Lightbulb, Menu, Moon, MousePointer2, Play, RotateCcw, Settings2,
   ShieldCheck, Smartphone, Sparkles, Sun, Target, Trophy, Volume2, VolumeX, X, Zap,
-  Expand, Minimize2, Trash2, Heart, CheckCircle2, GitBranch,
+  Expand, Minimize2, Trash2, Heart, CheckCircle2, GitBranch, Waves, ClipboardCheck,
+  ScanSearch, Ruler,
 } from 'lucide-react';
 import {
-  BLITZ_OPTIONS, DIFFICULTIES, MODE_NAMES, blitzLabel, dailyBoard, dailyNumber,
-  dailyTwist, dayKey, formatTime, freshGame, previewBoard, readRecords, reveal, toggleFlag,
+  BLITZ_OPTIONS, CUSTOM_LIMITS, DIFFICULTIES, MODE_DIFFICULTIES, MODE_NAMES, blitzLabel, clampCustom,
+  dailyBoard, dailyNumber, dailyTwist, dayKey, fogChance, formatTime, freshGame, previewBoard,
+  readRecords, reveal, scanPatch, toggleFlag,
 } from './game';
-import type { BoardState, DailyTwist, Difficulty, GameRecord, Mode } from './game';
+import type { BoardState, CustomConfig, DailyTwist, Difficulty, GameRecord, Mode } from './game';
+import { contractStars, dealObjectives, rateObjectives, starLabel } from './contract';
+import { TIDE_SECONDS, driftBoard } from './riptide';
 import { createAndroidUrls, getAndroidDownloads } from './apkPackage';
 import BootScreen from './BootScreen';
 import SourceDownload from './SourceDownload';
@@ -26,8 +30,12 @@ import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 
 type View = 'play' | 'daily' | 'leaderboard' | 'guide' | 'stats';
-type ModalName = 'android' | 'help' | 'settings' | 'confirm' | 'reset-stats' | 'profile' | null;
-interface PendingGame { mode: Mode; difficulty: Difficulty }
+type ModalName = 'android' | 'help' | 'settings' | 'confirm' | 'reset-stats' | 'profile' | 'custom' | null;
+interface PendingGame { mode: Mode; difficulty: Difficulty; custom?: CustomConfig }
+/** Read the last custom size the player chose. */
+function readCustom(): CustomConfig {
+  try { return clampCustom(JSON.parse(localStorage.getItem('minefield-custom') || '{}')); } catch { return clampCustom({}); }
+}
 type Theme = 'light' | 'dark';
 const THEME_COLOR: Record<Theme, string> = { light: '#fafbf8', dark: '#14160f' };
 const ANDROID_BRIDGE = 'MinefieldAndroid';
@@ -36,8 +44,45 @@ const MODES: { id: Mode; description: string; tag: string; icon: typeof Grid2X2 
   { id: 'blitz', description: 'Beat the clock — anywhere from 15 seconds to 5 minutes.', tag: 'BEAT THE CLOCK', icon: Zap },
   { id: 'zen', description: 'Clear a square, grow a new limb. The tree never ends.', tag: 'ENDLESS BRANCHES', icon: Leaf },
   { id: 'daily', description: 'One puzzle, one shared seed, one fresh twist each day.', tag: 'FRESH EVERY DAY', icon: Sun },
+  { id: 'nightfall', description: 'The numbers go missing as you play. Trust your memory.', tag: 'FADING CLUES', icon: Moon },
+  { id: 'custom', description: 'Pick the width, the height and the mines. Any board you like.', tag: 'YOUR RULES', icon: Ruler },
+  { id: 'riptide', description: 'Every 15 seconds the tide drags the mines to a new row.', tag: 'SHIFTING BOARD', icon: Waves },
+  { id: 'contract', description: 'Three objectives per board. Every one you keep is a star.', tag: 'OBJECTIVES', icon: ClipboardCheck },
+  { id: 'scan', description: 'Three charges to read a patch of board. Flag true to earn more.', tag: 'DETECTIVE WORK', icon: ScanSearch },
 ];
-
+/** The tag that sits beside the mode name in the board header. */
+const MODE_TAG: Record<Mode, string> = {
+  classic: 'THE CLASSIC', blitz: 'BEAT THE CLOCK', zen: 'GROWING BRANCHES', daily: 'DAILY',
+  nightfall: 'FADING CLUES', custom: 'YOUR RULES', riptide: 'THE TIDE RUNS', contract: 'ON CONTRACT', scan: 'DETECTIVE WORK',
+};
+/** Short line under the mode name in the sidebar flyout. */
+const FLYOUT_HINT: Record<Mode, string> = {
+  classic: '9 × 9 · 12 × 12 · 20 × 20', blitz: '15s – 5 min', zen: 'Grow a tree, no clock', daily: 'One shared board a day',
+  nightfall: '12 × 12, numbers fade', custom: 'Any size you like', riptide: 'The tide moves the mines', contract: 'Three objectives, three stars', scan: 'Three charges, more to earn',
+};
+const MODE_BLURB: Record<Mode, string> = {
+  classic: 'A timeless test of deduction.',
+  blitz: 'Trust your instincts and beat the clock.',
+  zen: 'Every cleared square grows a new limb. No clock, no pressure.',
+  daily: 'The same board for every curious mind.',
+  nightfall: 'Numbers go missing as the clock runs. One in ten to start, rising every five seconds — and two fogged squares never touch.',
+  custom: 'Your board, your size, your mine count. One shared leaderboard.',
+  riptide: 'Every fifteen seconds the tide slides a row and a column, and the numbers you trust move with it.',
+  contract: 'Three objectives ride along with this board. Keep them all for three stars.',
+  scan: 'Spend a charge to read the true count around any square. Flag a real mine to earn a charge back.',
+};
+/** The paragraph each mode gets in "Find your mode". */
+const GUIDE_COPY: Record<Mode, string> = {
+  classic: 'The game you know, with three ways to challenge yourself. Easy: 9 × 9, 10 mines. Medium: 12 × 12, 24 mines. Hard: 20 × 20, 70 mines.',
+  blitz: 'One timer, any length from 15 seconds to five minutes. Clear the board before it runs out. Easy is a good place to warm up; Hard is a real test of speed and strategy.',
+  zen: 'One endless tree of 9 × 9 squares. Clear a square to grow the limbs behind it — the branch forks 2, then 3, then 4 wide the deeper you go. Hit a mine and that limb locks and reshuffles: grow a different tip, or re-clear the square before it to reopen the path. Your tree is saved on this device.',
+  daily: 'The same seeded puzzle for every player, updated at midnight UTC. Locked to Hard, or Medium and Hard when the day’s twist runs on a clock. Come back tomorrow for something new.',
+  nightfall: 'A 12 × 12 board where the numbers are not guaranteed. Every square you open has a chance of coming up blank — one in ten at the start, another 5% every five seconds, up to a coin flip. Two fogged squares never touch, so there is always something left to read. Blackout starts at one in three. A number you have earned never comes back, and a fogged square cannot be chorded.',
+  custom: 'Any field from 5 to 40 squares a side, with as many mines as it can hold. Your last size is remembered, every result lands on one shared Custom board with its dimensions beside it, and the first click is always safe.',
+  riptide: 'Every fifteen seconds the tide slides one row and one column, carrying the mines with it and rewriting the numbers on squares you have already opened. Mines only ever move among covered squares, so an open square can never become a mine — but a deduction you made ten seconds ago may already be wrong.',
+  contract: 'Three objectives are dealt with every board — clear it under a set time, win without flags, win without chording, never flag a safe square, or open all four corners. Each one you keep is a star, and the Contract leaderboard ranks stars before time.',
+  scan: 'You start with three Scan charges. Arm Scan, then tap any covered square to read its true mine count without opening it. Flag a real mine and you earn a charge back. No clock, no fog — just deduction with a little help.',
+};
 function BrandMark({ className = '' }: { className?: string }) {
   return <span className={`brand-mark ${className}`} aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M13.2 4h5.6v7.2l5.1-5.1 4 4-5.1 5.1H30v5.6h-7.2l5.1 5.1-4 4-5.1-5.1V32h-5.6v-7.2l-5.1 5.1-4-4 5.1-5.1H2v-5.6h7.2L4.1 10.2l4-4 5.1 5.1V4Z" transform="translate(2 0) scale(.87)" fill="currentColor"/><circle cx="16" cy="16" r="3.2" fill="var(--orange)"/></svg></span>;
 }
@@ -260,6 +305,11 @@ function App() {
   const [nameDraft, setNameDraft] = useState(() => playerName());
   const [pendingPublic, setPendingPublic] = useState<GameRecord | null>(null);
   const [blitzSeconds, setBlitzSeconds] = useState(() => { try { const v = parseInt(localStorage.getItem('minefield-blitz') || '60', 10); return BLITZ_OPTIONS.includes(v) ? v : 60; } catch { return 60; } });
+  const [customConfig, setCustomConfig] = useState<CustomConfig>(readCustom);
+  const [customDraft, setCustomDraft] = useState<CustomConfig>(readCustom);
+  const [scanArmed, setScanArmed] = useState(false);
+  const [tideLeft, setTideLeft] = useState(TIDE_SECONDS);
+  const [tideFx, setTideFx] = useState<{ nonce: number; moved: number[] } | null>(null);
   const [helpTab, setHelpTab] = useState<'basics' | 'modes'>('basics');
   const [leaderMode, setLeaderMode] = useState<Mode>('classic');
   const [leaderDifficulty, setLeaderDifficulty] = useState<Difficulty>('easy');
@@ -284,6 +334,8 @@ function App() {
   const longPressed = useRef(false);
   const recorded = useRef<string>('');
   const boardRef = useRef<HTMLDivElement>(null);
+  const gameRef = useRef(game);
+  const tideDeadline = useRef(0);
   const isFinished = game.status === 'won' || game.status === 'lost';
   const elapsed = game.startedAt === null ? 0 : Math.max(0, Math.floor(((game.finishedAt ?? now) - game.startedAt) / 1000));
   const flags = game.cells.filter(c => c.flagged).length;
@@ -345,6 +397,12 @@ function App() {
 
   const notify = useCallback((message: string) => setToast(message), []);
   useEffect(() => { if (!toast) return; const timeout = setTimeout(() => setToast(''), 3500); return () => clearTimeout(timeout); }, [toast]);
+  // Clear the reveal ripple once it has played, so no stale outline is left behind.
+  useEffect(() => {
+    if (!revealFx) return;
+    const timeout = setTimeout(() => setRevealFx(null), 1500);
+    return () => clearTimeout(timeout);
+  }, [revealFx]);
   useEffect(() => { try { localStorage.setItem('minefield-games-v1', JSON.stringify(records)); } catch { /* Private browsing can disable storage. */ } }, [records]);
   useEffect(() => {
     try { localStorage.setItem('minefield-sound', String(sound)); localStorage.setItem('minefield-haptics', String(haptics)); localStorage.setItem('minefield-motion', String(reducedMotion)); localStorage.setItem('minefield-contrast', String(highContrast)); } catch { /* Settings remain available for this session. */ }
@@ -354,6 +412,7 @@ function App() {
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLOR[theme]);
     (window as Window & { MinefieldAndroid?: { setSystemBars: (dark: boolean) => void } })[ANDROID_BRIDGE]?.setSystemBars(theme === 'dark');
   }, [sound, haptics, reducedMotion, highContrast, theme]);
+  useEffect(() => { try { localStorage.setItem('minefield-custom', JSON.stringify(customConfig)); } catch { /* Private browsing can disable storage. */ } }, [customConfig]);
   useEffect(() => {
     if (game.status !== 'playing') return;
     const clock = setInterval(() => setNow(Date.now()), 200);
@@ -367,7 +426,11 @@ function App() {
   useEffect(() => {
     if (!isFinished || recorded.current === game.id) return;
     recorded.current = game.id;
-    const record: GameRecord = { id: game.id, mode: game.mode, difficulty: game.difficulty, won: game.status === 'won', seconds: elapsed, date: new Date().toISOString() };
+    const record: GameRecord = {
+      id: game.id, mode: game.mode, difficulty: game.difficulty, won: game.status === 'won', seconds: elapsed, date: new Date().toISOString(),
+      ...(game.mode === 'contract' ? { stars: contractStars(game.objectives, game, elapsed) } : {}),
+      ...(game.mode === 'custom' && game.custom ? { custom: game.custom } : {}),
+    };
     setRecords(previous => previous.some(r => r.id === record.id) ? previous : [record, ...previous].slice(0, 200));
     // Classic and Blitz wins always ask for a leaderboard name.
     if (record.won && (record.mode === 'classic' || record.mode === 'blitz')) setPendingPublic(record);
@@ -380,6 +443,33 @@ function App() {
     return () => created.revoke();
   }, [isAndroidApp]);
 
+  // Keep the latest board reachable from timers without re-subscribing them.
+  useEffect(() => { gameRef.current = game; }, [game]);
+  // Riptide: reset the tide whenever a board starts, then let it run every 15 s.
+  useEffect(() => {
+    if (game.mode !== 'riptide' || game.status !== 'playing') return;
+    tideDeadline.current = Date.now() + TIDE_SECONDS * 1000;
+    setTideLeft(TIDE_SECONDS);
+  }, [game.mode, game.status, game.id]);
+  useEffect(() => {
+    if (game.mode !== 'riptide' || game.status !== 'playing') return;
+    const id = setInterval(() => {
+      const left = Math.max(0, Math.ceil((tideDeadline.current - Date.now()) / 1000));
+      setTideLeft(left);
+      if (left > 0) return;
+      const current = gameRef.current;
+      if (current.mode !== 'riptide' || current.status !== 'playing') return;
+      const drift = driftBoard(current);
+      tideDeadline.current = Date.now() + TIDE_SECONDS * 1000;
+      setTideLeft(TIDE_SECONDS);
+      if (!drift.changed) return;
+      setGame(drift.state);
+      setTideFx({ nonce: Date.now(), moved: drift.moved });
+      setNow(Date.now());
+    }, 250);
+    return () => clearInterval(id);
+  }, [game.mode, game.status, game.id]);
+
   const sensory = useMemo(() => ({ sound, haptics }), [sound, haptics]);
   const feel = useCallback((kind: Sense) => sense(kind, sensory), [sensory]);
   useEffect(() => {
@@ -389,7 +479,13 @@ function App() {
     return () => window.removeEventListener('pointerdown', unlock);
   }, []);
 
-  const startGame = (mode: Mode, difficulty: Difficulty) => {
+  /** Build the board a mode/difficulty plays on, twists and dealt objectives included. */
+  const boardFor = useCallback((mode: Mode, difficulty: Difficulty, custom?: CustomConfig) => {
+    const board = mode === 'daily' ? dailyBoard(difficulty) : freshGame(mode, difficulty, custom);
+    if (mode === 'contract') return { ...board, objectives: dealObjectives(board.id) };
+    return board;
+  }, []);
+  const startGame = (mode: Mode, difficulty: Difficulty, custom?: CustomConfig) => {
     if (mode === 'zen') {
       const world = newWorld();
       saveWorld(world);
@@ -398,10 +494,12 @@ function App() {
       setMapOpen(false);
     } else {
       setBranchWorld(null);
-      // Daily games carry today's twist (extra mines), so build them from the seeded helper.
-      setGame(mode === 'daily' ? dailyBoard(difficulty) : freshGame(mode, difficulty));
+      const size = mode === 'custom' ? clampCustom(custom ?? customConfig) : undefined;
+      if (size) { setCustomConfig(size); setCustomDraft(size); }
+      setGame(boardFor(mode, difficulty, size));
     }
     setShowPreview(false); setFlagMode(false); setResultVisible(false); setNow(Date.now());
+    setScanArmed(false); setTideLeft(TIDE_SECONDS); setTideFx(null);
     setView(mode === 'daily' ? 'daily' : 'play'); setModal(null); setSidebarOpen(false); boardRef.current?.scrollTo({ top: 0, left: 0 });
   };
   const continueBranch = () => {
@@ -430,13 +528,15 @@ function App() {
   };
   /** One place to switch modes, shared by the mode cards and the sidebar flyout. */
   const pickMode = (mode: Mode) => {
+    // Custom opens its size picker instead of dropping straight into a board.
+    if (mode === 'custom') { setCustomDraft(customConfig); setModal('custom'); return; }
     if (mode === game.mode) { if (mode === 'daily') setView('daily'); return; }
     if (mode === 'zen' && loadWorld()) { continueBranch(); return; }
-    requestGame(mode, mode === 'daily' ? dailyDefault : 'easy');
+    requestGame(mode, mode === 'daily' ? dailyDefault : MODE_DIFFICULTIES[mode][0]);
   };
-  const requestGame = (mode = game.mode, difficulty = game.difficulty) => {
-    if (game.status === 'playing') { setPendingGame({ mode, difficulty }); setModal('confirm'); }
-    else startGame(mode, difficulty);
+  const requestGame = (mode = game.mode, difficulty = game.difficulty, custom?: CustomConfig) => {
+    if (game.status === 'playing') { setPendingGame({ mode, difficulty, custom }); setModal('confirm'); }
+    else startGame(mode, difficulty, custom);
   };
   const navigate = (next: View) => {
     setSidebarOpen(false); setFocusMode(false);
@@ -446,10 +546,11 @@ function App() {
   };
   const handleReveal = (index: number) => {
     if (isFinished || modal) return;
+    if (handleScan(index)) return;
     if (flagMode) { handleFlag(index); return; }
     setShowPreview(false);
     const chording = game.cells[index]?.revealed === true;
-    const base = game.status === 'ready' && showPreview ? (game.mode === 'daily' ? dailyBoard(game.difficulty) : freshGame(game.mode, game.difficulty)) : game;
+    const base = game.status === 'ready' && showPreview ? boardFor(game.mode, game.difficulty, game.custom) : game;
     const { state: next, change } = reveal(base, index);
     if (!change.opened.length) return;
     setGame(next); setNow(Date.now());
@@ -486,6 +587,15 @@ function App() {
       feel('tap');
     }
   };
+  const handleScan = (index: number) => {
+    if (isFinished || modal || game.mode !== 'scan' || !scanArmed) return false;
+    if (game.cells[index]?.revealed) return false;
+    const next = scanPatch(game, index);
+    if (next === game) return false;
+    setShowPreview(false); setScanArmed(false); setGame(next); setNow(Date.now());
+    feel('tap');
+    return true;
+  };
   const handleFlag = (index: number) => {
     if (isFinished || modal) return;
     if (flagsLocked) { notify('No flags today — this daily is pure deduction.'); return; }
@@ -521,9 +631,13 @@ function App() {
     // Daily results get a spoiler-free progress grid plus the shared puzzle number.
     const filled = Math.max(0, Math.min(10, Math.round(progress / 10)));
     const grid = `${'🟧'.repeat(filled)}${'⬜'.repeat(10 - filled)}`;
-    const { rows, cols } = DIFFICULTIES[game.difficulty];
+    const rows = game.rows, cols = game.cols;
     const headline = game.mode === 'daily'
       ? `Minefield Daily #${dailyIdx} · ${rows}×${cols} · ${twist.name}`
+      : game.mode === 'contract'
+      ? `Minefield Contract · ${rows}×${cols} · ${starLabel(objectivesDone)}`
+      : game.mode === 'custom'
+      ? `Minefield Custom · ${cols}×${rows} · ${game.mines} mines`
       : `Minefield ${MODE_NAMES[game.mode]} · ${DIFFICULTIES[game.difficulty].label}`;
     const body = game.mode === 'daily'
       ? `${grid} ${progress}%\n${game.status === 'won' ? '✅ Cleared' : '💥 A mine'} in ${formatTime(elapsed)} · ${dailyStreak} day streak`
@@ -547,7 +661,12 @@ function App() {
       if (!(error instanceof DOMException && error.name === 'AbortError')) notify('Your browser couldn’t share this time. Your result is saved in your stats.');
     }
   };
-  const leaderboardRows = useMemo(() => records.filter(r => r.mode === leaderMode && r.difficulty === leaderDifficulty && r.won).sort((a, b) => a.seconds - b.seconds).slice(0, 20), [records, leaderMode, leaderDifficulty]);
+  const leaderRungs = MODE_DIFFICULTIES[leaderMode];
+  useEffect(() => { if (!leaderRungs.includes(leaderDifficulty)) setLeaderDifficulty(leaderRungs[0]); }, [leaderMode]);
+  const leaderboardRows = useMemo(() => records
+    .filter(r => r.mode === leaderMode && (leaderRungs.length === 1 || r.difficulty === leaderDifficulty) && r.won)
+    .sort((a, b) => (leaderMode === 'contract' ? (b.stars ?? 0) - (a.stars ?? 0) || a.seconds - b.seconds : a.seconds - b.seconds))
+    .slice(0, 20), [records, leaderMode, leaderDifficulty]);
   useEffect(() => {
     if (!publicBoardEnabled()) { setPublicRows([]); return; }
     let cancelled = false;
@@ -555,7 +674,13 @@ function App() {
     return () => { cancelled = true; };
   }, [leaderMode, leaderDifficulty, view, records]);
   const totalSafe = game.cells.length - game.mines;
-  const pageDescription = game.mode === 'zen' ? 'Every cleared square grows a new limb. No clock, no pressure.' : game.mode === 'blitz' ? `Trust your instincts. Beat the clock — ${blitzLabel(blitzSeconds)} on the timer.` : game.mode === 'daily' ? `Today’s twist: ${twist.name.toLowerCase()}. ${twist.blurb}` : 'A timeless test of deduction.';
+  const pageDescription = game.mode === 'blitz' ? `Trust your instincts. Beat the clock — ${blitzLabel(blitzSeconds)} on the timer.`
+    : game.mode === 'daily' ? `Today’s twist: ${twist.name.toLowerCase()}. ${twist.blurb}`
+    : MODE_BLURB[game.mode];
+  // Contract objectives are rated live, so the panel ticks as you play.
+  const objectives = useMemo(() => game.mode === 'contract' ? rateObjectives(game.objectives, game, elapsed) : [], [game, elapsed]);
+  const objectivesDone = objectives.filter(o => o.done).length;
+  const fogNow = game.mode === 'nightfall' ? fogChance(game, now) : 0;
 
   return <div className={`app ${reducedMotion ? 'reduce-motion' : ''} ${highContrast ? 'high-contrast' : ''} ${isAndroidApp ? 'native-app' : ''}`}>{!booted && <BootScreen onDone={() => setBooted(true)} compact={isAndroidApp} />}
     {sidebarOpen && <button className="sidebar-scrim" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />}
@@ -570,7 +695,7 @@ function App() {
             <div className="nav-flyout-eyebrow">PICK A MODE</div>
             {MODES.filter(m => m.id !== 'daily').map(mode => <button key={mode.id} className={`nav-flyout-item ${game.mode === mode.id ? 'selected' : ''}`} onClick={() => pickMode(mode.id)} aria-pressed={game.mode === mode.id}>
               <span className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={16} /></span>
-              <span className="nav-flyout-copy"><b>{MODE_NAMES[mode.id]}</b><i>{mode.id === 'blitz' ? `15s – 5 min` : mode.id === 'zen' ? 'Grow a tree, no clock' : '9×9 · 16×16 · 30×30'}</i></span>
+              <span className="nav-flyout-copy"><b>{MODE_NAMES[mode.id]}</b><i>{FLYOUT_HINT[mode.id]}</i></span>
               {game.mode === mode.id ? <Check size={13} /> : <ArrowUpRight size={13} className="nav-flyout-arrow" />}
             </button>)}
             <div className="nav-flyout-divider" />
@@ -607,8 +732,16 @@ function App() {
 
           <div className="play-layout">
             <section className="game-panel" aria-label={`${MODE_NAMES[game.mode]} Minesweeper game`}>
-              <div className="game-panel-head"><div className="game-title"><div className={`mode-icon mode-${game.mode}`}><ModeIcon mode={game.mode} size={20} /></div><div><h2>{MODE_NAMES[game.mode]}<span className={`game-mode-tag ${game.mode === 'blitz' ? 'purple' : ''}`}>{game.mode === 'classic' ? 'THE CLASSIC' : game.mode === 'blitz' ? 'BEAT THE CLOCK' : game.mode === 'zen' ? 'GROWING BRANCHES' : 'DAILY #'+dailyIdx+(twist.id === 'standard' ? '' : ' · '+twist.name.toUpperCase())}</span></h2><p>{pageDescription}</p></div></div><div style={{ display: 'flex', gap: 6 }}>{game.mode === 'zen' && <button className="icon-button" onClick={() => setMapOpen(true)} aria-label="Open branch map" title="Branch map — zoom out"><GitBranch size={17} /></button>}<button className="icon-button" onClick={() => setFocusMode(!focusMode)} aria-label={focusMode ? 'Exit focus mode' : 'Enter focus mode'} title={focusMode ? 'Exit focus mode' : 'Focus mode'}>{focusMode ? <Minimize2 size={17} /> : <Expand size={17} />}</button></div></div>
-              <div className="difficulty-row"><div className="difficulty-tabs" role="group" aria-label="Difficulty">{(Object.keys(DIFFICULTIES) as Difficulty[]).map(diff => <button key={diff} className={game.difficulty === diff ? 'selected' : ''} aria-pressed={game.difficulty === diff} disabled={game.mode === 'daily' && !dailyAllowed.includes(diff)} title={game.mode === 'daily' && !dailyAllowed.includes(diff) ? `Today’s daily is locked to ${dailyAllowed.map(d => DIFFICULTIES[d].label).join(' / ')}` : undefined} onClick={() => { if (diff !== game.difficulty) requestGame(game.mode, diff); }}><span className={`difficulty-dot dot-${diff}`} />{DIFFICULTIES[diff].label}</button>)}</div><span className="board-dimensions">{game.rows} × {game.cols}<span> · </span>{game.mines} mines</span></div>
+              <div className="game-panel-head"><div className="game-title"><div className={`mode-icon mode-${game.mode}`}><ModeIcon mode={game.mode} size={20} /></div><div><h2>{MODE_NAMES[game.mode]}<span className={`game-mode-tag ${game.mode === 'blitz' ? 'purple' : ''} ${game.mode === 'nightfall' || game.mode === 'riptide' || game.mode === 'contract' || game.mode === 'scan' || game.mode === 'custom' ? 'mint' : ''}`}>{game.mode === 'daily' ? 'DAILY #' + dailyIdx + (twist.id === 'standard' ? '' : ' · ' + twist.name.toUpperCase()) : MODE_TAG[game.mode]}</span></h2><p>{pageDescription}</p></div></div><div style={{ display: 'flex', gap: 6 }}>{game.mode === 'zen' && <button className="icon-button" onClick={() => setMapOpen(true)} aria-label="Open branch map" title="Branch map — zoom out"><GitBranch size={17} /></button>}<button className="icon-button" onClick={() => setFocusMode(!focusMode)} aria-label={focusMode ? 'Exit focus mode' : 'Enter focus mode'} title={focusMode ? 'Exit focus mode' : 'Focus mode'}>{focusMode ? <Minimize2 size={17} /> : <Expand size={17} />}</button></div></div>
+              <div className="difficulty-row">
+                {game.mode === 'custom' ? <button className="resize-button" onClick={() => { setCustomDraft(customConfig); setModal('custom'); }}><Ruler size={14} />{game.cols} × {game.rows}<span>· {game.mines} mines · change size</span></button>
+                  : <div className="difficulty-tabs" role="group" aria-label="Difficulty">{MODE_DIFFICULTIES[game.mode].map(diff => <button key={diff} className={`${game.difficulty === diff ? 'selected' : ''} ${diff === 'blackout' ? 'blackout-tab' : ''}`} aria-pressed={game.difficulty === diff} disabled={game.mode === 'daily' && !dailyAllowed.includes(diff)} title={game.mode === 'daily' && !dailyAllowed.includes(diff) ? `Today’s daily is locked to ${dailyAllowed.map(d => DIFFICULTIES[d].label).join(' / ')}` : diff === 'blackout' ? 'Blackout: a 1 in 3 chance a number goes missing, and it only gets worse' : undefined} onClick={() => { if (diff !== game.difficulty) requestGame(game.mode, diff); }}><span className={`difficulty-dot dot-${diff}`} />{DIFFICULTIES[diff].label}</button>)}</div>}
+                <span className="board-dimensions">{game.cols} × {game.rows}<span> · </span>{game.mines} mines</span>
+                {game.mode === 'nightfall' && <span className={`fog-chip ${game.status === 'playing' ? 'live' : ''}`} title="Chance a freshly opened number goes missing. It climbs 5% every five seconds."><Moon size={12} />{Math.round(fogNow * 100)}% hiding</span>}
+                {game.mode === 'riptide' && <span className={`tide-chip ${game.status === 'playing' ? 'live' : ''}`} title="Every fifteen seconds the tide slides a row and a column."><Waves size={12} />{game.status === 'playing' ? `Tide in ${tideLeft}s` : 'Tide waits'}</span>}
+                {game.mode === 'contract' && <span className={`contract-chip ${objectivesDone === 3 ? 'full' : ''}`} title="Objectives kept this board"><ClipboardCheck size={12} />{objectivesDone}/3 kept</span>}
+                {game.mode === 'scan' && <span className="scan-chip" title="Scan charges left — flag a real mine to earn one back"><ScanSearch size={12} />{game.charges} charges</span>}
+              </div>
               <div className="board-area">
                 <div className="board-toolbar"><div className="board-stat"><span>{timeLimit !== null ? 'TIME LEFT' : 'YOUR TIME'}</span><div className={runningOut ? 'timer-urgent' : ''}><Clock3 size={16} /><b>{game.mode === 'zen' ? <InfinityIcon size={26} /> : formatTime(timeLimit !== null ? Math.max(0, timeLeft ?? 0) : elapsed)}</b>{game.mode === 'blitz' && game.status !== 'lost' && <select className="blitz-time" aria-label="Blitz time limit" value={blitzSeconds} onChange={e => { const next = parseInt(e.target.value, 10); setBlitzSeconds(next); if (game.status !== 'ready') notify(`Blitz limit set to ${blitzLabel(next)}. Your next game starts fresh.`); }}>{BLITZ_OPTIONS.map(t => <option key={t} value={t}>{blitzLabel(t)}</option>)}</select>}</div></div><button className={`reset-button ${game.status === 'lost' ? 'lost' : ''}`} title="New game (N)" onClick={() => requestGame()} aria-label="Start a new game"><RotateCcw size={18} /></button><div className="board-stat mines-stat"><span>MINES LEFT</span><div><Flag size={15} /><b>{String(game.mines - flags).padStart(3, '0')}</b></div></div></div>
                 <div className={`board-scroll ${game.cols > 16 ? 'wide-board' : ''}`} ref={boardRef}>
@@ -621,19 +754,19 @@ function App() {
                       const isFresh = !!revealFx && Object.prototype.hasOwnProperty.call(revealFx.wave, index) && !showPreview;
                       const delay = isFresh ? Math.min(wave ?? 0, 12) * 34 : 0;
                       const expanding = isFresh && revealFx!.opened.length > 2;
-                      return <button key={index} className={`tile ${cell.revealed ? 'revealed' : 'covered'} ${cell.flagged ? 'flagged' : ''} ${cell.exploded ? 'exploded' : ''} ${exposedMine ? 'mine-visible' : ''} ${wrongFlag ? 'wrong-flag' : ''} ${isFresh ? (expanding ? 'tile-expanded' : 'tile-popped') : ''} number-${cell.adjacent}`} style={isFresh ? { animationDelay: `${delay}ms`, '--wave': wave ?? 0 } as CSSProperties : undefined} aria-label={`Row ${Math.floor(index / game.cols) + 1}, column ${index % game.cols + 1}: ${cell.flagged ? 'flagged' : exposedMine ? 'mine' : cell.revealed ? `${cell.adjacent || 'empty'}${cell.adjacent ? ' adjacent mines' : ''}` : 'covered'}`} onClick={() => { if (longPressed.current) { longPressed.current = false; return; } handleReveal(index); }} onContextMenu={e => { e.preventDefault(); handleFlag(index); }} onPointerDown={e => { if (e.pointerType !== 'mouse' && !isFinished) { longPressed.current = false; longPress.current = setTimeout(() => { handleFlag(index); longPressed.current = true; }, 420); } }} onPointerUp={() => { if (longPress.current) clearTimeout(longPress.current); }} onPointerCancel={() => { if (longPress.current) clearTimeout(longPress.current); }} onPointerLeave={() => { if (longPress.current) clearTimeout(longPress.current); }} onKeyDown={e => { if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey) { e.stopPropagation(); handleFlag(index); } }} disabled={isFinished}>{cell.flagged ? <span className="flag-marker"><Flag size={15} fill="currentColor" /></span> : exposedMine ? <span className="mine-marker"><BrandMark /></span> : cell.revealed && cell.adjacent > 0 ? <span className="number-marker">{cell.adjacent}</span> : wrongFlag ? <X size={17} /> : null}{isFresh && expanding && <span className="tile-ripple" aria-hidden="true" />}</button>;
+                      return <button key={index} className={`tile ${cell.revealed ? 'revealed' : 'covered'} ${cell.flagged ? 'flagged' : ''} ${cell.exploded ? 'exploded' : ''} ${exposedMine ? 'mine-visible' : ''} ${wrongFlag ? 'wrong-flag' : ''} ${cell.hidden ? 'fogged' : ''} ${cell.scanned !== null && !cell.revealed ? 'scanned' : ''} ${tideFx && tideFx.moved.includes(index) ? 'tide-moved' : ''} ${isFresh ? (expanding ? 'tile-expanded' : 'tile-popped') : ''} number-${cell.hidden ? 0 : cell.adjacent}`} style={isFresh ? { animationDelay: `${delay}ms`, '--wave': wave ?? 0 } as CSSProperties : undefined} aria-label={`Row ${Math.floor(index / game.cols) + 1}, column ${index % game.cols + 1}: ${cell.flagged ? 'flagged' : exposedMine ? 'mine' : cell.hidden ? 'open, number lost to the mist' : cell.revealed ? `${cell.adjacent || 'empty'}${cell.adjacent ? ' adjacent mines' : ''}` : cell.scanned !== null ? `scanned, ${cell.scanned} adjacent mines` : 'covered'}`} onClick={() => { if (longPressed.current) { longPressed.current = false; return; } handleReveal(index); }} onContextMenu={e => { e.preventDefault(); handleFlag(index); }} onPointerDown={e => { if (e.pointerType !== 'mouse' && !isFinished) { longPressed.current = false; longPress.current = setTimeout(() => { handleFlag(index); longPressed.current = true; }, 420); } }} onPointerUp={() => { if (longPress.current) clearTimeout(longPress.current); }} onPointerCancel={() => { if (longPress.current) clearTimeout(longPress.current); }} onPointerLeave={() => { if (longPress.current) clearTimeout(longPress.current); }} onKeyDown={e => { if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey) { e.stopPropagation(); handleFlag(index); } }} disabled={isFinished}>{cell.flagged ? <span className="flag-marker"><Flag size={15} fill="currentColor" /></span> : exposedMine ? <span className="mine-marker"><BrandMark /></span> : cell.revealed && cell.hidden ? <span className="fog-marker"><Moon size={13} /></span> : cell.revealed && cell.adjacent > 0 ? <span className="number-marker">{cell.adjacent}</span> : !cell.revealed && cell.scanned !== null ? <span className="scan-marker"><ScanSearch size={11} />{cell.scanned}</span> : wrongFlag ? <X size={17} /> : null}{isFresh && expanding && <span className="tile-ripple" aria-hidden="true" />}</button>;
                     })}
                   </div>
                 </div>
 
-                {isFinished && resultVisible && <div className={`result-overlay ${game.status === 'won' ? 'won' : ''}`}><div className="result-card"><div className="result-icon">{game.status === 'won' ? <Trophy size={30} /> : <BrandMark />}</div><div className="eyebrow">{game.status === 'won' ? 'A LITTLE WIN. A BIG FEELING.' : timeLimit !== null && elapsed >= timeLimit ? 'TIME’S UP, NOT GAME OVER' : 'THERE’S ALWAYS ANOTHER SQUARE'}</div><h3>{game.status === 'won' ? 'Beautifully swept.' : 'A mine. Not the end.'}</h3><p>{game.status === 'won' ? `You cleared all ${totalSafe} safe squares. Nicely done.` : game.mode === 'daily' ? 'Today’s board is still out there until midnight. One more go?' : 'Take a breath. Your next great game is one click away.'}</p>{game.mode === 'daily' && <div className="daily-result-tag"><span className={`daily-twist-chip twist-${twist.id}`}>{twist.name}</span><span>Daily #{dailyIdx}</span>{game.status === 'won' && <span><Flame size={11} />{dailyStreak} day streak</span>}</div>}<div className="result-stats"><span><Clock3 size={15} />{formatTime(elapsed)}</span><span><Target size={15} />{progress}% cleared</span></div><button className="primary-button" onClick={() => { if (game.mode === 'zen' && game.status === 'won' && branchWorld) { const next = openAreaIds(branchWorld)[0]; if (next) jumpToArea(next); else setMapOpen(true); } else startGame(game.mode, game.difficulty); }}><RotateCcw size={16} />{game.mode === 'zen' && game.status === 'won' ? 'Continue the branch' : game.status === 'won' ? 'One more good game' : 'Let’s try again'}</button><div className="result-secondary"><button onClick={() => setResultVisible(false)}>See the board</button><span>·</span><button onClick={shareResult}>{game.mode === 'daily' ? 'Share your grid' : 'Share result'} <ArrowUpRight size={13} /></button></div>{game.status === 'won' && pendingPublic && <div className="public-post"><label htmlFor="win-name">{publicBoardEnabled() ? 'What name should go on the public leaderboard?' : 'What name should go on your leaderboard?'}</label><div className="public-post-row"><input id="win-name" value={nameDraft} maxLength={24} placeholder="Your name" onChange={e => setNameDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { setPlayerName(nameDraft); if (publicBoardEnabled()) void submitPublicScore(pendingPublic).then(ok => notify(ok ? 'Posted to the public leaderboard.' : 'Couldn’t reach the leaderboard — it stays local.')); else notify(`${nameDraft.trim() || 'Anonymous sweeper'} it is. Saved on this device.`); setPendingPublic(null); } }} /><button className="primary-button" onClick={() => { setPlayerName(nameDraft); if (publicBoardEnabled()) void submitPublicScore(pendingPublic).then(ok => notify(ok ? 'Posted to the public leaderboard.' : 'Couldn’t reach the leaderboard — it stays local.')); else notify(`${nameDraft.trim() || 'Anonymous sweeper'} it is. Saved on this device.`); setPendingPublic(null); }}>{publicBoardEnabled() ? 'Post' : 'Save name'}</button><button className="secondary-button" onClick={() => { setPlayerName(nameDraft); setPendingPublic(null); }}>Skip</button></div>{!publicBoardEnabled() && <p className="public-post-hint">The public board isn’t connected yet — see FIREBASE-SETUP.md. Your name is saved on this device and used on every local board.</p>}</div>}</div></div>}
+                {isFinished && resultVisible && <div className={`result-overlay ${game.status === 'won' ? 'won' : ''}`}><div className="result-card"><div className="result-icon">{game.status === 'won' ? <Trophy size={30} /> : <BrandMark />}</div><div className="eyebrow">{game.status === 'won' ? 'A LITTLE WIN. A BIG FEELING.' : timeLimit !== null && elapsed >= timeLimit ? 'TIME’S UP, NOT GAME OVER' : 'THERE’S ALWAYS ANOTHER SQUARE'}</div><h3>{game.status === 'won' ? 'Beautifully swept.' : 'A mine. Not the end.'}</h3><p>{game.status === 'won' ? `You cleared all ${totalSafe} safe squares. Nicely done.` : game.mode === 'daily' ? 'Today’s board is still out there until midnight. One more go?' : 'Take a breath. Your next great game is one click away.'}</p>{game.mode === 'daily' && <div className="daily-result-tag"><span className={`daily-twist-chip twist-${twist.id}`}>{twist.name}</span><span>Daily #{dailyIdx}</span>{game.status === 'won' && <span><Flame size={11} />{dailyStreak} day streak</span>}</div>}<div className="result-stats"><span><Clock3 size={15} />{formatTime(elapsed)}</span><span><Target size={15} />{progress}% cleared</span>{game.mode === 'contract' && <span className="result-stars">{starLabel(objectivesDone)}</span>}{game.mode === 'scan' && <span>{game.scans} scans used</span>}</div><button className="primary-button" onClick={() => { if (game.mode === 'zen' && game.status === 'won' && branchWorld) { const next = openAreaIds(branchWorld)[0]; if (next) jumpToArea(next); else setMapOpen(true); } else startGame(game.mode, game.difficulty); }}><RotateCcw size={16} />{game.mode === 'zen' && game.status === 'won' ? 'Continue the branch' : game.status === 'won' ? 'One more good game' : 'Let’s try again'}</button><div className="result-secondary"><button onClick={() => setResultVisible(false)}>See the board</button><span>·</span><button onClick={shareResult}>{game.mode === 'daily' ? 'Share your grid' : 'Share result'} <ArrowUpRight size={13} /></button></div>{game.status === 'won' && pendingPublic && <div className="public-post"><label htmlFor="win-name">{publicBoardEnabled() ? 'What name should go on the public leaderboard?' : 'What name should go on your leaderboard?'}</label><div className="public-post-row"><input id="win-name" value={nameDraft} maxLength={24} placeholder="Your name" onChange={e => setNameDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { setPlayerName(nameDraft); if (publicBoardEnabled()) void submitPublicScore(pendingPublic).then(ok => notify(ok ? 'Posted to the public leaderboard.' : 'Couldn’t reach the leaderboard — it stays local.')); else notify(`${nameDraft.trim() || 'Anonymous sweeper'} it is. Saved on this device.`); setPendingPublic(null); } }} /><button className="primary-button" onClick={() => { setPlayerName(nameDraft); if (publicBoardEnabled()) void submitPublicScore(pendingPublic).then(ok => notify(ok ? 'Posted to the public leaderboard.' : 'Couldn’t reach the leaderboard — it stays local.')); else notify(`${nameDraft.trim() || 'Anonymous sweeper'} it is. Saved on this device.`); setPendingPublic(null); }}>{publicBoardEnabled() ? 'Post' : 'Save name'}</button><button className="secondary-button" onClick={() => { setPlayerName(nameDraft); setPendingPublic(null); }}>Skip</button></div>{!publicBoardEnabled() && <p className="public-post-hint">The public board isn’t connected yet — see FIREBASE-SETUP.md. Your name is saved on this device and used on every local board.</p>}</div>}</div></div>}
                 {timeLimit !== null && game.status === 'playing' && <div className="blitz-progress"><span style={{ width: `${Math.max(0, Math.min(1, (timeLeft ?? 0) / timeLimit)) * 100}%` }} /></div>}
               </div>
-              <div className="game-controls">{flagsLocked ? <span className="flag-toggle locked" title="Today’s twist removes flags"><Flag size={15} /><span>No flags today</span></span> : <button className={`flag-toggle ${flagMode ? 'enabled' : ''}`} onClick={() => setFlagMode(!flagMode)} aria-pressed={flagMode}><Flag size={15} fill={flagMode ? 'currentColor' : 'none'} /><span>Flag mode</span><span className="toggle-track"><i /></span></button>}<span className="board-tip"><MousePointer2 size={13} /><span>{flagsLocked ? 'Every square is a guess worth making' : 'Right-click to flag'}</span></span><button className="new-game-text" onClick={() => requestGame()}><RotateCcw size={14} />New game</button></div>
+              <div className="game-controls">{game.mode === 'scan' && <button className={`scan-toggle ${scanArmed ? 'enabled' : ''}`} disabled={game.charges === 0 || isFinished} aria-pressed={scanArmed} onClick={() => setScanArmed(a => !a)}><ScanSearch size={15} /><span>{scanArmed ? 'Pick a square' : 'Scan'}</span><b>{game.charges}</b></button>}{flagsLocked ? <span className="flag-toggle locked" title="Today’s twist removes flags"><Flag size={15} /><span>No flags today</span></span> : <button className={`flag-toggle ${flagMode ? 'enabled' : ''}`} onClick={() => setFlagMode(!flagMode)} aria-pressed={flagMode}><Flag size={15} fill={flagMode ? 'currentColor' : 'none'} /><span>Flag mode</span><span className="toggle-track"><i /></span></button>}<span className="board-tip"><MousePointer2 size={13} /><span>{flagsLocked ? 'Every square is a guess worth making' : 'Right-click to flag'}</span></span><button className="new-game-text" onClick={() => requestGame()}><RotateCcw size={14} />New game</button></div>
               <div className={`board-message ${isFinished ? 'finished' : ''}`}>{isFinished ? <><Check size={13} />{game.status === 'won' ? 'A little victory, saved to your stats.' : 'Every game is a chance to get a little better.'}</> : <><ShieldCheck size={14} />{game.status === 'ready' ? 'Your first move is always safe. Go on, pick a square.' : flagMode ? 'Flag mode is on. Tap a square to mark a possible mine.' : `${game.cells.filter(c => c.revealed && !c.mine).length} safe squares found. You’ve got this.`}</>}</div>
             </section>
 
-            <aside className="mode-column">{view === 'daily' && <DailyHub idx={dailyIdx} dateLabel={dailyDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} twist={twist} countdown={nextDaily} finished={dailyFinished} streak={dailyStreak} best={dailyBest} solved={dailySolved} week={dailyWeek} lockNote={twist.seconds ? 'Medium or Hard today — the clock runs either way' : 'Locked to Hard today'} />}<div className="section-title"><h2>Find your kind of focus.</h2><span>4 MODES</span></div><div className="mode-cards">{MODES.map(mode => <button key={mode.id} className={`mode-card ${game.mode === mode.id ? 'selected' : ''} mode-card-${mode.id}`} onClick={() => pickMode(mode.id)} aria-pressed={game.mode === mode.id}><div className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={21} /></div><div className="mode-card-copy"><div className="mode-card-title"><h3>{MODE_NAMES[mode.id]}</h3>{mode.id === 'daily' && <span className="small-new">NEW</span>}</div><p>{mode.description}</p><span className="mode-tag">{mode.tag}</span></div><span className="mode-select">{game.mode === mode.id ? <Check size={12} strokeWidth={2.5} /> : <ArrowUpRight size={17} />}</span></button>)}</div>
+            <aside className="mode-column">{game.mode === 'contract' && !showPreview && <section className="contract-panel" aria-label="Contract objectives"><div className="contract-head"><div><div className="eyebrow">TODAY’S CONTRACT</div><h3>Three ways to earn a star.</h3></div><span className={`contract-score ${objectivesDone === 3 ? 'full' : ''}`}>{starLabel(objectivesDone)}</span></div><ul>{objectives.map(o => <li key={o.id} className={o.done ? 'done' : ''}><span className="contract-check">{o.done ? <Check size={12} strokeWidth={3} /> : null}</span><span><b>{o.label}</b><i>{o.blurb}</i></span></li>)}</ul>{game.status === 'won' && <p className="contract-footer">{objectivesDone} of 3 kept — {objectivesDone === 3 ? 'a perfect contract.' : 'stars are what the board ranks on.'}</p>}</section>}{view === 'daily' && <DailyHub idx={dailyIdx} dateLabel={dailyDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} twist={twist} countdown={nextDaily} finished={dailyFinished} streak={dailyStreak} best={dailyBest} solved={dailySolved} week={dailyWeek} lockNote={twist.seconds ? 'Medium or Hard today — the clock runs either way' : 'Locked to Hard today'} />}<div className="section-title"><h2>Find your kind of focus.</h2><span>{MODES.length} MODES</span></div><div className="mode-cards">{MODES.map(mode => <button key={mode.id} className={`mode-card ${game.mode === mode.id ? 'selected' : ''} mode-card-${mode.id}`} onClick={() => pickMode(mode.id)} aria-pressed={game.mode === mode.id}><div className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={21} /></div><div className="mode-card-copy"><div className="mode-card-title"><h3>{MODE_NAMES[mode.id]}</h3>{mode.id === 'daily' && <span className="small-new">NEW</span>}</div><p>{mode.description}</p><span className="mode-tag">{mode.tag}</span></div><span className="mode-select">{game.mode === mode.id ? <Check size={12} strokeWidth={2.5} /> : <ArrowUpRight size={17} />}</span></button>)}</div>
               <div className="gentle-tip"><div className="tip-icon"><Lightbulb size={21} strokeWidth={1.5} /></div><div><h3>Small clues. Clever moves.</h3><p>A number tells you how many mines are nearby. The rest? A little intuition.</p><button onClick={() => setModal('help')}>Meet your new favorite brain break <ArrowRight size={14} /></button></div></div>
               <button className="daily-teaser" onClick={() => { if (game.mode !== 'daily') requestGame('daily', 'medium'); else setView('daily'); }}><span className="daily-teaser-icon"><Sun size={20} /></span><span><b>A fresh start, every day.</b><span>Your daily puzzle is ready when you are.</span></span><ArrowUpRight size={17} /></button>
             </aside>
@@ -644,11 +777,11 @@ function App() {
           <footer className="page-footer"><span><Heart size={12} />A classic game. A calmer kind of play.</span><span>Made for your next little break.<span className="footer-dot">✳</span></span></footer>
         </>}
 
-        {view === 'leaderboard' && <><section className="page-heading"><div><div className="eyebrow"><Trophy size={14} />PERSONAL BESTS, NOT PEER PRESSURE</div><h1>Your own kind of first place<span className="heading-dot">.</span></h1><p>The only person to beat? Yesterday’s you. All scores stay on this device.</p></div><span className="view-decoration"><Trophy size={39} strokeWidth={1.2} /></span></section><section className="leaderboard-panel"><div className="leaderboard-heading"><h2>Your best sweeps</h2><span className="local-badge"><ShieldCheck size={13} />Local leaderboard</span></div><div className="leaderboard-filters"><div className="difficulty-tabs">{MODES.map(mode => <button key={mode.id} className={leaderMode === mode.id ? 'selected' : ''} onClick={() => setLeaderMode(mode.id)}>{MODE_NAMES[mode.id]}</button>)}</div><select aria-label="Leaderboard difficulty" value={leaderDifficulty} onChange={e => setLeaderDifficulty(e.target.value as Difficulty)}>{(Object.keys(DIFFICULTIES) as Difficulty[]).map(d => <option key={d} value={d}>{DIFFICULTIES[d].label}</option>)}</select></div>{leaderboardRows.length ? <div className="table-scroll"><table className="score-table"><thead><tr><th>RANK</th><th>PLAYER</th><th>DATE</th><th>TIME</th><th>RESULT</th></tr></thead><tbody>{leaderboardRows.map((r, i) => <tr key={r.id}><td><span className={`rank rank-${i}`}>{i === 0 ? <Trophy size={17} /> : String(i + 1).padStart(2, '0')}</span></td><td><span className="table-player"><span className="avatar tiny">Y</span>You, the player{i === 0 && <span className="best-label">PERSONAL BEST</span>}</span></td><td>{new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td><td className="mono">{formatTime(r.seconds)}</td><td><span className="win-badge"><CheckCircle2 size={13} />All clear</span></td></tr>)}</tbody></table></div> : <div className="empty-state"><div className="empty-illustration"><TileArt /><span><Trophy size={25} /></span></div><h3>Your name belongs here.</h3><p>Finish a {DIFFICULTIES[leaderDifficulty].label.toLowerCase()} {MODE_NAMES[leaderMode].toLowerCase()} game to set your first personal best.<br />There’s a little champion in every square.</p><button className="primary-button" onClick={() => requestGame(leaderMode, leaderDifficulty)}>Make your first mark <ArrowRight size={16} /></button></div>}{<div className={`public-board ${publicBoardEnabled() ? '' : 'not-connected'}`}><div className="leaderboard-heading"><h2>Public leaderboard{leaderMode === 'blitz' && <span className="board-sub">every difficulty · sorted by time</span>}</h2><span className="local-badge"><Trophy size={13} />Everyone’s best</span></div><div className="name-row"><label htmlFor="player-name">Shown as</label><input id="player-name" value={nameDraft} maxLength={24} onChange={e => { setNameDraft(e.target.value); setPlayerName(e.target.value); }} /><span className="name-hint">Saved on this device, sent with your wins.</span></div>{!publicBoardEnabled() ? <div className="empty-state small"><h3>The public board isn’t connected yet.</h3><p>Add your Firebase config to <code>.env</code> and every Classic or Blitz win can post itself. <b>FIREBASE-SETUP.md</b> in the project root walks through it in about five minutes.</p></div> : publicRows.length ? <div className="table-scroll"><table className="score-table"><thead><tr><th>RANK</th><th>PLAYER</th><th>DIFFICULTY</th><th>DATE</th><th>TIME</th></tr></thead><tbody>{publicRows.map((r, i) => <tr key={i}><td><span className={`rank rank-${i}`}>{i === 0 ? <Trophy size={17} /> : String(i + 1).padStart(2, '0')}</span></td><td><span className="table-player">{r.name}</span>{r.name === playerName() && <span className="you-label">YOU</span>}</td><td><span className={`difficulty-badge dot-${r.difficulty}`}>{DIFFICULTIES[r.difficulty]?.label ?? r.difficulty}</span></td><td>{new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td><td className="mono">{formatTime(r.seconds)}</td></tr>)}</tbody></table></div> : <div className="empty-state small"><h3>No public marks yet.</h3><p>Be the first name on the board — win a game and it posts automatically.</p></div>}</div>}<div className="leaderboard-note"><ShieldCheck size={15} />Your best 20 wins are shown locally. Public scores need a Firebase project configured in <code>.env</code> — see README.</div></section></>}
+        {view === 'leaderboard' && <><section className="page-heading"><div><div className="eyebrow"><Trophy size={14} />PERSONAL BESTS, NOT PEER PRESSURE</div><h1>Your own kind of first place<span className="heading-dot">.</span></h1><p>The only person to beat? Yesterday’s you. All scores stay on this device.</p></div><span className="view-decoration"><Trophy size={39} strokeWidth={1.2} /></span></section><section className="leaderboard-panel"><div className="leaderboard-heading"><h2>Your best sweeps</h2><span className="local-badge"><ShieldCheck size={13} />Local leaderboard</span></div><div className="leaderboard-filters"><div className="difficulty-tabs">{MODES.map(mode => <button key={mode.id} className={leaderMode === mode.id ? 'selected' : ''} onClick={() => setLeaderMode(mode.id)}>{MODE_NAMES[mode.id]}</button>)}</div>{leaderRungs.length > 1 && <select aria-label="Leaderboard difficulty" value={leaderDifficulty} onChange={e => setLeaderDifficulty(e.target.value as Difficulty)}>{leaderRungs.map(d => <option key={d} value={d}>{DIFFICULTIES[d].label}</option>)}</select>}</div>{leaderboardRows.length ? <div className="table-scroll"><table className="score-table"><thead><tr><th>RANK</th><th>PLAYER</th>{leaderMode === 'contract' && <th>STARS</th>}{leaderMode === 'custom' && <th>BOARD</th>}{leaderRungs.length > 1 && leaderMode !== 'contract' && <th>DIFFICULTY</th>}<th>DATE</th><th>TIME</th><th>RESULT</th></tr></thead><tbody>{leaderboardRows.map((r, i) => <tr key={r.id}><td><span className={`rank rank-${i}`}>{i === 0 ? <Trophy size={17} /> : String(i + 1).padStart(2, '0')}</span></td><td><span className="table-player"><span className="avatar tiny">Y</span>You, the player{i === 0 && <span className="best-label">PERSONAL BEST</span>}</span></td>{leaderMode === 'contract' && <td className="mono stars-cell">{starLabel(r.stars ?? 0)}</td>}{leaderMode === 'custom' && <td>{r.custom ? `${r.custom.cols} × ${r.custom.rows} · ${r.custom.mines} mines` : 'Custom'}</td>}{leaderRungs.length > 1 && leaderMode !== 'contract' && <td><span className={`difficulty-badge dot-${r.difficulty}`}>{DIFFICULTIES[r.difficulty]?.label ?? r.difficulty}</span></td>}<td>{new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td><td className="mono">{formatTime(r.seconds)}</td><td><span className="win-badge"><CheckCircle2 size={13} />All clear</span></td></tr>)}</tbody></table></div> : <div className="empty-state"><div className="empty-illustration"><TileArt /><span><Trophy size={25} /></span></div><h3>Your name belongs here.</h3><p>Finish a {DIFFICULTIES[leaderDifficulty].label.toLowerCase()} {MODE_NAMES[leaderMode].toLowerCase()} game to set your first personal best.<br />There’s a little champion in every square.</p><button className="primary-button" onClick={() => requestGame(leaderMode, leaderDifficulty)}>Make your first mark <ArrowRight size={16} /></button></div>}{<div className={`public-board ${publicBoardEnabled() ? '' : 'not-connected'}`}><div className="leaderboard-heading"><h2>Public leaderboard{leaderMode === 'blitz' && <span className="board-sub">every difficulty · sorted by time</span>}</h2><span className="local-badge"><Trophy size={13} />Everyone’s best</span></div><div className="name-row"><label htmlFor="player-name">Shown as</label><input id="player-name" value={nameDraft} maxLength={24} onChange={e => { setNameDraft(e.target.value); setPlayerName(e.target.value); }} /><span className="name-hint">Saved on this device, sent with your wins.</span></div>{!publicBoardEnabled() ? <div className="empty-state small"><h3>The public board isn’t connected yet.</h3><p>Add your Firebase config to <code>.env</code> and every Classic or Blitz win can post itself. <b>FIREBASE-SETUP.md</b> in the project root walks through it in about five minutes.</p></div> : publicRows.length ? <div className="table-scroll"><table className="score-table"><thead><tr><th>RANK</th><th>PLAYER</th><th>DIFFICULTY</th><th>DATE</th><th>TIME</th></tr></thead><tbody>{publicRows.map((r, i) => <tr key={i}><td><span className={`rank rank-${i}`}>{i === 0 ? <Trophy size={17} /> : String(i + 1).padStart(2, '0')}</span></td><td><span className="table-player">{r.name}</span>{r.name === playerName() && <span className="you-label">YOU</span>}</td><td><span className={`difficulty-badge dot-${r.difficulty}`}>{DIFFICULTIES[r.difficulty]?.label ?? r.difficulty}</span></td><td>{new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td><td className="mono">{formatTime(r.seconds)}</td></tr>)}</tbody></table></div> : <div className="empty-state small"><h3>No public marks yet.</h3><p>Be the first name on the board — win a game and it posts automatically.</p></div>}</div>}<div className="leaderboard-note"><ShieldCheck size={15} />Your best 20 wins are shown locally. Public scores need a Firebase project configured in <code>.env</code> — see README.</div></section></>}
 
         {view === 'stats' && <><section className="page-heading"><div><div className="eyebrow"><BarChart3 size={14} />SMALL STEPS. REAL PROGRESS.</div><h1>Look how far you’ve swept<span className="heading-dot">.</span></h1><p>Your little victories, all in one place. Saved right here on your device.</p></div><button className="secondary-button" onClick={() => setModal('reset-stats')}><Trash2 size={15} />Reset statistics</button></section><div className="stats-grid">{[{ label: 'GAMES PLAYED', value: records.length, icon: Grid2X2, detail: 'Every game is a little brain break.' }, { label: 'BOARDS CLEARED', value: wins.length, icon: Trophy, detail: 'A very good use of your free time.' }, { label: 'WIN RATE', value: `${winRate}%`, icon: Target, detail: 'Progress, not perfection.' }, { label: 'BEST CLASSIC · EASY', value: Number.isFinite(best) ? formatTime(best) : '—', icon: Clock3, detail: 'Your quickest little victory.' }].map(stat => <div className="stat-card" key={stat.label}><div><span>{stat.label}</span><stat.icon size={19} /></div><h2>{stat.value}</h2><p>{stat.detail}</p></div>)}</div><section className="history-panel"><div className="section-title"><h2>Recently in your playground</h2><span>{records.length} GAMES</span></div>{records.length ? <div className="history-list">{records.slice(0, 10).map(r => <div className="history-row" key={r.id}><span className={`mode-icon mode-${r.mode}`}><ModeIcon mode={r.mode} size={18} /></span><div><b>{MODE_NAMES[r.mode]}</b><span>{DIFFICULTIES[r.difficulty].label} · {new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span></div><span className={r.won ? 'history-win' : 'history-loss'}>{r.won ? <CheckCircle2 size={14} /> : <Flag size={14} />}{r.won ? 'Board cleared' : 'Next time’s yours'}</span><span className="mono">{formatTime(r.seconds)}</span></div>)}</div> : <div className="empty-state small"><BarChart3 size={40} strokeWidth={1.2} /><h3>A clean slate. A world of possibilities.</h3><p>Your game history will appear here. Let’s make a little progress.</p><button className="primary-button" onClick={() => navigate('play')}>Head to the playground <ArrowRight size={16} /></button></div>}</section></>}
 
-        {view === 'guide' && <><section className="page-heading"><div><div className="eyebrow"><BookOpen size={14} />A LITTLE KNOW-HOW GOES A LONG WAY</div><h1>Easy to learn. Lovely to master<span className="heading-dot">.</span></h1><p>A few simple rules. An endless supply of “aha” moments.</p></div><span className="view-decoration"><Lightbulb size={40} strokeWidth={1.2} /></span></section><section className="guide-panel"><div className="guide-tabs"><button className={helpTab === 'basics' ? 'selected' : ''} onClick={() => setHelpTab('basics')}>The basics</button><button className={helpTab === 'modes' ? 'selected' : ''} onClick={() => setHelpTab('modes')}>Find your mode</button></div>{helpTab === 'basics' ? <HelpContent /> : <div className="mode-guide-grid">{MODES.map(mode => <div key={mode.id} className={`mode-guide-card mode-card-${mode.id}`}><div className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={22} /></div><h3>{MODE_NAMES[mode.id]}</h3><p>{mode.id === 'classic' ? 'The game you know, with three ways to challenge yourself. Easy: 9 × 9, 10 mines. Medium: 16 × 16, 40 mines. Hard: 30 × 16, 99 mines.' : mode.id === 'blitz' ? 'One minute on the clock. Clear the board before time runs out. Easy is a good place to warm up; Hard is a real test of speed and strategy.' : mode.id === 'zen' ? 'One endless tree of 9 × 9 squares. Clear a square to grow the limbs behind it — the branch forks 2, then 3, then 4 wide the deeper you go. Hit a mine and that limb locks and reshuffles: grow a different tip, or re-clear the square before it to reopen the path. Your tree is saved on this device.' : 'The same seeded puzzle for every player, updated at midnight UTC. Choose your difficulty, compare notes, and come back tomorrow for something new.'}</p><button onClick={() => requestGame(mode.id, mode.id === 'daily' ? 'hard' : 'easy')}>Give it a go <ArrowRight size={15} /></button></div>)}</div>}<div className="guide-bottom"><span><Heart size={15} />You don’t need to be an expert. Just a little curious.</span><button className="primary-button" onClick={() => navigate('play')}>I’m ready to play <Play size={15} fill="currentColor" /></button></div></section></>}
+        {view === 'guide' && <><section className="page-heading"><div><div className="eyebrow"><BookOpen size={14} />A LITTLE KNOW-HOW GOES A LONG WAY</div><h1>Easy to learn. Lovely to master<span className="heading-dot">.</span></h1><p>A few simple rules. An endless supply of “aha” moments.</p></div><span className="view-decoration"><Lightbulb size={40} strokeWidth={1.2} /></span></section><section className="guide-panel"><div className="guide-tabs"><button className={helpTab === 'basics' ? 'selected' : ''} onClick={() => setHelpTab('basics')}>The basics</button><button className={helpTab === 'modes' ? 'selected' : ''} onClick={() => setHelpTab('modes')}>Find your mode</button></div>{helpTab === 'basics' ? <HelpContent /> : <div className="mode-guide-grid">{MODES.map(mode => <div key={mode.id} className={`mode-guide-card mode-card-${mode.id}`}><div className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={22} /></div><h3>{MODE_NAMES[mode.id]}</h3><p>{GUIDE_COPY[mode.id]}</p><button onClick={() => requestGame(mode.id, mode.id === 'daily' ? 'hard' : 'easy')}>Give it a go <ArrowRight size={15} /></button></div>)}</div>}<div className="guide-bottom"><span><Heart size={15} />You don’t need to be an expert. Just a little curious.</span><button className="primary-button" onClick={() => navigate('play')}>I’m ready to play <Play size={15} fill="currentColor" /></button></div></section></>}
       </main>
     </div>
 
@@ -657,9 +790,20 @@ function App() {
     {modal === 'help' && <Modal title="A little logic goes a long way." eyebrow="HOW TO PLAY" close={() => setModal(null)} className="help-modal"><HelpContent /><button className="primary-button full-width" onClick={() => setModal(null)}>Got it. Let’s make a move. <ArrowRight size={16} /></button></Modal>}
     {modal === 'settings' && <Modal title="Make yourself at home." eyebrow="YOUR PLAYGROUND, YOUR WAY" close={() => setModal(null)}><p className="modal-intro">A few small adjustments for your kind of play.</p><div className="settings-list"><div className="setting-row"><span className="setting-icon">{theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}</span><div><b>Night mode</b><p>Switch between warm daylight and calm dark mode.</p></div><button className={`switch ${theme === 'dark' ? 'on' : ''}`} role="switch" aria-checked={theme === 'dark'} aria-label="Night mode" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}><span /></button></div><div className="setting-row"><span className="setting-icon"><Volume2 size={20} /></span><div><b>Little sounds</b><p>A subtle note for every good move.</p></div><button className={`switch ${sound ? 'on' : ''}`} role="switch" aria-checked={sound} aria-label="Game sound" onClick={() => setSound(!sound)}><span /></button></div><div className="setting-row"><span className="setting-icon"><Zap size={20} /></span><div><b>Little vibrations</b><p>Gentle haptic blips for flags, taps and mines.</p></div><button className={`switch ${haptics ? 'on' : ''}`} role="switch" aria-checked={haptics} aria-label="Haptic feedback" onClick={() => setHaptics(!haptics)}><span /></button></div><div className="setting-row"><span className="setting-icon"><Sparkles size={20} /></span><div><b>Reduce motion</b><p>Keep things still and easy on the eyes.</p></div><button className={`switch ${reducedMotion ? 'on' : ''}`} role="switch" aria-checked={reducedMotion} aria-label="Reduce motion" onClick={() => setReducedMotion(!reducedMotion)}><span /></button></div><div className="setting-row"><span className="setting-icon"><Target size={20} /></span><div><b>Higher contrast</b><p>Make numbers and board edges clearer.</p></div><button className={`switch ${highContrast ? 'on' : ''}`} role="switch" aria-checked={highContrast} aria-label="Higher contrast" onClick={() => setHighContrast(!highContrast)}><span /></button></div></div><div className="settings-note"><ShieldCheck size={16} />These preferences are saved on this device.</div><button className="primary-button full-width" onClick={() => setModal(null)}>Just right <Check size={16} /></button></Modal>}
     {modal === 'confirm' && <Modal title="A fresh board, a fresh start?" eyebrow="ONE LITTLE THING" close={() => setModal(null)}><p className="modal-intro">You’re in the middle of a game. Starting a new one will leave this round behind — your previous results stay safe.</p><div className="confirm-preview"><span className={`mode-icon mode-${pendingGame?.mode || game.mode}`}><ModeIcon mode={pendingGame?.mode || game.mode} /></span><div><b>{MODE_NAMES[pendingGame?.mode || game.mode]}</b><span>{DIFFICULTIES[pendingGame?.difficulty || game.difficulty].label} · {formatTime(elapsed)} played</span></div></div><div className="modal-actions"><button className="secondary-button" onClick={() => setModal(null)}>Keep playing</button><button className="primary-button" onClick={() => { if (pendingGame) startGame(pendingGame.mode, pendingGame.difficulty); setPendingGame(null); }}><RotateCcw size={15} />Start fresh</button></div></Modal>}
+    {modal === 'custom' && <Modal title="How big should the field be?" eyebrow="CUSTOM · YOUR RULES" close={() => setModal(null)} className="custom-modal">
+      <p className="modal-intro">Any field from {CUSTOM_LIMITS.min} to {CUSTOM_LIMITS.max} squares a side, and any number of mines it can hold. Every clear lands on the Custom board with its size written beside it.</p>
+      <div className="custom-presets">{[{ label: 'Tiny', rows: 6, cols: 6, mines: 6 }, { label: 'Wide', rows: 10, cols: 24, mines: 40 }, { label: 'Monster', rows: 30, cols: 30, mines: 120 }].map(preset => <button key={preset.label} className="custom-preset" onClick={() => setCustomDraft(clampCustom(preset))}><b>{preset.label}</b><span>{preset.cols} × {preset.rows}</span></button>)}</div>
+      <div className="custom-fields">
+        <label htmlFor="custom-cols"><span>Width<small>{customDraft.cols} squares</small></span><input id="custom-cols" type="range" min={CUSTOM_LIMITS.min} max={CUSTOM_LIMITS.max} value={customDraft.cols} onChange={e => setCustomDraft(c => clampCustom({ ...c, cols: Number(e.target.value) }))} /></label>
+        <label htmlFor="custom-rows"><span>Height<small>{customDraft.rows} squares</small></span><input id="custom-rows" type="range" min={CUSTOM_LIMITS.min} max={CUSTOM_LIMITS.max} value={customDraft.rows} onChange={e => setCustomDraft(c => clampCustom({ ...c, rows: Number(e.target.value) }))} /></label>
+        <label htmlFor="custom-mines"><span>Mines<small>{customDraft.mines} of {customDraft.rows * customDraft.cols}</small></span><input id="custom-mines" type="range" min={CUSTOM_LIMITS.minMines} max={Math.max(CUSTOM_LIMITS.minMines, Math.floor(customDraft.rows * customDraft.cols * CUSTOM_LIMITS.maxDensity))} value={customDraft.mines} onChange={e => setCustomDraft(c => clampCustom({ ...c, mines: Number(e.target.value) }))} /></label>
+      </div>
+      <div className="custom-summary"><span>{customDraft.rows * customDraft.cols} squares</span><span>{Math.round(customDraft.mines / (customDraft.rows * customDraft.cols) * 100)}% mines</span><span>{(customDraft.rows * customDraft.cols - customDraft.mines)} to clear</span></div>
+      <div className="modal-actions"><button className="secondary-button" onClick={() => setModal(null)}>Not now</button><button className="primary-button" onClick={() => { const size = clampCustom(customDraft); setCustomConfig(size); setModal(null); requestGame('custom', 'custom', size); }}><Play size={15} fill="currentColor" />Build this board</button></div>
+    </Modal>}
     {modal === 'reset-stats' && <Modal title="A completely clean slate?" eyebrow="RESET YOUR STATISTICS" close={() => setModal(null)}><p className="modal-intro">This will permanently clear {records.length} game records and all your personal bests from this device. Your preferences and current game won’t change.</p><div className="modal-actions"><button className="secondary-button" onClick={() => setModal(null)}>Keep my progress</button><button className="primary-button danger" onClick={() => { setRecords([]); recorded.current = game.id; setModal(null); notify('A clean slate. Here’s to your next little win.'); }}><Trash2 size={15} />Clear my stats</button></div></Modal>}
     {modal === 'profile' && <Modal title="Hey there, curious mind." eyebrow="NO ACCOUNT. JUST A GOOD GAME." close={() => setModal(null)}><div className="profile-summary"><div className="avatar big">Y</div><div><h3>You, the player</h3><p>Local player · All your progress stays with you.</p></div></div><div className="profile-numbers"><span><b>{records.length}</b>games played</span><span><b>{wins.length}</b>little victories</span><span><b>{winRate}%</b>win rate</span></div><div className="settings-note"><ShieldCheck size={17} /><span>No sign-ups, no cloud, no tracking. Your Android app and browser keep separate local saves.</span></div><button className="primary-button full-width" onClick={() => { setModal(null); navigate('stats'); }}>See your little wins <ArrowRight size={16} /></button></Modal>}
-    {modal === 'android' && <Modal title="Your next break. To go." eyebrow="MINEFIELD FOR ANDROID" close={() => setModal(null)} className="android-modal"><div className="android-hero"><div className="app-icon"><BrandMark /></div><div><h3>minefield<span>.</span></h3><p>All your favorite little challenges.<br />Right in your pocket.</p></div><span className="android-version">v1.0.2</span></div><div className="android-features"><span><CheckCircle2 size={17} />All 4 game modes</span><span><CheckCircle2 size={17} />Light & dark themes</span><span><CheckCircle2 size={17} />100% offline play</span><span><CheckCircle2 size={17} />Your scores, saved locally</span></div>{isAndroidApp ? <div className="native-installed"><CheckCircle2 size={18} /><span>You’ve already got the Android app. Happy sweeping!</span></div> : androidUrls.apkUrl ? <div className="android-download-stack"><a className="primary-button full-width android-download" href={androidUrls.apkUrl} download="minefield-android-v1.0.2.apk" onClick={() => notify('Downloading minefield-android-v1.0.2.apk…')}><Smartphone size={19} /><span>Download Android APK ({androidPkg.apkSizeKb} KB)</span><ArrowDownToLine size={18} /></a>{androidUrls.xapkUrl && <a className="secondary-button full-width android-download-xapk" href={androidUrls.xapkUrl} download="minefield-android-v1.0.2.xapk" onClick={() => notify('Downloading minefield-android-v1.0.2.xapk…')}><Smartphone size={17} /><span>Download XAPK Package ({androidPkg.xapkSizeKb} KB)</span><ArrowDownToLine size={16} /></a>}{androidUrls.apkDirectDataUrl && <a className="android-fallback-link" href={androidUrls.apkDirectDataUrl} download="minefield-android-v1.0.2.apk">Having trouble? Use direct data download</a>}</div> : <div className="apk-building"><Smartphone size={20} /><div><b>Preparing Android package…</b><p>In the meantime, enjoy every mode right here in your browser.</p></div></div>}<p className="android-requirements"><Smartphone size={13} />Android 8.0 or newer · Signed APK & XAPK · Free, forever</p>{!isAndroidApp && !isDesktopApp && <SourceDownload className="secondary-button full-width source-download-inline" />}<div className="install-guide"><h4>Three taps to a little more play.</h4><p><span>1</span>If you installed v1.0 earlier, uninstall the old Minefield app first.</p><p><span>2</span>Tap Download Android APK above and open the downloaded v1.0.2 file.</p><p><span>3</span>Tap Install (choose “Install anyway” if Android prompts about an independent app).</p></div><div className="android-security"><ShieldCheck size={16} /><p>This is a direct, self-signed APK — not a Google Play release. Android may show an “unknown app” warning. Only install the package you downloaded here.</p></div></Modal>}
+    {modal === 'android' && <Modal title="Your next break. To go." eyebrow="MINEFIELD FOR ANDROID" close={() => setModal(null)} className="android-modal"><div className="android-hero"><div className="app-icon"><BrandMark /></div><div><h3>minefield<span>.</span></h3><p>All your favorite little challenges.<br />Right in your pocket.</p></div><span className="android-version">v1.0.2</span></div><div className="android-features"><span><CheckCircle2 size={17} />All {MODES.length} game modes</span><span><CheckCircle2 size={17} />Light & dark themes</span><span><CheckCircle2 size={17} />100% offline play</span><span><CheckCircle2 size={17} />Your scores, saved locally</span></div>{isAndroidApp ? <div className="native-installed"><CheckCircle2 size={18} /><span>You’ve already got the Android app. Happy sweeping!</span></div> : androidUrls.apkUrl ? <div className="android-download-stack"><a className="primary-button full-width android-download" href={androidUrls.apkUrl} download="minefield-android-v1.0.2.apk" onClick={() => notify('Downloading minefield-android-v1.0.2.apk…')}><Smartphone size={19} /><span>Download Android APK ({androidPkg.apkSizeKb} KB)</span><ArrowDownToLine size={18} /></a>{androidUrls.xapkUrl && <a className="secondary-button full-width android-download-xapk" href={androidUrls.xapkUrl} download="minefield-android-v1.0.2.xapk" onClick={() => notify('Downloading minefield-android-v1.0.2.xapk…')}><Smartphone size={17} /><span>Download XAPK Package ({androidPkg.xapkSizeKb} KB)</span><ArrowDownToLine size={16} /></a>}{androidUrls.apkDirectDataUrl && <a className="android-fallback-link" href={androidUrls.apkDirectDataUrl} download="minefield-android-v1.0.2.apk">Having trouble? Use direct data download</a>}</div> : <div className="apk-building"><Smartphone size={20} /><div><b>Preparing Android package…</b><p>In the meantime, enjoy every mode right here in your browser.</p></div></div>}<p className="android-requirements"><Smartphone size={13} />Android 8.0 or newer · Signed APK & XAPK · Free, forever</p>{!isAndroidApp && !isDesktopApp && <SourceDownload className="secondary-button full-width source-download-inline" />}<div className="install-guide"><h4>Three taps to a little more play.</h4><p><span>1</span>If you installed v1.0 earlier, uninstall the old Minefield app first.</p><p><span>2</span>Tap Download Android APK above and open the downloaded v1.0.2 file.</p><p><span>3</span>Tap Install (choose “Install anyway” if Android prompts about an independent app).</p></div><div className="android-security"><ShieldCheck size={16} /><p>This is a direct, self-signed APK — not a Google Play release. Android may show an “unknown app” warning. Only install the package you downloaded here.</p></div></Modal>}
     {toast && <div className="toast" role="status"><CheckCircle2 size={18} /><span>{toast}</span><button onClick={() => setToast('')} aria-label="Dismiss notification"><X size={15} /></button></div>}
   </div>;
 }
