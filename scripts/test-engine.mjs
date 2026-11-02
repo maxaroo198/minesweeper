@@ -128,9 +128,7 @@ const always = applyFog(fogBoard.cells, numbered, fogBoard.rows, fogBoard.cols, 
 const hidden = always.flatMap((c, i) => (c.hidden ? [i] : []));
 assert.ok(hidden.length >= 10, 'a certain mist takes a lot of numbers');
 assert.equal(always.filter((c, i) => c.revealed !== fogBoard.cells[i].revealed).length, 0, 'fog never opens a square');
-for (const i of hidden) {
-  for (const n of neighbors(i, fogBoard.rows, fogBoard.cols)) assert.ok(!always[n].hidden, 'no two fogged squares may touch');
-}
+assert.equal(hidden.length, numbered.length, 'touching numbered squares can all be hidden');
 assert.equal(applyFog(fogBoard.cells, numbered, 12, 12, 0.1, () => 0.99).filter(c => c.hidden).length, 0, 'a polite roll leaves the board alone');
 assert.equal(applyFog(fogBoard.cells, fogBoard.cells.map((c, i) => (!c.mine && c.adjacent === 0 ? i : -1)).filter(i => i >= 0), 12, 12, 1, () => 0).filter(c => c.hidden).length, 0, 'empty squares are never fogged');
 const fogClock = (seconds, difficulty = 'medium') => fogChance({ ...fogBoard, mode: 'nightfall', difficulty, startedAt: Date.now() - seconds * 1000 });
@@ -138,6 +136,8 @@ assert.ok(Math.abs(fogClock(0) - 0.1) < 1e-9, 'nightfall starts at one in ten');
 assert.ok(fogClock(5) > fogClock(0) && fogClock(10) > fogClock(5), 'the chance climbs every five seconds');
 assert.ok(fogClock(600) <= 0.5 + 1e-9, 'and stops at a coin flip');
 assert.ok(fogClock(0, 'blackout') > 0.32 && fogClock(0, 'blackout') < 0.34, 'Blackout starts at one in three');
+assert.equal(fogClock(100, 'blackout'), 1, 'Blackout reaches 100 percent');
+assert.ok(fogClock(40, 'blackout') > 2 / 3, 'Blackout passes the old cap');
 assert.equal(fogChance({ ...fogBoard, mode: 'classic' }), 0, 'other modes never lose a number');
 const foggedState = { ...fogBoard, status: 'playing', startedAt: Date.now(), cells: fogBoard.cells.map((c, i) => (i === numbered[0] ? { ...c, revealed: true, hidden: true } : c)) };
 assert.equal(reveal(foggedState, numbered[0]).state, foggedState, 'a fogged square cannot be chorded');
@@ -145,7 +145,7 @@ let revealedFog = 0;
 for (let attempt = 0; attempt < 40; attempt++) {
   const { state } = reveal(freshGame('nightfall', 'blackout'), Math.floor(Math.random() * 144));
   revealedFog += state.cells.filter(c => c.hidden).length;
-  state.cells.forEach((c, i) => { if (c.hidden) for (const n of neighbors(i, 12, 12)) assert.ok(!state.cells[n].hidden, 'live reveals keep fog apart too'); });
+  state.cells.forEach(c => { if (c.hidden) assert.ok(!c.mine && c.adjacent > 0, 'only numbered safe tiles hide'); });
 }
 assert.ok(revealedFog > 0, 'Blackout actually fogs numbers when playing');
 
@@ -166,7 +166,7 @@ assert.ok(revealedFog > 0, 'Blackout actually fogs numbers when playing');
     board2 = drift.state;
   }
   assert.equal(driftBoard({ ...board2, status: 'won' }, seededRandom('x')).changed, false, 'a finished Riptide board holds still');
-  assert.equal(TIDE_SECONDS, 15, 'the tide runs every fifteen seconds');
+  assert.equal(TIDE_SECONDS, 8, 'the tide runs every eight seconds');
   console.log('Riptide: 25 tides, mine count steady, nothing landed on an open square');
 }
 
@@ -212,5 +212,26 @@ assert.ok(revealedFog > 0, 'Blackout actually fogs numbers when playing');
   console.log(`Contract: dealt ${ids.join(', ')} → ${stars}/3 stars on a win`);
 }
 
+
+// Expanded Contract invariants and deterministic replay.
+assert.equal(contract.OBJECTIVE_POOL.length, 12);
+for (let n = 0; n < 200; n++) {
+  const ids = dealObjectives(`variety-${n}`);
+  assert.ok(!(ids.includes('allflags') && (ids.includes('flagless') || ids.includes('minimalist'))));
+  assert.ok(!(ids.includes('chorder') && ids.includes('chordless')));
+  const b = { ...freshGame('contract', 'easy'), id: `variety-${n}`, objectives: ids };
+  const bonus = contract.bonusObjectives(b, 0);
+  assert.equal(bonus.length, 2);
+  assert.ok(bonus.every(o => !ids.includes(o.id)));
+  assert.deepEqual(plantBoard(b, 40).cells, plantBoard(b, 40).cells, 'same code and first click replay exactly');
+}
+{
+  const b = { ...freshGame('contract', 'easy'), status: 'won', rescues: 1 };
+  assert.equal(contractStars(['flagless', 'chordless', 'unassisted'], b, 10), 1, 'rescue forfeits unassisted objective and deducts one star');
+  let playing = reveal(freshGame('contract', 'easy'), 40).state;
+  const safe = playing.cells.findIndex(c => !c.mine && !c.revealed);
+  playing = toggleFlag(toggleFlag(playing, safe), safe);
+  assert.equal(rateObjectives(['accuracy'], { ...playing, status: 'won' }, 10)[0].done, false, 'removing a wrong flag does not restore accuracy');
+}
 console.log(`Daily twists: ${DAILY_TWISTS.map(t => t.name).join(' → ')}`);
 console.log(`Passed ${checks} randomized, full-game engine tests plus daily, flags, and safety checks.`);

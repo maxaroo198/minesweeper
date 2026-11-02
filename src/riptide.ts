@@ -1,5 +1,5 @@
 /**
- * Riptide: every fifteen seconds the tide runs through one row and one column,
+ * Riptide: every eight seconds the tide runs through every row and column,
  * carrying the mines along with it and rewriting the numbers on the squares
  * you've already opened. Nothing a mine can do is hidden from you — the swap
  * only ever happens among covered squares, so an open square never becomes a
@@ -8,7 +8,7 @@
 import { neighbors } from './game';
 import type { BoardState, Cell } from './game';
 
-export const TIDE_SECONDS = 15;
+export const TIDE_SECONDS = 8;
 
 function recount(cells: Cell[], rows: number, cols: number) {
   cells.forEach((cell, i) => {
@@ -38,27 +38,24 @@ export interface Drift {
   moved: number[];
 }
 
-/** Slide one row and one column. Never touches an opened square. */
+/** Shift every row and every column. Never touches an opened square. */
 export function driftBoard(state: BoardState, rng: () => number = Math.random): Drift {
   if (state.status !== 'playing') return { state, row: -1, col: -1, changed: false, moved: [] };
   const cells = state.cells.map(c => ({ ...c }));
-  const row = Math.floor(rng() * state.rows);
-  const col = Math.floor(rng() * state.cols);
-  const rowIndexes: number[] = [];
-  const colIndexes: number[] = [];
-  for (let c = 0; c < state.cols; c++) {
-    const i = row * state.cols + c;
-    if (!cells[i].revealed) rowIndexes.push(i);
-  }
+  const row = -1, col = -1;
+  let changed = false;
   for (let r = 0; r < state.rows; r++) {
-    const i = r * state.cols + col;
-    if (!cells[i].revealed) colIndexes.push(i);
+    const indexes = cells.flatMap((c, i) => !c.revealed && Math.floor(i / state.cols) === r ? [i] : []);
+    if (rng() < 0.5) indexes.reverse();
+    changed = cycleLine(cells, indexes) || changed;
   }
-  const movedRow = cycleLine(cells, rowIndexes);
-  const movedCol = cycleLine(cells, colIndexes);
-  const changed = movedRow || movedCol;
+  for (let c = 0; c < state.cols; c++) {
+    const indexes = cells.flatMap((cell, i) => !cell.revealed && i % state.cols === c ? [i] : []);
+    if (rng() < 0.5) indexes.reverse();
+    changed = cycleLine(cells, indexes) || changed;
+  }
   if (!changed) return { state, row, col, changed: false, moved: [] };
   recount(cells, state.rows, state.cols);
-  const moved = [...new Set([...rowIndexes, ...colIndexes, ...state.cells.flatMap((c, i) => (c.revealed ? [i] : []))])];
+  const moved = cells.flatMap((c, i) => c.mine !== state.cells[i].mine || c.adjacent !== state.cells[i].adjacent ? [i] : []);
   return { state: { ...state, cells }, row, col, changed, moved };
 }

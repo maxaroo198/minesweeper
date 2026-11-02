@@ -22,16 +22,16 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
   strip and a spoiler-free share grid are built in. The daily is locked to Hard, or Medium and Hard
   when the day's twist runs on a clock.
 - **Nightfall:** A 12 × 12 board where opening a square has a chance of showing you nothing at all.
-  The chance starts at one in ten, climbs 5% every five seconds and stops at a coin flip, and two
-  fogged squares never touch — so there is always something left to read. **Blackout** is a fourth
-  rung on the difficulty row that starts at one in three.
+  The chance starts at one in ten, climbs 5% every five seconds and stops at a coin flip.
+  Hidden tiles can touch. **Blackout** starts at one in three and keeps climbing to 100%.
 - **Custom:** Pick any field from 5 to 40 squares a side and any mine count it can hold. The board
   size is remembered, and every result lands on one shared Custom leaderboard with its size shown.
-- **Riptide:** Every fifteen seconds the tide slides one row and one column, dragging the mines with
+- **Riptide:** Every eight seconds the tide shifts every row and column, dragging the mines with
   it and rewriting the numbers on squares you have already opened.
-- **Contract:** Three objectives ride along with each board — clear it in time, win without flags,
-  win without chording, never flag a safe square, open the corners. Each one kept is a star, and the
-  Contract board ranks stars before time.
+- **Contract:** Three compatible objectives from a twelve-objective pool, plus two optional bonus
+  badges, a one-use safe-tile rescue that costs a final star, and replayable contract codes. Use the
+  same code, difficulty and first click to reproduce a board. Objectives stay visible in focus mode.
+  The Contract board ranks final stars before time.
 - **Scan:** Start with three charges; arm Scan and tap a covered square to read its true mine count
   without opening it. Flag a real mine to earn a charge back.
 - Safe opening: Your first square and its neighbors are mine-free.

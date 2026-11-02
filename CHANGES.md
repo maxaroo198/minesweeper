@@ -1,3 +1,12 @@
+# Round 4 — whole-board tides and replayable contracts
+
+- Riptide now shifts every row, then every column, every eight seconds. Open squares stay safe; mine count stays fixed and clues update.
+- Contract: twelve objectives, compatible main deals, two optional bonus badges, safe-tile rescue (one use, minus one final star), replay codes with deterministic boards (same difficulty and first click).
+- Contract objectives stay inside the game panel in focus/fullscreen mode.
+- Accuracy remembers wrong flags even after removal; mined corners can be secured by flagging them.
+- Nightfall and Blackout allow adjacent hidden clues. Blackout grows to 100%, not the old two-thirds cap. Nightfall retains its 50% cap.
+- Firebase setup now includes both indexes, deployment settings, troubleshooting and security caveats. Failed requests log useful console errors.
+
 # What changed
 
 Five things, all driven by the screencast and the request list.

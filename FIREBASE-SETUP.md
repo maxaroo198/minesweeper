@@ -38,14 +38,14 @@ environment variables and, when they are missing, quietly stays local.
 `firestore.rules` from this repo → **Publish**.
 
 Those rules let anyone read the board, let a well-formed win record be created,
-and forbid edits and deletes — so nobody can rewrite someone else's time.
+and forbid edits and deletes — so clients cannot rewrite an existing score. They do NOT prove a score is legitimate or prevent spam.
 
 ## 5. Put the config on your machine
 
 ```sh
-cd /home/max/minesweeper-fresh          # or wherever the project lives
+cd ~/minefield-patched
 cp .env.example .env
-$EDITOR .env                            # paste your three values
+nano .env                              # paste your three values; Ctrl+O, Enter, Ctrl+X
 ```
 
 ```dotenv
@@ -77,7 +77,34 @@ npm run dev
 If the table stays empty, open the browser console and look for `permission-denied`
 (the rules are not published yet) or `failed-precondition` (the index below is missing).
 
-## 8. The composite index
+## 8. The composite indexes
+
+In **Firestore Database → Indexes → Composite → Add index**, use collection ID
+`scores`, query scope **Collection**, and create these two indexes:
+
+| Index | Fields (all Ascending) |
+| --- | --- |
+| Classic / per-difficulty board | `mode`, `difficulty`, `seconds` |
+| Blitz / all difficulties | `mode`, `seconds` |
+
+Wait until both indexes say **Enabled**, then reload the leaderboard.
+You can also use the error's generated Create index link instead.
+
+### Troubleshooting
+
+- Use the default Firestore database, not a named secondary database.
+- Stop Vite with Ctrl+C and restart after editing `.env`.
+- The Post button only appears after a **Classic or Blitz win**. Other modes
+  currently save locally; configuring Firebase does not change that.
+- `permission-denied`: publish this repo's rules to the same Firebase project.
+- `failed-precondition`: finish creating the indexes above.
+- Invalid API key/project: copy values from the registered web app again.
+- The browser's developer console now logs failures instead of hiding them.
+- On a deployed site, add the same three environment variables in your hosting
+  dashboard **before rebuilding/redeploying**. A local `.env` is not uploaded.
+- Do not paste service-account JSON or private keys into Vite variables.
+
+### Why an index is needed
 
 The public board queries `mode == X` **and** orders by `seconds`. Firestore often
 wants an index for that; the first such query fails with a console error containing
@@ -97,3 +124,13 @@ The Blitz board asks for every difficulty at once, so it needs the same index on
   If you ever want to stop obvious cheats, add App Check or a Cloud Function that
   validates the record server-side; the schema is in `src/publicBoard.ts`.
 * **Reset the board** — Firestore → the `scores` collection → delete the documents.
+
+## Security and costs
+
+This is a casual, client-submitted leaderboard, not cheat-proof competitive
+scoring. Public create access permits fake records and spam. The rules validate
+basic fields and forbid client updates/deletes, but do not verify gameplay.
+For a competitive launch, add authenticated submissions, rate limiting and
+server-side validation; App Check is an additional abuse barrier, not score
+verification. Monitor Firestore usage and current free-tier quotas. Do not
+assume public access can never incur costs if billing is enabled.

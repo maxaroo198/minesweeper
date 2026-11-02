@@ -213,6 +213,16 @@ await layoutPage.waitForTimeout(200);
 await fresh(layoutPage);
 assert.equal(await layoutPage.locator('.contract-panel li').count(), 3, 'a contract deals three objectives');
 assert.equal(await layoutPage.locator('.contract-chip').count(), 1, 'the header counts what is kept so far');
+await layoutPage.getByRole('button', { name: 'Enter focus mode', exact: true }).click();
+assert.ok(await layoutPage.locator('.contract-panel').isVisible(), 'contract objectives remain visible in focus mode');
+assert.equal(await layoutPage.locator('.contract-extras h4').innerText(), 'Optional bonus badges');
+await layoutPage.locator('.tile').nth(40).click();
+const rescue = layoutPage.getByRole('button', { name: 'Use rescue', exact: false });
+await rescue.click();
+assert.ok(await rescue.isDisabled(), 'one rescue per contract');
+assert.ok(await layoutPage.locator('.contract-extras').innerText().then(t => t.includes('one-star deduction')), 'rescue penalty is explained');
+await layoutPage.getByRole('button', { name: 'Exit focus mode', exact: true }).click();
+
 
 // Scan: charges are spent on a square and shown on the board.
 await layoutPage.locator('.mode-card-scan').click();
@@ -275,15 +285,6 @@ const fogged = await fogPage.evaluate(() => ({
   chip: document.querySelector('.fog-chip')?.textContent ?? '',
 }));
 assert.ok(fogged.tiles.length > 0, 'nightfall hides numbers as you open them');
-for (const i of fogged.tiles) {
-  const row = Math.floor(i / fogged.cols), col = i % fogged.cols;
-  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-    if (!dr && !dc) continue;
-    const r = row + dr, c = col + dc;
-    if (r < 0 || r > 11 || c < 0 || c > 11) continue;
-    assert.ok(!fogged.tiles.includes(r * fogged.cols + c), 'two fogged squares never touch');
-  }
-}
 const before = parseInt(fogged.chip, 10);
 await fogPage.clock.fastForward(21000);
 await fogPage.waitForTimeout(200);

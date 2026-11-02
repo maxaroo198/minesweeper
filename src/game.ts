@@ -2,7 +2,7 @@ export type Difficulty = 'easy' | 'medium' | 'hard' | 'blackout' | 'custom';
 export type Mode = 'classic' | 'blitz' | 'zen' | 'daily' | 'nightfall' | 'custom' | 'riptide' | 'contract' | 'scan';
 export type Status = 'ready' | 'playing' | 'won' | 'lost';
 /** Contract objective ids. Labels and rules live in contract.ts. */
-export type ObjectiveId = 'speed' | 'flagless' | 'chordless' | 'accuracy' | 'corners';
+export type ObjectiveId = 'speed' | 'flagless' | 'chordless' | 'accuracy' | 'corners' | 'allflags' | 'minimalist' | 'chorder' | 'sprint' | 'patient' | 'unassisted' | 'efficient';
 
 export interface Cell {
   mine: boolean;
@@ -37,6 +37,9 @@ export interface BoardState {
   scans: number;
   /** Contract objectives dealt for this game. */
   objectives: ObjectiveId[];
+  mistakes?: number;
+  rescues?: number;
+  reveals?: number;
   /** The size picked in Custom mode, kept so a restart rebuilds the same board. */
   custom?: CustomConfig;
 }
@@ -147,7 +150,7 @@ export function plantBoard(state: BoardState, first: number): BoardState {
   const cells = state.cells.map(c => ({ ...c, mine: false, adjacent: 0 }));
   const safe = new Set([first, ...neighbors(first, rows, cols)]);
   const candidates = cells.map((_, i) => i).filter(i => !safe.has(i));
-  const random = state.mode === 'daily' ? seededRandom(`minefield-v1-${dayKey()}-${state.difficulty}`) : Math.random;
+  const random = state.mode === 'daily' ? seededRandom(`minefield-v1-${dayKey()}-${state.difficulty}`) : state.mode === 'contract' ? seededRandom(`contract-board-${state.id}-${state.difficulty}`) : Math.random;
   for (let i = candidates.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
     [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
@@ -156,7 +159,7 @@ export function plantBoard(state: BoardState, first: number): BoardState {
   cells.forEach((cell, i) => {
     if (!cell.mine) cell.adjacent = neighbors(i, rows, cols).filter(n => cells[n].mine).length;
   });
-  return { ...state, cells };
+  return { ...state, cells, mistakes: (state.mistakes ?? 0) + cells.filter(c => c.flagged && !c.mine).length };
 }
 export interface RevealChange {
   /** Every tile that flipped from covered to revealed. */
@@ -191,7 +194,7 @@ export interface FogRule { base: number; step: number; everySeconds: number; cap
 /** Base chance is 1 in 10, then it climbs 5% every five seconds. Blackout starts at 1 in 3. */
 export const FOG_RULES: Record<'nightfall' | 'blackout', FogRule> = {
   nightfall: { base: 0.1, step: 0.05, everySeconds: 5, cap: 0.5 },
-  blackout: { base: 1 / 3, step: 0.05, everySeconds: 5, cap: 2 / 3 },
+  blackout: { base: 1 / 3, step: 0.05, everySeconds: 5, cap: 1 },
 };
 /** How likely the mist is to take a number right now, given how long you have been playing. */
 export function fogChance(state: BoardState, now = Date.now()): number {
@@ -201,19 +204,13 @@ export function fogChance(state: BoardState, now = Date.now()): number {
   const steps = Math.floor(elapsed / rule.everySeconds);
   return Math.min(rule.cap, rule.base + rule.step * steps);
 }
-/**
- * The mist takes a number here and there. Two fogged squares never touch —
- * that would leave a whole region unreadable — so a tile stays honest if any of
- * its eight neighbours is already fogged. Empty tiles are skipped: they show
- * nothing anyway, and fogging them would stop the board from opening up.
- */
-export function applyFog(cells: Cell[], opened: number[], rows: number, cols: number, chance: number, rng: () => number = Math.random): Cell[] {
+/** Hidden numbered tiles may touch; empty tiles still flood normally. */
+export function applyFog(cells: Cell[], opened: number[], _rows: number, _cols: number, chance: number, rng: () => number = Math.random): Cell[] {
   if (chance <= 0) return cells;
   let next = cells;
   for (const i of opened) {
     const cell = next[i];
     if (!cell || cell.mine || cell.adjacent === 0 || cell.hidden) continue;
-    if (neighbors(i, rows, cols).some(n => next[n].hidden)) continue;
     if (rng() >= chance) continue;
     if (next === cells) next = cells.map(c => ({ ...c }));
     next[i] = { ...next[i], hidden: true };
@@ -241,7 +238,7 @@ export function reveal(state: BoardState, index: number): { state: BoardState; c
   const cells = applyFog(result.cells, result.change.opened, next.rows, next.cols, fogChance(next, now));
   const won = result.change.hit === null && cells.every(c => c.mine || c.revealed);
   return {
-    state: { ...next, cells, chords, status: result.change.hit !== null ? 'lost' : won ? 'won' : 'playing', finishedAt: result.change.hit !== null || won ? now : null },
+    state: { ...next, cells, chords, reveals: (next.reveals ?? 0) + 1, status: result.change.hit !== null ? 'lost' : won ? 'won' : 'playing', finishedAt: result.change.hit !== null || won ? now : null },
     change: result.change,
   };
 }
@@ -253,6 +250,7 @@ export function toggleFlag(state: BoardState, index: number): BoardState {
   const earned = !cell.flagged && state.mode === 'scan' && cell.mine ? 1 : 0;
   return {
     ...state,
+    mistakes: (state.mistakes ?? 0) + (!cell.flagged && !cell.mine && state.status !== 'ready' ? 1 : 0),
     charges: state.charges + earned,
     flagsPlaced: cell.flagged ? state.flagsPlaced : state.flagsPlaced + 1,
     cells: state.cells.map((c, i) => i === index ? { ...c, flagged: !c.flagged } : c),

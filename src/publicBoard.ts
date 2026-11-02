@@ -71,7 +71,8 @@ export async function submitPublicScore(record: GameRecord): Promise<boolean> {
       date: record.date,
     });
     return true;
-  } catch {
+  } catch (error) {
+    console.warn('Public leaderboard: score could not be posted.', error);
     return false;
   }
 }
@@ -94,7 +95,8 @@ export async function topPublicScores(mode: Mode, difficulty: Difficulty, count 
     );
     const snapshot = await getDocs(q);
     return snapshot.docs.map(d => ({ ...(d.data() as PublicScore) }));
-  } catch {
+  } catch (error) {
+    console.warn('Public leaderboard: scores could not be loaded. Check Firestore rules and indexes.', error);
     return [];
   }
 }

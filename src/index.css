@@ -1490,3 +1490,11 @@ color-scheme:dark;
   .custom-presets{grid-template-columns:1fr}
   .contract-panel{padding:16px 14px 13px}
 }
+
+/* Contract stays with the board, including focus/fullscreen. */
+.game-panel > .contract-panel { margin:16px 20px; }
+.contract-code { font:10px var(--mono); overflow-wrap:anywhere; margin:10px 0; }
+.contract-extras { border-top:1px solid var(--sf71); margin-top:12px; padding-top:12px; }
+.contract-extras p { font-size:11px; line-height:1.6; margin:8px 0; }
+.contract-extras button { margin:5px 8px 0 0; }
+.contract-extras button:disabled { opacity:.45; cursor:not-allowed; }
