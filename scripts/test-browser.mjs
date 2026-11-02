@@ -294,11 +294,9 @@ assert.ok(await fogPage.locator('.tile.fogged').first().evaluate(el => getComput
 await fogPage.screenshot({ path: '.screenshots/nightfall.png' });
 await fogPage.close();
 await page.locator('.download-button').click();
-await page.locator('.android-download').waitFor();
-const apk = await page.request.get(`${BASE}/minefield.apk`);
-assert.equal(apk.status(), 200);
-assert.ok((await apk.body()).length > 100000);
-await page.screenshot({ path: '.screenshots/android-dialog.png', fullPage: false });
+await page.locator('.installer-link').first().waitFor();
+assert.equal(await page.locator('.installer-link').count(), 4, 'four native installer links');
+assert.ok((await page.locator('.installer-link').first().getAttribute('href')).endsWith('/releases/latest/download/minefield-android.apk'));
 await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
 // Dark mode: toggle, persistence, contrast, and the native status-bar bridge.
 const darkPage = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -364,5 +362,5 @@ assert.ok(await phone.evaluate(() => getComputedStyle(document.querySelector('.g
 await phone.screenshot({ path: '.screenshots/mobile-dark.png', fullPage: false });
 await phone.locator('.theme-button').tap();
 assert.deepEqual(errors, [], 'no browser runtime errors');
-console.log('Browser tests passed: desktop, mobile, flags, sizes, daily lock, name prompt, all nine modes (Nightfall fog, Custom sizing, Riptide tide, Contract objectives, Scan charges), preferences, guide, and APK download.');
+console.log('Browser tests passed: desktop, mobile, flags, sizes, daily lock, name prompt, all nine modes (Nightfall fog, Custom sizing, Riptide tide, Contract objectives, Scan charges), preferences, guide, and native installer links.');
 await browser.close();

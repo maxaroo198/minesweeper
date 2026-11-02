@@ -1498,3 +1498,9 @@ color-scheme:dark;
 .contract-extras p { font-size:11px; line-height:1.6; margin:8px 0; }
 .contract-extras button { margin:5px 8px 0 0; }
 .contract-extras button:disabled { opacity:.45; cursor:not-allowed; }
+
+.installer-list > p { font-size:12px; line-height:1.7; margin:12px 0; }
+.installer-link { display:flex; gap:12px; margin:10px 0; text-align:left; }
+.installer-link span { flex:1; display:flex; flex-direction:column; gap:4px; }
+.installer-link small { font-size:10px; font-weight:400; opacity:.75; }
+.installer-list a { overflow-wrap:anywhere; }

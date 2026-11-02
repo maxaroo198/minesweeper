@@ -1,15 +1,17 @@
 {
   "name": "react-vite-tailwind",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "desktop:dev": "tauri dev",
-    "desktop:build": "tauri build",
-    "desktop:icon": "tauri icon public/favicon.svg"
+    "desktop:dev": "cd desktop && tauri dev",
+    "desktop:build": "cd desktop && tauri build",
+    "desktop:icon": "tauri icon public/favicon.svg --output desktop/icons",
+    "android:build": "python3 scripts/build-android.py --release --no-embed",
+    "test:engine": "node scripts/test-engine.mjs"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.3.0",
@@ -24,6 +26,7 @@
   "devDependencies": {
     "@playwright/test": "^1.64.1",
     "@tailwindcss/vite": "4.1.17",
+    "@tauri-apps/cli": "^2.12.4",
     "@types/node": "22.19.17",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
@@ -31,7 +34,6 @@
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3",
     "vite": "7.3.2",
-    "vite-plugin-singlefile": "2.3.0",
-    "@tauri-apps/cli": "^2"
+    "vite-plugin-singlefile": "2.3.0"
   }
 }

@@ -73,7 +73,14 @@ def write_apk_data(b64_payload: str):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true', help='Validate tool paths without building or changing files.')
+    parser.add_argument('--release', action='store_true', help='Require an existing private signing key; never generate a disposable release key.')
+    parser.add_argument('--no-embed', action='store_true', help='Do not embed the APK into the website after building.')
     args = parser.parse_args()
+    if args.release:
+        required = ['MINEFIELD_KEYSTORE', 'MINEFIELD_KEY_ALIAS', 'MINEFIELD_KEYSTORE_PASSWORD', 'MINEFIELD_KEY_PASSWORD']
+        missing = [name for name in required if not os.environ.get(name)]
+        if missing or not KEYSTORE.is_file():
+            raise SystemExit('Release signing requires an existing keystore and all signing variables. Missing: ' + ', '.join(missing))
     java, platform, bt = toolchain()
     npm = shutil.which('npm.cmd' if os.name == 'nt' else 'npm')
     if npm is None:
@@ -163,9 +170,11 @@ def main():
     # Stage 2: Embed the signed APK bytes into src/apkData.ts so dist/index.html is 100% self-contained.
     apk_bytes = apk_out.read_bytes()
     b64_payload = base64.b64encode(apk_bytes).decode('ascii')
-    write_apk_data(b64_payload)
+    if not args.no_embed:
+        write_apk_data(b64_payload)
     print(f'\nMinefield APK ready: {apk_out} ({len(apk_bytes):,} bytes)')
-    print(f'Embedded Base64 payload written to {APK_DATA_TS} ({len(b64_payload):,} chars)')
+    if not args.no_embed:
+        print(f'Embedded Base64 payload written to {APK_DATA_TS} ({len(b64_payload):,} chars)')
 
 
 if __name__ == '__main__':

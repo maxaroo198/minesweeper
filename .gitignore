@@ -4,3 +4,23 @@ dist/
 *.log
 .DS_Store
 
+
+# Local secrets, native toolchains and generated output
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.p12
+*.pem
+*.base64
+.android-tools/
+.android-build/
+desktop/target/
+desktop/icons/
+release-assets/
+.screenshots/
+public/*.apk
+public/*.idsig
+__pycache__/
+public/minefield-source-v*.zip
+desktop/gen/

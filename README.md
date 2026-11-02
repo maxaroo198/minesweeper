@@ -1,3 +1,12 @@
+## Native installers (Android, Windows, Linux)
+
+See **[RELEASES.md](RELEASES.md)** for setup and first release. GitHub Actions builds
+signed Android APKs, unsigned Windows x64 installers, and Linux x86_64 AppImage/.deb
+packages. A manual workflow run builds test artifacts; a matching version tag
+publishes all completed installers together. Stats and Branch progress save locally
+and separately on every device. Download links activate after the first published
+installer release. Existing Firestore rules/indexes do not need changes.
+
 # Minefield
 
 ## Source Code

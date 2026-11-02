@@ -76,7 +76,7 @@ public final class MainActivity extends Activity {
             WebSettings settings = webView.getSettings();
             settings.setJavaScriptEnabled(true);
             settings.setDomStorageEnabled(true);
-            settings.setAllowFileAccess(true);
+            settings.setAllowFileAccess(false);
             settings.setAllowContentAccess(false);
             settings.setAllowFileAccessFromFileURLs(false);
             settings.setAllowUniversalAccessFromFileURLs(false);
@@ -85,7 +85,7 @@ public final class MainActivity extends Activity {
             settings.setUseWideViewPort(true);
             settings.setLoadWithOverviewMode(true);
             String baseUa = settings.getUserAgentString();
-            settings.setUserAgentString((baseUa != null ? baseUa : "") + " MinefieldAndroid/1.0.2");
+            settings.setUserAgentString((baseUa != null ? baseUa : "") + " MinefieldAndroid/1.1.0");
 
             webView.addJavascriptInterface(new AndroidBridge(), "MinefieldAndroid");
             webView.setWebViewClient(new LocalAssetWebViewClient());
@@ -172,6 +172,17 @@ public final class MainActivity extends Activity {
     }
 
     private final class LocalAssetWebViewClient extends WebViewClient {
+        @Override
+        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            Uri uri = request.getUrl();
+            if ("https".equalsIgnoreCase(uri.getScheme()) && ASSET_HOST.equalsIgnoreCase(uri.getHost())) return false;
+            // Never give an external page access to our JavaScript bridge.
+            if ("https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme()) || "mailto".equalsIgnoreCase(uri.getScheme())) {
+                try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Throwable ignored) { }
+            }
+            return true;
+        }
+
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
             if (request == null) return null;

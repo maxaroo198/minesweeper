@@ -28,16 +28,17 @@ APK_STUB = (
 
 TOP_LEVEL = (
     'README.md', 'BUILDING.md', '.gitignore', 'package.json', 'package-lock.json',
-    'index.html', 'tsconfig.json', 'vite.config.ts',
+    'index.html', 'tsconfig.json', 'vite.config.ts', '.env.example', 'firestore.rules',
+    'FIREBASE-SETUP.md', 'RELEASES.md', 'RELEASE-NOTES.md', 'RELEASE-VALIDATION.md', 'CHANGES.md',
 )
-SOURCE_EXTENSIONS = {'.ts', '.tsx', '.css', '.java', '.xml', '.mjs', '.py', '.html', '.svg', '.webmanifest'}
-SKIP_FOLDERS = {'node_modules', '__pycache__', '.android-build', '.android-tools', 'dist', 'build', '.git'}
+SOURCE_EXTENSIONS = {'.ts', '.tsx', '.css', '.java', '.xml', '.mjs', '.py', '.html', '.svg', '.webmanifest', '.rs', '.toml', '.lock', '.json', '.yml', '.yaml'}
+SKIP_FOLDERS = {'node_modules', '__pycache__', '.android-build', '.android-tools', 'dist', 'build', '.git', 'target', 'icons', 'gen'}
 
 
 def source_files():
     # Use an allowlist: no keystores, SDK binaries, environment files, or generated packages.
     result = {name: (ROOT / name).read_bytes() for name in TOP_LEVEL}
-    for directory in ('src', 'android', 'scripts', 'public'):
+    for directory in ('src', 'android', 'scripts', 'public', 'desktop', '.github'):
         for path in sorted((ROOT / directory).rglob('*')):
             relative = path.relative_to(ROOT)
             if path.is_symlink() or not path.is_file() or SKIP_FOLDERS.intersection(relative.parts):

@@ -1,3 +1,14 @@
+# Round 5 — native release pipeline
+
+- GitHub Actions matrix: Android APK, Windows NSIS, Linux AppImage and Debian packages; verify tests, all-platform release gate, stable asset names and checksums.
+- Persistent Android signing secrets required for release builds; no disposable CI key. Generated keys, env backups and native outputs are git-ignored.
+- Repaired Tauri build entrypoints, generated icons, build.rs, explicit native detection and pinned Rust dependency lockfile.
+- Native app versions aligned at 1.1.0; Android versionCode 4. Stable package IDs/origins retained for local saves.
+- Download apps dialog links to published installers instead of stale embedded APK bytes. No recommendation to uninstall apps or disable platform security.
+- Android keeps DOM storage, blocks external navigation inside the bridge-enabled WebView, and explicitly disables cloud backup (separate local saves requested).
+- Persistence tests: actual Classic win and Branch reveals/flags survive full Chromium process restarts in browser, Android-bridge and Tauri-bridge simulations. Actual device installation/lifecycle testing is still required.
+- No changes to Firestore rules or indexes. GitHub build variables carry the existing public Firebase web configuration.
+
 # Round 4 — whole-board tides and replayable contracts
 
 - Riptide now shifts every row, then every column, every eight seconds. Open squares stay safe; mine count stays fixed and clues update.

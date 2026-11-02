@@ -1,0 +1,160 @@
+name: Build installers
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: installers-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+  VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+  VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-release.mjs
+      - run: npx tsc --noEmit
+      - run: node scripts/test-engine.mjs
+      - name: Build offline test fixture (do not submit test scores to Firebase)
+        run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: ''
+          VITE_FIREBASE_PROJECT_ID: ''
+          VITE_FIREBASE_APP_ID: ''
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/run-ui-tests.mjs
+      - run: python3 scripts/package-source.py
+      - name: Build web release with configured Firebase
+        run: npm run build
+      - run: python3 scripts/collect-installers.py web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: minefield-web
+          path: release-assets/*
+          if-no-files-found: error
+
+  desktop:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux
+            bundles: deb,appimage
+          - os: windows-latest
+            platform: windows
+            bundles: nsis
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux desktop libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev patchelf libayatana-appindicator3-dev
+      - run: npm ci
+      - run: npm run desktop:icon
+      - name: Build native installer
+        run: npm run desktop:build -- --bundles ${{ matrix.bundles }} -- --locked
+        env:
+          NO_STRIP: 'true'
+          CARGO_BUILD_JOBS: '2'
+      - run: python scripts/collect-installers.py ${{ matrix.platform }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: minefield-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+
+  android:
+    needs: verify
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android tools
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+      - run: npm ci
+      - name: Restore persistent Android signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          python - <<'PY'
+          import os, base64, pathlib
+          for key in ('KEYSTORE_BASE64', 'STORE_PASSWORD', 'KEY_PASSWORD', 'KEY_ALIAS'):
+              if not os.environ.get(key):
+                  raise SystemExit('Missing Android signing secret: ' + key + '. See RELEASES.md.')
+          target = pathlib.Path(os.environ['RUNNER_TEMP']) / 'minefield-release.keystore'
+          target.write_bytes(base64.b64decode(os.environ['KEYSTORE_BASE64'], validate=True))
+          target.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write('MINEFIELD_KEYSTORE=' + str(target) + '\n')
+          PY
+      - name: Build and verify signed APK
+        run: npm run android:build
+        env:
+          MINEFIELD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          MINEFIELD_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          MINEFIELD_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      - run: python scripts/collect-installers.py android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: minefield-android
+          path: release-assets/*
+          if-no-files-found: error
+      - name: Remove signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/minefield-release.keystore"
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [verify, desktop, android]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: minefield-*
+          path: release-assets
+          merge-multiple: true
+      - name: Validate assets and create checksums
+        run: python scripts/collect-installers.py verify
+      - name: Publish completed release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release-assets/* --verify-tag --title "Minefield $GITHUB_REF_NAME" --generate-notes --notes-file RELEASE-NOTES.md
