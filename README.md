@@ -14,7 +14,8 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
 
 - **Classic:** Perfect squares — Easy (9 × 9, 10 mines), Medium (16 × 16, 40 mines), and Hard (30 × 30, 99 mines).
 - **Blitz:** A race against the clock, from 15 seconds to 5 minutes, on all three board sizes.
-- **Zen:** No pressure and no visible timer.
+- **Branch:** No pressure and no visible timer. Clear a 9 × 9 square to grow the limbs behind
+  it — the tree forks wider the deeper you go, and your tree is saved on the device.
 - **Daily:** A numbered, seeded puzzle refreshed at midnight UTC. All daily games use a shared seed
   with first-move protection, and each day carries a twist: Classic rules, Packed (+33% mines),
   Flag-free (no flags at all), or Sprint (two minutes on the clock). Streaks, a seven-day result
@@ -24,6 +25,8 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
 - Every board is a perfect square that scales to fit the window, so you never scroll mid-sweep.
 - Flags are always the same orange — a flag never hints at what is underneath it.
 - Hover **Let's play** in the sidebar for the mode switcher (daily challenge included).
+- Every Classic and Blitz win asks who to put on the leaderboard, and the Blitz board lists each
+  entry's time and board size next to the name.
 - Locally saved game history, personal bests, sound settings, and high-contrast/reduced-motion options.
 - No accounts, advertising, analytics, or remote APIs.
 
@@ -88,9 +91,12 @@ Cross-building (e.g. the `.exe` from Linux) needs the target toolchain or CI —
 
 ## Public leaderboard (Firebase)
 
+**[FIREBASE-SETUP.md](FIREBASE-SETUP.md)** walks through all of this with screenshots-worth of
+detail; the short version:
+
 1. Create a free project at https://console.firebase.google.com, add a **Web app**, and enable **Firestore** (start in production mode).
 2. Copy `firestore.rules` into the Firestore rules editor and publish.
-3. Create `.env` in the project root with the web app config:
+3. Copy `.env.example` to `.env` in the project root and fill in the web app config:
 
 ```
 VITE_FIREBASE_API_KEY=...

@@ -76,20 +76,24 @@ export async function submitPublicScore(record: GameRecord): Promise<boolean> {
   }
 }
 
-/** Top public scores for a mode/difficulty. Empty array when unconfigured/offline. */
-export async function topPublicScores(mode: Mode, difficulty: Difficulty, count = 20): Promise<PublicScore[]> {
+/**
+ * Top public scores for a mode. Blitz asks for every difficulty at once, so the
+ * board can show each player's board size next to their time.
+ * Empty array when unconfigured/offline.
+ */
+export async function topPublicScores(mode: Mode, difficulty: Difficulty, count = 20, allDifficulties = false): Promise<PublicScore[]> {
   const database = firestore();
   if (!database) return [];
   try {
     const q = query(
       collection(database, 'scores'),
       where('mode', '==', mode),
-      where('difficulty', '==', difficulty),
+      ...(allDifficulties ? [] : [where('difficulty', '==', difficulty)]),
       orderBy('seconds', 'asc'),
       limit(count),
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(d => d.data() as PublicScore);
+    return snapshot.docs.map(d => ({ ...(d.data() as PublicScore) }));
   } catch {
     return [];
   }

@@ -79,3 +79,61 @@ are not in this checkout (`.android-build/`, a server on :4181, `public/minefiel
 prebuilt artifacts — regenerating them needs the Android SDK via `scripts/build-android.py`. Until
 then the "Download APK" button still ships the old build, and the version string stays 1.0.2 on
 purpose so the download does not misreport itself.
+
+
+---
+
+# Round 2
+
+## Public leaderboard, actually usable
+
+* **`FIREBASE-SETUP.md`** — a step-by-step console walkthrough (project → Firestore → web app →
+  rules → `.env` → verify), including the composite index Firestore asks for and what each console
+  error means.
+* **`.env.example`** — copy to `.env`, fill three values.
+* `firestore.rules` updated for the new modes and difficulties so you only publish once.
+* The Leaderboard page now always shows the public section: when Firebase is missing it explains
+  itself and points at the setup guide instead of silently vanishing.
+
+## A name on every win
+
+Every **Classic** and **Blitz** win now opens a name field in the win card (Enter also saves).
+With Firebase configured, **Post** sends the score; without it, **Save name** stores it on the
+device and says so. The name is remembered and pre-filled next time.
+
+## Blitz board: time and difficulty together
+
+The public Blitz board queries every difficulty at once and shows a **DIFFICULTY** column beside
+each player's time, with a `YOU` marker on your own rows.
+
+## Zen → Branch
+
+Renamed everywhere the player can see it: mode card, nav flyout, leaderboard tabs, stat rows,
+page copy, the branch-map dialog ("BRANCH · YOUR TREE SO FAR"), and each notification
+("Square cleared — the branch grows. New limbs unlocked."). The module is now `src/branch.ts` with
+`BranchWorld` / `BranchArea` types and the map component is `BranchMap`.
+
+Two identifiers were deliberately left alone so existing saves keep working: the `Mode` value is
+still `'zen'` in stored records, and the world is still saved under `minefield-zen-v1`.
+
+## Daily challenge locks
+
+The daily is **locked to Hard** every day. On twist days that run on a clock (**Sprint**) the tabs
+unlock **Medium or Hard** — Medium becomes the default, because a 30 × 30 board against a timer is
+not a puzzle, it's a panic. The hub states the lock, and disabled tabs explain themselves on hover.
+
+## Tests
+
+The browser suite now covers the daily lock (which tabs are enabled, and that the board matches),
+the name prompt on a win, the remembered name, the local board, and the un-configured public board.
+Mine placement in the suite is now reproducible from Node via a constant `Math.random`, so a
+classic board can be solved move-by-move in CI without guessing.
+
+---
+
+# Still to come (your call)
+
+* **Nightfall** — hidden numbers, escalating, 12 × 12, with a *Blackout* difficulty at 1-in-3.
+* **New board sizes** — medium 12 × 12, hard 20 × 20 (also shrinks daily Hard to 400 tiles).
+* **Custom** difficulty with its own leaderboard.
+* **The other new mode** — waiting on your answers.

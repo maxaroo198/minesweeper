@@ -17,8 +17,8 @@ import BootScreen from './BootScreen';
 import SourceDownload from './SourceDownload';
 import { sense, unlockAudio } from './sensory';
 import type { Sense } from './sensory';
-import { boardFromArea, clearArea, failArea, layoutWorld, loadWorld, newWorld, openAreaIds, saveWorld, syncArea } from './zen';
-import type { ZenWorld } from './zen';
+import { boardFromArea, clearArea, failArea, layoutWorld, loadWorld, newWorld, openAreaIds, saveWorld, syncArea } from './branch';
+import type { BranchWorld } from './branch';
 import { playerName, publicBoardEnabled, setPlayerName, submitPublicScore, topPublicScores } from './publicBoard';
 import type { PublicScore } from './publicBoard';
 import '@fontsource-variable/dm-sans';
@@ -34,7 +34,7 @@ const ANDROID_BRIDGE = 'MinefieldAndroid';
 const MODES: { id: Mode; description: string; tag: string; icon: typeof Grid2X2 }[] = [
   { id: 'classic', description: 'The original. At your own pace.', tag: 'THE ORIGINAL', icon: Grid2X2 },
   { id: 'blitz', description: 'Beat the clock — anywhere from 15 seconds to 5 minutes.', tag: 'BEAT THE CLOCK', icon: Zap },
-  { id: 'zen', description: 'An endless branching field. Sweep, grow, wander forever.', tag: 'INFINITE FLOW', icon: Leaf },
+  { id: 'zen', description: 'Clear a square, grow a new limb. The tree never ends.', tag: 'ENDLESS BRANCHES', icon: Leaf },
   { id: 'daily', description: 'One puzzle, one shared seed, one fresh twist each day.', tag: 'FRESH EVERY DAY', icon: Sun },
 ];
 
@@ -81,7 +81,7 @@ function HelpContent({ compact = false }: { compact?: boolean }) {
     <div className="keyboard-guide"><span><kbd>N</kbd> New game</span><span><kbd>F</kbd> Flag mode</span><span><kbd>?</kbd> Help</span><span><MousePointer2 size={14} /> Long press to flag</span></div>
   </div>;
 }
-function ZenMap({ world, onJump, onClose }: { world: ZenWorld; onJump: (id: string) => void; onClose: () => void }) {
+function BranchMap({ world, onJump, onClose }: { world: BranchWorld; onJump: (id: string) => void; onClose: () => void }) {
   const { nodes, edges, width, height } = useMemo(() => layoutWorld(world), [world]);
   const pos = useMemo(() => new Map(nodes.map(n => [n.area.id, n])), [nodes]);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -146,13 +146,13 @@ function ZenMap({ world, onJump, onClose }: { world: ZenWorld; onJump: (id: stri
     // space just stop panning.
     void wasTap;
   };
-  return <div className="modal-backdrop" onClick={onClose}><div className="modal zen-map-modal" role="dialog" aria-modal="true" aria-label="Zen branch map" onClick={e => e.stopPropagation()}>
+  return <div className="modal-backdrop" onClick={onClose}><div className="modal zen-map-modal" role="dialog" aria-modal="true" aria-label="Branch map" onClick={e => e.stopPropagation()}>
     <button className="icon-button modal-close" onClick={onClose} aria-label="Close map"><X size={19} /></button>
-    <div className="eyebrow">ZEN · YOUR BRANCH SO FAR</div>
-    <h2>Every sweep grows the tree<span className="heading-dot">.</span></h2>
-    <p className="modal-intro">Cleared areas are filled. Glowing tips are open to play. Dim areas are still locked — sweep the area before them to unlock. Drag to pan, scroll or pinch to zoom.</p>
+    <div className="eyebrow">BRANCH · YOUR TREE SO FAR</div>
+    <h2>Every clear grows the tree<span className="heading-dot">.</span></h2>
+    <p className="modal-intro">Cleared squares are filled. Glowing tips are open to grow. Dim squares are still locked — clear the square before them to unlock the next limb. Drag to pan, scroll or pinch to zoom.</p>
     <div className="zen-map-viewport" ref={viewportRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endPointer} onPointerCancel={endPointer}>
-      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Branch map of your Zen progress" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, transformOrigin: '0 0' }} className="zen-map-canvas">
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Branch map of your tree" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, transformOrigin: '0 0' }} className="zen-map-canvas">
         {edges.map(({ from, to }) => {
           const a = pos.get(from.area.id)!, b = pos.get(to.area.id)!;
           const x1 = a.x + 46, y1 = a.y + 40, x2 = b.x - 14, y2 = b.y + 40;
@@ -166,7 +166,7 @@ function ZenMap({ world, onJump, onClose }: { world: ZenWorld; onJump: (id: stri
             <circle r={n.area.state === 'open' ? 15 : 13} className="zen-node-circle" />
             {n.area.state === 'open' && <circle r={5.5} className="zen-node-tip" />}
             {n.area.state === 'cleared' && <Check size={15} strokeWidth={2.5} className="zen-node-check" />}
-            <title>{`Area ${n.area.id} — ${n.area.state}`}</title>
+            <title>{`Branch ${n.area.id} — ${n.area.state}`}</title>
           </g>;
         })}
       </svg>
@@ -215,9 +215,9 @@ function useBoardFit(ref: RefObject<HTMLDivElement | null>, rows: number, cols: 
   return tile;
 }
 interface DailyWeekDay { key: string; label: string; status: string; today: boolean }
-function DailyHub({ idx, dateLabel, twist, countdown, finished, streak, best, solved, week }: {
+function DailyHub({ idx, dateLabel, twist, countdown, finished, streak, best, solved, week, lockNote }: {
   idx: number; dateLabel: string; twist: DailyTwist; countdown: string; finished: boolean;
-  streak: number; best: number; solved: number; week: DailyWeekDay[];
+  streak: number; best: number; solved: number; week: DailyWeekDay[]; lockNote: string;
 }) {
   return <section className="daily-hub" aria-label="Today’s daily challenge">
     <div className="daily-hub-head">
@@ -228,6 +228,7 @@ function DailyHub({ idx, dateLabel, twist, countdown, finished, streak, best, so
       </div>
     </div>
     <p className="daily-hub-blurb">{twist.blurb} One seeded board, the same for everyone.</p>
+    <p className="daily-hub-lock"><Target size={11} />{lockNote}</p>
     <div className="daily-hub-meta">
       <span className="daily-countdown"><Clock3 size={13} /><b>{countdown}</b><i>until the next one</i></span>
       <span className={`daily-status ${finished ? 'complete' : ''}`}>{finished ? <><CheckCircle2 size={14} /> Attempt recorded</> : 'Your move awaits'}</span>
@@ -253,7 +254,7 @@ function App() {
   const [resultVisible, setResultVisible] = useState(false);
   const [pendingGame, setPendingGame] = useState<PendingGame | null>(null);
   const [toast, setToast] = useState('');
-  const [zenWorld, setZenWorld] = useState<ZenWorld | null>(null);
+  const [branchWorld, setBranchWorld] = useState<BranchWorld | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
   const [publicRows, setPublicRows] = useState<PublicScore[]>([]);
   const [nameDraft, setNameDraft] = useState(() => playerName());
@@ -297,6 +298,10 @@ function App() {
   const dailyFinished = records.some(r => r.mode === 'daily' && r.date.slice(0, 10) === dayKey());
   const dailyIdx = dailyNumber();
   const twist: DailyTwist = dailyTwist(dailyIdx);
+  // The daily is a hard board — unless the twist runs on a clock, when medium is
+  // also allowed so the timer is survivable.
+  const dailyAllowed: Difficulty[] = twist.seconds ? ['medium', 'hard'] : ['hard'];
+  const dailyDefault: Difficulty = twist.seconds ? 'medium' : 'hard';
   // Flag-free day: the daily twist can take flags away entirely.
   const flagsLocked = game.mode === 'daily' && !!twist.noFlags && !showPreview;
   // Blitz always has a limit; a Sprint daily borrows one.
@@ -364,7 +369,8 @@ function App() {
     recorded.current = game.id;
     const record: GameRecord = { id: game.id, mode: game.mode, difficulty: game.difficulty, won: game.status === 'won', seconds: elapsed, date: new Date().toISOString() };
     setRecords(previous => previous.some(r => r.id === record.id) ? previous : [record, ...previous].slice(0, 200));
-    if (publicBoardEnabled() && record.won) setPendingPublic(record);
+    // Classic and Blitz wins always ask for a leaderboard name.
+    if (record.won && (record.mode === 'classic' || record.mode === 'blitz')) setPendingPublic(record);
     setResultVisible(true);
   }, [isFinished, game.id, game.mode, game.difficulty, game.status, elapsed]);
   useEffect(() => {
@@ -387,22 +393,22 @@ function App() {
     if (mode === 'zen') {
       const world = newWorld();
       saveWorld(world);
-      setZenWorld(world);
+      setBranchWorld(world);
       setGame(boardFromArea(world, world.current));
       setMapOpen(false);
     } else {
-      setZenWorld(null);
+      setBranchWorld(null);
       // Daily games carry today's twist (extra mines), so build them from the seeded helper.
       setGame(mode === 'daily' ? dailyBoard(difficulty) : freshGame(mode, difficulty));
     }
     setShowPreview(false); setFlagMode(false); setResultVisible(false); setNow(Date.now());
     setView(mode === 'daily' ? 'daily' : 'play'); setModal(null); setSidebarOpen(false); boardRef.current?.scrollTo({ top: 0, left: 0 });
   };
-  const continueZen = () => {
-    // Entering Zen resumes the saved branch if there is one.
+  const continueBranch = () => {
+    // Entering Branch resumes the saved tree if there is one.
     const saved = loadWorld();
     if (saved) {
-      setZenWorld(saved);
+      setBranchWorld(saved);
       setGame(boardFromArea(saved, saved.current));
     } else {
       startGame('zen', 'easy');
@@ -412,7 +418,7 @@ function App() {
     setView('play'); setModal(null); setSidebarOpen(false);
   };
   const jumpToArea = (id: string) => {
-    setZenWorld(world => {
+    setBranchWorld(world => {
       if (!world || !world.areas[id] || world.areas[id].state === 'locked') return world;
       const next = { ...world, current: id };
       saveWorld(next);
@@ -425,8 +431,8 @@ function App() {
   /** One place to switch modes, shared by the mode cards and the sidebar flyout. */
   const pickMode = (mode: Mode) => {
     if (mode === game.mode) { if (mode === 'daily') setView('daily'); return; }
-    if (mode === 'zen' && loadWorld()) { continueZen(); return; }
-    requestGame(mode, mode === 'daily' ? 'medium' : 'easy');
+    if (mode === 'zen' && loadWorld()) { continueBranch(); return; }
+    requestGame(mode, mode === 'daily' ? dailyDefault : 'easy');
   };
   const requestGame = (mode = game.mode, difficulty = game.difficulty) => {
     if (game.status === 'playing') { setPendingGame({ mode, difficulty }); setModal('confirm'); }
@@ -434,7 +440,7 @@ function App() {
   };
   const navigate = (next: View) => {
     setSidebarOpen(false); setFocusMode(false);
-    if (next === 'daily' && game.mode !== 'daily') { requestGame('daily', 'medium'); return; }
+    if (next === 'daily' && game.mode !== 'daily') { requestGame('daily', dailyDefault); return; }
     setView(next);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -449,19 +455,19 @@ function App() {
     setGame(next); setNow(Date.now());
     setRevealFx({ opened: change.opened, wave: change.wave, origin: index, nonce: Date.now() });
     if (next.mode === 'zen') {
-      setZenWorld(world => {
+      setBranchWorld(world => {
         if (!world) return world;
         let nextWorld = syncArea(world, next);
         if (next.status === 'won') {
           nextWorld = clearArea(nextWorld, nextWorld.current);
           saveWorld(nextWorld);
-          notify('Area swept — the branch grows. New areas unlocked.');
+          notify('Square cleared — the branch grows. New limbs unlocked.');
         } else if (next.status === 'lost') {
           const result = failArea(nextWorld, nextWorld.current);
           nextWorld = { ...result.world, current: result.next };
           saveWorld(nextWorld);
           setGame(boardFromArea(nextWorld, result.next));
-          notify(result.fallback ? 'That area locked and reshuffled. Re-clear the area before it to re-open the branch.' : 'That area locked and reshuffled. Try another open area.');
+          notify(result.fallback ? 'That limb locked and reshuffled. Re-clear the square before it to re-grow the branch.' : 'That limb locked and reshuffled. Try another open tip.');
         } else {
           saveWorld(nextWorld);
         }
@@ -489,7 +495,7 @@ function App() {
     if (next === game) return;
     setShowPreview(false); setGame(next);
     if (next.mode === 'zen') {
-      setZenWorld(world => {
+      setBranchWorld(world => {
         if (!world) return world;
         const updated = syncArea(world, next);
         saveWorld(updated);
@@ -545,11 +551,11 @@ function App() {
   useEffect(() => {
     if (!publicBoardEnabled()) { setPublicRows([]); return; }
     let cancelled = false;
-    topPublicScores(leaderMode, leaderDifficulty).then(rows => { if (!cancelled) setPublicRows(rows); });
+    topPublicScores(leaderMode, leaderDifficulty, 20, leaderMode === 'blitz').then(rows => { if (!cancelled) setPublicRows(rows); });
     return () => { cancelled = true; };
   }, [leaderMode, leaderDifficulty, view, records]);
   const totalSafe = game.cells.length - game.mines;
-  const pageDescription = game.mode === 'zen' ? 'A little less hurry. A little more headspace.' : game.mode === 'blitz' ? `Trust your instincts. Beat the clock — ${blitzLabel(blitzSeconds)} on the timer.` : game.mode === 'daily' ? `Today’s twist: ${twist.name.toLowerCase()}. ${twist.blurb}` : 'A timeless test of deduction.';
+  const pageDescription = game.mode === 'zen' ? 'Every cleared square grows a new limb. No clock, no pressure.' : game.mode === 'blitz' ? `Trust your instincts. Beat the clock — ${blitzLabel(blitzSeconds)} on the timer.` : game.mode === 'daily' ? `Today’s twist: ${twist.name.toLowerCase()}. ${twist.blurb}` : 'A timeless test of deduction.';
 
   return <div className={`app ${reducedMotion ? 'reduce-motion' : ''} ${highContrast ? 'high-contrast' : ''} ${isAndroidApp ? 'native-app' : ''}`}>{!booted && <BootScreen onDone={() => setBooted(true)} compact={isAndroidApp} />}
     {sidebarOpen && <button className="sidebar-scrim" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />}
@@ -564,7 +570,7 @@ function App() {
             <div className="nav-flyout-eyebrow">PICK A MODE</div>
             {MODES.filter(m => m.id !== 'daily').map(mode => <button key={mode.id} className={`nav-flyout-item ${game.mode === mode.id ? 'selected' : ''}`} onClick={() => pickMode(mode.id)} aria-pressed={game.mode === mode.id}>
               <span className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={16} /></span>
-              <span className="nav-flyout-copy"><b>{MODE_NAMES[mode.id]}</b><i>{mode.id === 'blitz' ? `15s – 5 min` : mode.id === 'zen' ? 'No clock, no pressure' : '9×9 · 16×16 · 30×30'}</i></span>
+              <span className="nav-flyout-copy"><b>{MODE_NAMES[mode.id]}</b><i>{mode.id === 'blitz' ? `15s – 5 min` : mode.id === 'zen' ? 'Grow a tree, no clock' : '9×9 · 16×16 · 30×30'}</i></span>
               {game.mode === mode.id ? <Check size={13} /> : <ArrowUpRight size={13} className="nav-flyout-arrow" />}
             </button>)}
             <div className="nav-flyout-divider" />
@@ -601,8 +607,8 @@ function App() {
 
           <div className="play-layout">
             <section className="game-panel" aria-label={`${MODE_NAMES[game.mode]} Minesweeper game`}>
-              <div className="game-panel-head"><div className="game-title"><div className={`mode-icon mode-${game.mode}`}><ModeIcon mode={game.mode} size={20} /></div><div><h2>{MODE_NAMES[game.mode]}<span className={`game-mode-tag ${game.mode === 'blitz' ? 'purple' : ''}`}>{game.mode === 'classic' ? 'THE CLASSIC' : game.mode === 'blitz' ? 'BEAT THE CLOCK' : game.mode === 'zen' ? 'NO PRESSURE' : 'DAILY #'+dailyIdx+(twist.id === 'standard' ? '' : ' · '+twist.name.toUpperCase())}</span></h2><p>{pageDescription}</p></div></div><div style={{ display: 'flex', gap: 6 }}>{game.mode === 'zen' && <button className="icon-button" onClick={() => setMapOpen(true)} aria-label="Open branch map" title="Branch map — zoom out"><GitBranch size={17} /></button>}<button className="icon-button" onClick={() => setFocusMode(!focusMode)} aria-label={focusMode ? 'Exit focus mode' : 'Enter focus mode'} title={focusMode ? 'Exit focus mode' : 'Focus mode'}>{focusMode ? <Minimize2 size={17} /> : <Expand size={17} />}</button></div></div>
-              <div className="difficulty-row"><div className="difficulty-tabs" role="group" aria-label="Difficulty">{(Object.keys(DIFFICULTIES) as Difficulty[]).map(diff => <button key={diff} className={game.difficulty === diff ? 'selected' : ''} aria-pressed={game.difficulty === diff} onClick={() => { if (diff !== game.difficulty) requestGame(game.mode, diff); }}><span className={`difficulty-dot dot-${diff}`} />{DIFFICULTIES[diff].label}</button>)}</div><span className="board-dimensions">{game.rows} × {game.cols}<span> · </span>{game.mines} mines</span></div>
+              <div className="game-panel-head"><div className="game-title"><div className={`mode-icon mode-${game.mode}`}><ModeIcon mode={game.mode} size={20} /></div><div><h2>{MODE_NAMES[game.mode]}<span className={`game-mode-tag ${game.mode === 'blitz' ? 'purple' : ''}`}>{game.mode === 'classic' ? 'THE CLASSIC' : game.mode === 'blitz' ? 'BEAT THE CLOCK' : game.mode === 'zen' ? 'GROWING BRANCHES' : 'DAILY #'+dailyIdx+(twist.id === 'standard' ? '' : ' · '+twist.name.toUpperCase())}</span></h2><p>{pageDescription}</p></div></div><div style={{ display: 'flex', gap: 6 }}>{game.mode === 'zen' && <button className="icon-button" onClick={() => setMapOpen(true)} aria-label="Open branch map" title="Branch map — zoom out"><GitBranch size={17} /></button>}<button className="icon-button" onClick={() => setFocusMode(!focusMode)} aria-label={focusMode ? 'Exit focus mode' : 'Enter focus mode'} title={focusMode ? 'Exit focus mode' : 'Focus mode'}>{focusMode ? <Minimize2 size={17} /> : <Expand size={17} />}</button></div></div>
+              <div className="difficulty-row"><div className="difficulty-tabs" role="group" aria-label="Difficulty">{(Object.keys(DIFFICULTIES) as Difficulty[]).map(diff => <button key={diff} className={game.difficulty === diff ? 'selected' : ''} aria-pressed={game.difficulty === diff} disabled={game.mode === 'daily' && !dailyAllowed.includes(diff)} title={game.mode === 'daily' && !dailyAllowed.includes(diff) ? `Today’s daily is locked to ${dailyAllowed.map(d => DIFFICULTIES[d].label).join(' / ')}` : undefined} onClick={() => { if (diff !== game.difficulty) requestGame(game.mode, diff); }}><span className={`difficulty-dot dot-${diff}`} />{DIFFICULTIES[diff].label}</button>)}</div><span className="board-dimensions">{game.rows} × {game.cols}<span> · </span>{game.mines} mines</span></div>
               <div className="board-area">
                 <div className="board-toolbar"><div className="board-stat"><span>{timeLimit !== null ? 'TIME LEFT' : 'YOUR TIME'}</span><div className={runningOut ? 'timer-urgent' : ''}><Clock3 size={16} /><b>{game.mode === 'zen' ? <InfinityIcon size={26} /> : formatTime(timeLimit !== null ? Math.max(0, timeLeft ?? 0) : elapsed)}</b>{game.mode === 'blitz' && game.status !== 'lost' && <select className="blitz-time" aria-label="Blitz time limit" value={blitzSeconds} onChange={e => { const next = parseInt(e.target.value, 10); setBlitzSeconds(next); if (game.status !== 'ready') notify(`Blitz limit set to ${blitzLabel(next)}. Your next game starts fresh.`); }}>{BLITZ_OPTIONS.map(t => <option key={t} value={t}>{blitzLabel(t)}</option>)}</select>}</div></div><button className={`reset-button ${game.status === 'lost' ? 'lost' : ''}`} title="New game (N)" onClick={() => requestGame()} aria-label="Start a new game"><RotateCcw size={18} /></button><div className="board-stat mines-stat"><span>MINES LEFT</span><div><Flag size={15} /><b>{String(game.mines - flags).padStart(3, '0')}</b></div></div></div>
                 <div className={`board-scroll ${game.cols > 16 ? 'wide-board' : ''}`} ref={boardRef}>
@@ -620,29 +626,29 @@ function App() {
                   </div>
                 </div>
 
-                {isFinished && resultVisible && <div className={`result-overlay ${game.status === 'won' ? 'won' : ''}`}><div className="result-card"><div className="result-icon">{game.status === 'won' ? <Trophy size={30} /> : <BrandMark />}</div><div className="eyebrow">{game.status === 'won' ? 'A LITTLE WIN. A BIG FEELING.' : timeLimit !== null && elapsed >= timeLimit ? 'TIME’S UP, NOT GAME OVER' : 'THERE’S ALWAYS ANOTHER SQUARE'}</div><h3>{game.status === 'won' ? 'Beautifully swept.' : 'A mine. Not the end.'}</h3><p>{game.status === 'won' ? `You cleared all ${totalSafe} safe squares. Nicely done.` : game.mode === 'daily' ? 'Today’s board is still out there until midnight. One more go?' : 'Take a breath. Your next great game is one click away.'}</p>{game.mode === 'daily' && <div className="daily-result-tag"><span className={`daily-twist-chip twist-${twist.id}`}>{twist.name}</span><span>Daily #{dailyIdx}</span>{game.status === 'won' && <span><Flame size={11} />{dailyStreak} day streak</span>}</div>}<div className="result-stats"><span><Clock3 size={15} />{formatTime(elapsed)}</span><span><Target size={15} />{progress}% cleared</span></div><button className="primary-button" onClick={() => { if (game.mode === 'zen' && game.status === 'won' && zenWorld) { const next = openAreaIds(zenWorld)[0]; if (next) jumpToArea(next); else setMapOpen(true); } else startGame(game.mode, game.difficulty); }}><RotateCcw size={16} />{game.mode === 'zen' && game.status === 'won' ? 'Continue the branch' : game.status === 'won' ? 'One more good game' : 'Let’s try again'}</button><div className="result-secondary"><button onClick={() => setResultVisible(false)}>See the board</button><span>·</span><button onClick={shareResult}>{game.mode === 'daily' ? 'Share your grid' : 'Share result'} <ArrowUpRight size={13} /></button></div>{game.status === 'won' && pendingPublic && <div className="public-post"><label htmlFor="win-name">Post this win to the public leaderboard as</label><div className="public-post-row"><input id="win-name" value={nameDraft} maxLength={24} onChange={e => setNameDraft(e.target.value)} /><button className="primary-button" onClick={() => { setPlayerName(nameDraft); void submitPublicScore(pendingPublic).then(ok => notify(ok ? 'Posted to the public leaderboard.' : 'Couldn’t reach the leaderboard — it stays local.')); setPendingPublic(null); }}>Post</button><button className="secondary-button" onClick={() => setPendingPublic(null)}>Skip</button></div></div>}</div></div>}
+                {isFinished && resultVisible && <div className={`result-overlay ${game.status === 'won' ? 'won' : ''}`}><div className="result-card"><div className="result-icon">{game.status === 'won' ? <Trophy size={30} /> : <BrandMark />}</div><div className="eyebrow">{game.status === 'won' ? 'A LITTLE WIN. A BIG FEELING.' : timeLimit !== null && elapsed >= timeLimit ? 'TIME’S UP, NOT GAME OVER' : 'THERE’S ALWAYS ANOTHER SQUARE'}</div><h3>{game.status === 'won' ? 'Beautifully swept.' : 'A mine. Not the end.'}</h3><p>{game.status === 'won' ? `You cleared all ${totalSafe} safe squares. Nicely done.` : game.mode === 'daily' ? 'Today’s board is still out there until midnight. One more go?' : 'Take a breath. Your next great game is one click away.'}</p>{game.mode === 'daily' && <div className="daily-result-tag"><span className={`daily-twist-chip twist-${twist.id}`}>{twist.name}</span><span>Daily #{dailyIdx}</span>{game.status === 'won' && <span><Flame size={11} />{dailyStreak} day streak</span>}</div>}<div className="result-stats"><span><Clock3 size={15} />{formatTime(elapsed)}</span><span><Target size={15} />{progress}% cleared</span></div><button className="primary-button" onClick={() => { if (game.mode === 'zen' && game.status === 'won' && branchWorld) { const next = openAreaIds(branchWorld)[0]; if (next) jumpToArea(next); else setMapOpen(true); } else startGame(game.mode, game.difficulty); }}><RotateCcw size={16} />{game.mode === 'zen' && game.status === 'won' ? 'Continue the branch' : game.status === 'won' ? 'One more good game' : 'Let’s try again'}</button><div className="result-secondary"><button onClick={() => setResultVisible(false)}>See the board</button><span>·</span><button onClick={shareResult}>{game.mode === 'daily' ? 'Share your grid' : 'Share result'} <ArrowUpRight size={13} /></button></div>{game.status === 'won' && pendingPublic && <div className="public-post"><label htmlFor="win-name">{publicBoardEnabled() ? 'What name should go on the public leaderboard?' : 'What name should go on your leaderboard?'}</label><div className="public-post-row"><input id="win-name" value={nameDraft} maxLength={24} placeholder="Your name" onChange={e => setNameDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { setPlayerName(nameDraft); if (publicBoardEnabled()) void submitPublicScore(pendingPublic).then(ok => notify(ok ? 'Posted to the public leaderboard.' : 'Couldn’t reach the leaderboard — it stays local.')); else notify(`${nameDraft.trim() || 'Anonymous sweeper'} it is. Saved on this device.`); setPendingPublic(null); } }} /><button className="primary-button" onClick={() => { setPlayerName(nameDraft); if (publicBoardEnabled()) void submitPublicScore(pendingPublic).then(ok => notify(ok ? 'Posted to the public leaderboard.' : 'Couldn’t reach the leaderboard — it stays local.')); else notify(`${nameDraft.trim() || 'Anonymous sweeper'} it is. Saved on this device.`); setPendingPublic(null); }}>{publicBoardEnabled() ? 'Post' : 'Save name'}</button><button className="secondary-button" onClick={() => { setPlayerName(nameDraft); setPendingPublic(null); }}>Skip</button></div>{!publicBoardEnabled() && <p className="public-post-hint">The public board isn’t connected yet — see FIREBASE-SETUP.md. Your name is saved on this device and used on every local board.</p>}</div>}</div></div>}
                 {timeLimit !== null && game.status === 'playing' && <div className="blitz-progress"><span style={{ width: `${Math.max(0, Math.min(1, (timeLeft ?? 0) / timeLimit)) * 100}%` }} /></div>}
               </div>
               <div className="game-controls">{flagsLocked ? <span className="flag-toggle locked" title="Today’s twist removes flags"><Flag size={15} /><span>No flags today</span></span> : <button className={`flag-toggle ${flagMode ? 'enabled' : ''}`} onClick={() => setFlagMode(!flagMode)} aria-pressed={flagMode}><Flag size={15} fill={flagMode ? 'currentColor' : 'none'} /><span>Flag mode</span><span className="toggle-track"><i /></span></button>}<span className="board-tip"><MousePointer2 size={13} /><span>{flagsLocked ? 'Every square is a guess worth making' : 'Right-click to flag'}</span></span><button className="new-game-text" onClick={() => requestGame()}><RotateCcw size={14} />New game</button></div>
               <div className={`board-message ${isFinished ? 'finished' : ''}`}>{isFinished ? <><Check size={13} />{game.status === 'won' ? 'A little victory, saved to your stats.' : 'Every game is a chance to get a little better.'}</> : <><ShieldCheck size={14} />{game.status === 'ready' ? 'Your first move is always safe. Go on, pick a square.' : flagMode ? 'Flag mode is on. Tap a square to mark a possible mine.' : `${game.cells.filter(c => c.revealed && !c.mine).length} safe squares found. You’ve got this.`}</>}</div>
             </section>
 
-            <aside className="mode-column">{view === 'daily' && <DailyHub idx={dailyIdx} dateLabel={dailyDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} twist={twist} countdown={nextDaily} finished={dailyFinished} streak={dailyStreak} best={dailyBest} solved={dailySolved} week={dailyWeek} />}<div className="section-title"><h2>Find your kind of focus.</h2><span>4 MODES</span></div><div className="mode-cards">{MODES.map(mode => <button key={mode.id} className={`mode-card ${game.mode === mode.id ? 'selected' : ''} mode-card-${mode.id}`} onClick={() => pickMode(mode.id)} aria-pressed={game.mode === mode.id}><div className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={21} /></div><div className="mode-card-copy"><div className="mode-card-title"><h3>{MODE_NAMES[mode.id]}</h3>{mode.id === 'daily' && <span className="small-new">NEW</span>}</div><p>{mode.description}</p><span className="mode-tag">{mode.tag}</span></div><span className="mode-select">{game.mode === mode.id ? <Check size={12} strokeWidth={2.5} /> : <ArrowUpRight size={17} />}</span></button>)}</div>
+            <aside className="mode-column">{view === 'daily' && <DailyHub idx={dailyIdx} dateLabel={dailyDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} twist={twist} countdown={nextDaily} finished={dailyFinished} streak={dailyStreak} best={dailyBest} solved={dailySolved} week={dailyWeek} lockNote={twist.seconds ? 'Medium or Hard today — the clock runs either way' : 'Locked to Hard today'} />}<div className="section-title"><h2>Find your kind of focus.</h2><span>4 MODES</span></div><div className="mode-cards">{MODES.map(mode => <button key={mode.id} className={`mode-card ${game.mode === mode.id ? 'selected' : ''} mode-card-${mode.id}`} onClick={() => pickMode(mode.id)} aria-pressed={game.mode === mode.id}><div className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={21} /></div><div className="mode-card-copy"><div className="mode-card-title"><h3>{MODE_NAMES[mode.id]}</h3>{mode.id === 'daily' && <span className="small-new">NEW</span>}</div><p>{mode.description}</p><span className="mode-tag">{mode.tag}</span></div><span className="mode-select">{game.mode === mode.id ? <Check size={12} strokeWidth={2.5} /> : <ArrowUpRight size={17} />}</span></button>)}</div>
               <div className="gentle-tip"><div className="tip-icon"><Lightbulb size={21} strokeWidth={1.5} /></div><div><h3>Small clues. Clever moves.</h3><p>A number tells you how many mines are nearby. The rest? A little intuition.</p><button onClick={() => setModal('help')}>Meet your new favorite brain break <ArrowRight size={14} /></button></div></div>
               <button className="daily-teaser" onClick={() => { if (game.mode !== 'daily') requestGame('daily', 'medium'); else setView('daily'); }}><span className="daily-teaser-icon"><Sun size={20} /></span><span><b>A fresh start, every day.</b><span>Your daily puzzle is ready when you are.</span></span><ArrowUpRight size={17} /></button>
             </aside>
           </div>
-          {mapOpen && zenWorld && <ZenMap world={zenWorld} onJump={jumpToArea} onClose={() => setMapOpen(false)} />}
+          {mapOpen && branchWorld && <BranchMap world={branchWorld} onJump={jumpToArea} onClose={() => setMapOpen(false)} />}
 
           <section className="progress-strip" aria-label="Your personal progress"><div className="progress-intro"><span className="progress-icon"><Flame size={21} strokeWidth={1.5} /></span><div><h3>Little games. Little wins.</h3><p>Your progress, one square at a time.</p></div></div><div className="progress-stat"><span>GAMES PLAYED</span><b>{String(records.length).padStart(2, '0')}</b></div><div className="progress-stat"><span>WIN RATE</span><b>{records.length ? winRate : '—'}<small>{records.length ? '%' : ''}</small></b></div><div className="progress-stat"><span>BEST TIME · EASY</span><b>{Number.isFinite(best) ? formatTime(best) : '—'}</b></div><button className="icon-button" onClick={() => navigate('stats')} title="View your statistics" aria-label="View your statistics"><ArrowUpRight size={19} /></button></section>
           <footer className="page-footer"><span><Heart size={12} />A classic game. A calmer kind of play.</span><span>Made for your next little break.<span className="footer-dot">✳</span></span></footer>
         </>}
 
-        {view === 'leaderboard' && <><section className="page-heading"><div><div className="eyebrow"><Trophy size={14} />PERSONAL BESTS, NOT PEER PRESSURE</div><h1>Your own kind of first place<span className="heading-dot">.</span></h1><p>The only person to beat? Yesterday’s you. All scores stay on this device.</p></div><span className="view-decoration"><Trophy size={39} strokeWidth={1.2} /></span></section><section className="leaderboard-panel"><div className="leaderboard-heading"><h2>Your best sweeps</h2><span className="local-badge"><ShieldCheck size={13} />Local leaderboard</span></div><div className="leaderboard-filters"><div className="difficulty-tabs">{MODES.map(mode => <button key={mode.id} className={leaderMode === mode.id ? 'selected' : ''} onClick={() => setLeaderMode(mode.id)}>{MODE_NAMES[mode.id]}</button>)}</div><select aria-label="Leaderboard difficulty" value={leaderDifficulty} onChange={e => setLeaderDifficulty(e.target.value as Difficulty)}>{(Object.keys(DIFFICULTIES) as Difficulty[]).map(d => <option key={d} value={d}>{DIFFICULTIES[d].label}</option>)}</select></div>{leaderboardRows.length ? <div className="table-scroll"><table className="score-table"><thead><tr><th>RANK</th><th>PLAYER</th><th>DATE</th><th>TIME</th><th>RESULT</th></tr></thead><tbody>{leaderboardRows.map((r, i) => <tr key={r.id}><td><span className={`rank rank-${i}`}>{i === 0 ? <Trophy size={17} /> : String(i + 1).padStart(2, '0')}</span></td><td><span className="table-player"><span className="avatar tiny">Y</span>You, the player{i === 0 && <span className="best-label">PERSONAL BEST</span>}</span></td><td>{new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td><td className="mono">{formatTime(r.seconds)}</td><td><span className="win-badge"><CheckCircle2 size={13} />All clear</span></td></tr>)}</tbody></table></div> : <div className="empty-state"><div className="empty-illustration"><TileArt /><span><Trophy size={25} /></span></div><h3>Your name belongs here.</h3><p>Finish a {DIFFICULTIES[leaderDifficulty].label.toLowerCase()} {MODE_NAMES[leaderMode].toLowerCase()} game to set your first personal best.<br />There’s a little champion in every square.</p><button className="primary-button" onClick={() => requestGame(leaderMode, leaderDifficulty)}>Make your first mark <ArrowRight size={16} /></button></div>}{publicBoardEnabled() && <div className="public-board"><div className="leaderboard-heading"><h2>Public leaderboard</h2><span className="local-badge"><Trophy size={13} />Everyone’s best</span></div><div className="name-row"><label htmlFor="player-name">Shown as</label><input id="player-name" value={nameDraft} maxLength={24} onChange={e => { setNameDraft(e.target.value); setPlayerName(e.target.value); }} /><span className="name-hint">Saved on this device, sent with your wins.</span></div>{publicRows.length ? <div className="table-scroll"><table className="score-table"><thead><tr><th>RANK</th><th>PLAYER</th><th>DATE</th><th>TIME</th></tr></thead><tbody>{publicRows.map((r, i) => <tr key={i}><td><span className={`rank rank-${i}`}>{i === 0 ? <Trophy size={17} /> : String(i + 1).padStart(2, '0')}</span></td><td><span className="table-player">{r.name}</span></td><td>{new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td><td className="mono">{formatTime(r.seconds)}</td></tr>)}</tbody></table></div> : <div className="empty-state small"><h3>No public marks yet.</h3><p>Be the first name on the board — win a game and it posts automatically.</p></div>}</div>}<div className="leaderboard-note"><ShieldCheck size={15} />Your best 20 wins are shown locally. Public scores need a Firebase project configured in <code>.env</code> — see README.</div></section></>}
+        {view === 'leaderboard' && <><section className="page-heading"><div><div className="eyebrow"><Trophy size={14} />PERSONAL BESTS, NOT PEER PRESSURE</div><h1>Your own kind of first place<span className="heading-dot">.</span></h1><p>The only person to beat? Yesterday’s you. All scores stay on this device.</p></div><span className="view-decoration"><Trophy size={39} strokeWidth={1.2} /></span></section><section className="leaderboard-panel"><div className="leaderboard-heading"><h2>Your best sweeps</h2><span className="local-badge"><ShieldCheck size={13} />Local leaderboard</span></div><div className="leaderboard-filters"><div className="difficulty-tabs">{MODES.map(mode => <button key={mode.id} className={leaderMode === mode.id ? 'selected' : ''} onClick={() => setLeaderMode(mode.id)}>{MODE_NAMES[mode.id]}</button>)}</div><select aria-label="Leaderboard difficulty" value={leaderDifficulty} onChange={e => setLeaderDifficulty(e.target.value as Difficulty)}>{(Object.keys(DIFFICULTIES) as Difficulty[]).map(d => <option key={d} value={d}>{DIFFICULTIES[d].label}</option>)}</select></div>{leaderboardRows.length ? <div className="table-scroll"><table className="score-table"><thead><tr><th>RANK</th><th>PLAYER</th><th>DATE</th><th>TIME</th><th>RESULT</th></tr></thead><tbody>{leaderboardRows.map((r, i) => <tr key={r.id}><td><span className={`rank rank-${i}`}>{i === 0 ? <Trophy size={17} /> : String(i + 1).padStart(2, '0')}</span></td><td><span className="table-player"><span className="avatar tiny">Y</span>You, the player{i === 0 && <span className="best-label">PERSONAL BEST</span>}</span></td><td>{new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td><td className="mono">{formatTime(r.seconds)}</td><td><span className="win-badge"><CheckCircle2 size={13} />All clear</span></td></tr>)}</tbody></table></div> : <div className="empty-state"><div className="empty-illustration"><TileArt /><span><Trophy size={25} /></span></div><h3>Your name belongs here.</h3><p>Finish a {DIFFICULTIES[leaderDifficulty].label.toLowerCase()} {MODE_NAMES[leaderMode].toLowerCase()} game to set your first personal best.<br />There’s a little champion in every square.</p><button className="primary-button" onClick={() => requestGame(leaderMode, leaderDifficulty)}>Make your first mark <ArrowRight size={16} /></button></div>}{<div className={`public-board ${publicBoardEnabled() ? '' : 'not-connected'}`}><div className="leaderboard-heading"><h2>Public leaderboard{leaderMode === 'blitz' && <span className="board-sub">every difficulty · sorted by time</span>}</h2><span className="local-badge"><Trophy size={13} />Everyone’s best</span></div><div className="name-row"><label htmlFor="player-name">Shown as</label><input id="player-name" value={nameDraft} maxLength={24} onChange={e => { setNameDraft(e.target.value); setPlayerName(e.target.value); }} /><span className="name-hint">Saved on this device, sent with your wins.</span></div>{!publicBoardEnabled() ? <div className="empty-state small"><h3>The public board isn’t connected yet.</h3><p>Add your Firebase config to <code>.env</code> and every Classic or Blitz win can post itself. <b>FIREBASE-SETUP.md</b> in the project root walks through it in about five minutes.</p></div> : publicRows.length ? <div className="table-scroll"><table className="score-table"><thead><tr><th>RANK</th><th>PLAYER</th><th>DIFFICULTY</th><th>DATE</th><th>TIME</th></tr></thead><tbody>{publicRows.map((r, i) => <tr key={i}><td><span className={`rank rank-${i}`}>{i === 0 ? <Trophy size={17} /> : String(i + 1).padStart(2, '0')}</span></td><td><span className="table-player">{r.name}</span>{r.name === playerName() && <span className="you-label">YOU</span>}</td><td><span className={`difficulty-badge dot-${r.difficulty}`}>{DIFFICULTIES[r.difficulty]?.label ?? r.difficulty}</span></td><td>{new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td><td className="mono">{formatTime(r.seconds)}</td></tr>)}</tbody></table></div> : <div className="empty-state small"><h3>No public marks yet.</h3><p>Be the first name on the board — win a game and it posts automatically.</p></div>}</div>}<div className="leaderboard-note"><ShieldCheck size={15} />Your best 20 wins are shown locally. Public scores need a Firebase project configured in <code>.env</code> — see README.</div></section></>}
 
         {view === 'stats' && <><section className="page-heading"><div><div className="eyebrow"><BarChart3 size={14} />SMALL STEPS. REAL PROGRESS.</div><h1>Look how far you’ve swept<span className="heading-dot">.</span></h1><p>Your little victories, all in one place. Saved right here on your device.</p></div><button className="secondary-button" onClick={() => setModal('reset-stats')}><Trash2 size={15} />Reset statistics</button></section><div className="stats-grid">{[{ label: 'GAMES PLAYED', value: records.length, icon: Grid2X2, detail: 'Every game is a little brain break.' }, { label: 'BOARDS CLEARED', value: wins.length, icon: Trophy, detail: 'A very good use of your free time.' }, { label: 'WIN RATE', value: `${winRate}%`, icon: Target, detail: 'Progress, not perfection.' }, { label: 'BEST CLASSIC · EASY', value: Number.isFinite(best) ? formatTime(best) : '—', icon: Clock3, detail: 'Your quickest little victory.' }].map(stat => <div className="stat-card" key={stat.label}><div><span>{stat.label}</span><stat.icon size={19} /></div><h2>{stat.value}</h2><p>{stat.detail}</p></div>)}</div><section className="history-panel"><div className="section-title"><h2>Recently in your playground</h2><span>{records.length} GAMES</span></div>{records.length ? <div className="history-list">{records.slice(0, 10).map(r => <div className="history-row" key={r.id}><span className={`mode-icon mode-${r.mode}`}><ModeIcon mode={r.mode} size={18} /></span><div><b>{MODE_NAMES[r.mode]}</b><span>{DIFFICULTIES[r.difficulty].label} · {new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span></div><span className={r.won ? 'history-win' : 'history-loss'}>{r.won ? <CheckCircle2 size={14} /> : <Flag size={14} />}{r.won ? 'Board cleared' : 'Next time’s yours'}</span><span className="mono">{formatTime(r.seconds)}</span></div>)}</div> : <div className="empty-state small"><BarChart3 size={40} strokeWidth={1.2} /><h3>A clean slate. A world of possibilities.</h3><p>Your game history will appear here. Let’s make a little progress.</p><button className="primary-button" onClick={() => navigate('play')}>Head to the playground <ArrowRight size={16} /></button></div>}</section></>}
 
-        {view === 'guide' && <><section className="page-heading"><div><div className="eyebrow"><BookOpen size={14} />A LITTLE KNOW-HOW GOES A LONG WAY</div><h1>Easy to learn. Lovely to master<span className="heading-dot">.</span></h1><p>A few simple rules. An endless supply of “aha” moments.</p></div><span className="view-decoration"><Lightbulb size={40} strokeWidth={1.2} /></span></section><section className="guide-panel"><div className="guide-tabs"><button className={helpTab === 'basics' ? 'selected' : ''} onClick={() => setHelpTab('basics')}>The basics</button><button className={helpTab === 'modes' ? 'selected' : ''} onClick={() => setHelpTab('modes')}>Find your mode</button></div>{helpTab === 'basics' ? <HelpContent /> : <div className="mode-guide-grid">{MODES.map(mode => <div key={mode.id} className={`mode-guide-card mode-card-${mode.id}`}><div className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={22} /></div><h3>{MODE_NAMES[mode.id]}</h3><p>{mode.id === 'classic' ? 'The game you know, with three ways to challenge yourself. Easy: 9 × 9, 10 mines. Medium: 16 × 16, 40 mines. Hard: 30 × 16, 99 mines.' : mode.id === 'blitz' ? 'One minute on the clock. Clear the board before time runs out. Easy is a good place to warm up; Hard is a real test of speed and strategy.' : mode.id === 'zen' ? 'An infinite, branching field — no clock, no pressure. Sweep a 9 × 9 area to unlock the areas behind it; the branch grows 2, then 3, then 4 wide as you go. Hit a mine and that area locks and reshuffles — move to another open area, or re-clear the one before it. Your progress is saved on this device.' : 'The same seeded puzzle for every player, updated at midnight UTC. Choose your difficulty, compare notes, and come back tomorrow for something new.'}</p><button onClick={() => requestGame(mode.id, mode.id === 'daily' ? 'hard' : 'easy')}>Give it a go <ArrowRight size={15} /></button></div>)}</div>}<div className="guide-bottom"><span><Heart size={15} />You don’t need to be an expert. Just a little curious.</span><button className="primary-button" onClick={() => navigate('play')}>I’m ready to play <Play size={15} fill="currentColor" /></button></div></section></>}
+        {view === 'guide' && <><section className="page-heading"><div><div className="eyebrow"><BookOpen size={14} />A LITTLE KNOW-HOW GOES A LONG WAY</div><h1>Easy to learn. Lovely to master<span className="heading-dot">.</span></h1><p>A few simple rules. An endless supply of “aha” moments.</p></div><span className="view-decoration"><Lightbulb size={40} strokeWidth={1.2} /></span></section><section className="guide-panel"><div className="guide-tabs"><button className={helpTab === 'basics' ? 'selected' : ''} onClick={() => setHelpTab('basics')}>The basics</button><button className={helpTab === 'modes' ? 'selected' : ''} onClick={() => setHelpTab('modes')}>Find your mode</button></div>{helpTab === 'basics' ? <HelpContent /> : <div className="mode-guide-grid">{MODES.map(mode => <div key={mode.id} className={`mode-guide-card mode-card-${mode.id}`}><div className={`mode-icon mode-${mode.id}`}><ModeIcon mode={mode.id} size={22} /></div><h3>{MODE_NAMES[mode.id]}</h3><p>{mode.id === 'classic' ? 'The game you know, with three ways to challenge yourself. Easy: 9 × 9, 10 mines. Medium: 16 × 16, 40 mines. Hard: 30 × 16, 99 mines.' : mode.id === 'blitz' ? 'One minute on the clock. Clear the board before time runs out. Easy is a good place to warm up; Hard is a real test of speed and strategy.' : mode.id === 'zen' ? 'One endless tree of 9 × 9 squares. Clear a square to grow the limbs behind it — the branch forks 2, then 3, then 4 wide the deeper you go. Hit a mine and that limb locks and reshuffles: grow a different tip, or re-clear the square before it to reopen the path. Your tree is saved on this device.' : 'The same seeded puzzle for every player, updated at midnight UTC. Choose your difficulty, compare notes, and come back tomorrow for something new.'}</p><button onClick={() => requestGame(mode.id, mode.id === 'daily' ? 'hard' : 'easy')}>Give it a go <ArrowRight size={15} /></button></div>)}</div>}<div className="guide-bottom"><span><Heart size={15} />You don’t need to be an expert. Just a little curious.</span><button className="primary-button" onClick={() => navigate('play')}>I’m ready to play <Play size={15} fill="currentColor" /></button></div></section></>}
       </main>
     </div>
 

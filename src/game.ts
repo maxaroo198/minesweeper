@@ -35,7 +35,7 @@ export const DIFFICULTIES: Record<Difficulty, { label: string; rows: number; col
   medium: { label: 'Medium', rows: 16, cols: 16, mines: 40 },
   hard: { label: 'Hard', rows: 30, cols: 30, mines: 99 },
 };
-export const MODE_NAMES: Record<Mode, string> = { classic: 'Classic', blitz: 'Blitz', zen: 'Zen', daily: 'Daily challenge' };
+export const MODE_NAMES: Record<Mode, string> = { classic: 'Classic', blitz: 'Blitz', zen: 'Branch', daily: 'Daily challenge' };
 export const BLITZ_SECONDS = 60;
 /** Selectable Blitz limits, shortest first. 15 seconds is a real knife-fight. */
 export const BLITZ_OPTIONS = [15, 30, 45, 60, 90, 120, 180, 300];

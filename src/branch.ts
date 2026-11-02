@@ -1,5 +1,5 @@
 /**
- * Zen mode: an infinite, branching minefield.
+ * Branch mode: an infinite, branching minefield.
  *
  * The world is a tree of 9×9 / 10-mine areas. The root starts open; clearing an
  * area unlocks its children (a depth-0 area has 2 children, depth-1 has 3,
@@ -12,22 +12,22 @@
 import type { BoardState, Cell } from './game';
 import { DIFFICULTIES, freshGame, neighbors } from './game';
 
-export type ZenAreaState = 'locked' | 'open' | 'cleared';
+export type BranchAreaState = 'locked' | 'open' | 'cleared';
 
-export interface ZenArea {
+export interface BranchArea {
   id: string;            // path id, e.g. "0", "0.2", "0.2.1"
   depth: number;
   parent: string | null;
   children: string[];
-  state: ZenAreaState;
+  state: BranchAreaState;
   mines: number[] | null;   // null until first move plants them
   revealed: number[];
   flagged: number[];
 }
 
-export interface ZenWorld {
+export interface BranchWorld {
   version: 1;
-  areas: Record<string, ZenArea>;
+  areas: Record<string, BranchArea>;
   current: string;
   createdAt: number;
 }
@@ -39,17 +39,17 @@ export function childrenCount(depth: number) {
   return depth + 2;
 }
 
-export function newWorld(): ZenWorld {
-  const root: ZenArea = { id: '0', depth: 0, parent: null, children: [], state: 'open', mines: null, revealed: [], flagged: [] };
+export function newWorld(): BranchWorld {
+  const root: BranchArea = { id: '0', depth: 0, parent: null, children: [], state: 'open', mines: null, revealed: [], flagged: [] };
   return { version: 1, areas: { '0': root }, current: '0', createdAt: Date.now() };
 }
 
-function childId(parent: ZenArea, index: number) {
+function childId(parent: BranchArea, index: number) {
   return `${parent.id}.${index}`;
 }
 
 /** Attach (or reveal) an area's children. Called when the area is cleared. */
-function growChildren(world: ZenWorld, area: ZenArea): ZenWorld {
+function growChildren(world: BranchWorld, area: BranchArea): BranchWorld {
   if (area.children.length) return world;
   const count = childrenCount(area.depth);
   const children: string[] = [];
@@ -62,11 +62,11 @@ function growChildren(world: ZenWorld, area: ZenArea): ZenWorld {
   return world;
 }
 
-export function loadWorld(): ZenWorld | null {
+export function loadWorld(): BranchWorld | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const data = JSON.parse(raw) as ZenWorld;
+    const data = JSON.parse(raw) as BranchWorld;
     if (!data || data.version !== 1 || !data.areas || !data.areas[data.current]) return null;
     return data;
   } catch {
@@ -74,7 +74,7 @@ export function loadWorld(): ZenWorld | null {
   }
 }
 
-export function saveWorld(world: ZenWorld) {
+export function saveWorld(world: BranchWorld) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(world)); } catch { /* storage unavailable */ }
 }
 
@@ -83,7 +83,7 @@ export function wipeWorld() {
 }
 
 /** Sync an area's progress from the board the player just moved on. */
-export function syncArea(world: ZenWorld, board: BoardState): ZenWorld {
+export function syncArea(world: BranchWorld, board: BoardState): BranchWorld {
   const area = world.areas[world.current];
   if (!area) return world;
   const mines = board.cells.flatMap((c, i) => (c.mine ? [i] : []));
@@ -97,7 +97,7 @@ export function syncArea(world: ZenWorld, board: BoardState): ZenWorld {
 }
 
 /** Rebuild a playable board for an area. */
-export function boardFromArea(world: ZenWorld, id: string): BoardState {
+export function boardFromArea(world: BranchWorld, id: string): BoardState {
   const area = world.areas[id];
   const base = freshGame('zen', 'easy');
   if (!area) return base;
@@ -112,7 +112,7 @@ export function boardFromArea(world: ZenWorld, id: string): BoardState {
 }
 
 /** Clearing an area unlocks the branch behind it. */
-export function clearArea(world: ZenWorld, id: string): ZenWorld {
+export function clearArea(world: BranchWorld, id: string): BranchWorld {
   const area = world.areas[id];
   if (!area) return world;
   world.areas[id] = { ...area, state: 'cleared' };
@@ -124,7 +124,7 @@ export function clearArea(world: ZenWorld, id: string): ZenWorld {
  * areas anywhere, the nearest ancestor re-opens: replay it to re-unlock the
  * branch. Returns { world, fallback } where fallback is the re-opened area id.
  */
-export function failArea(world: ZenWorld, id: string): { world: ZenWorld; fallback: string | null; next: string } {
+export function failArea(world: BranchWorld, id: string): { world: BranchWorld; fallback: string | null; next: string } {
   const area = world.areas[id];
   if (area) {
     world.areas[id] = { ...area, state: 'locked', mines: null, revealed: [], flagged: [] };
@@ -133,7 +133,7 @@ export function failArea(world: ZenWorld, id: string): { world: ZenWorld; fallba
   let fallback: string | null = null;
   if (!openIds.length && area) {
     // Walk up to the nearest ancestor and re-open it ("redo the area before").
-    let cursor: ZenArea | undefined = area.parent ? world.areas[area.parent] : undefined;
+    let cursor: BranchArea | undefined = area.parent ? world.areas[area.parent] : undefined;
     while (cursor && cursor.state === 'locked') cursor = cursor.parent ? world.areas[cursor.parent] : undefined;
     if (cursor) {
       world.areas[cursor.id] = { ...cursor, state: 'open' };
@@ -145,20 +145,20 @@ export function failArea(world: ZenWorld, id: string): { world: ZenWorld; fallba
   return { world, fallback, next };
 }
 
-export function openAreaIds(world: ZenWorld): string[] {
+export function openAreaIds(world: BranchWorld): string[] {
   return Object.values(world.areas).filter(a => a.state === 'open').map(a => a.id);
 }
 
 /* --- Tidy horizontal tree layout for the zoomed-out branch map --- */
 
 export interface MapNode {
-  area: ZenArea;
+  area: BranchArea;
   x: number;
   y: number;
 }
 
 /** Assign x by depth, y by a leaf-ordering walk (root on the left, branches to the right). */
-export function layoutWorld(world: ZenWorld, xGap = 170, yGap = 64): { nodes: MapNode[]; edges: { from: MapNode; to: MapNode }[]; width: number; height: number } {
+export function layoutWorld(world: BranchWorld, xGap = 170, yGap = 64): { nodes: MapNode[]; edges: { from: MapNode; to: MapNode }[]; width: number; height: number } {
   const nodes: MapNode[] = [];
   const edges: { from: MapNode; to: MapNode }[] = [];
   let leaf = 0;

@@ -1370,3 +1370,27 @@ color-scheme:dark;
 /* Mode-card blurb: let it wrap instead of running past the card edge. */
 .mode-card p{white-space:normal;overflow-wrap:break-word}
 .nav-flyout-copy i{white-space:nowrap}
+
+/* ============================================================================
+   Leaderboard: difficulty column, name prompt, and the daily's locked sizes
+   ============================================================================ */
+.daily-hub-lock{display:flex;align-items:center;gap:5px;margin-top:9px;font-family:var(--mono);font-size:6.5px;letter-spacing:.5px;color:var(--tx160);text-transform:uppercase}
+.daily-hub-lock svg{color:var(--orange)}
+.difficulty-tabs button:disabled{opacity:.34;cursor:not-allowed}
+.difficulty-tabs button:disabled:hover{background:transparent;color:var(--tx106)}
+.board-sub{font-family:var(--mono);font-size:7px;font-weight:400;letter-spacing:.5px;color:var(--tx160);margin-left:10px}
+.difficulty-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:7px;letter-spacing:.5px;padding:3px 7px;border-radius:4px;background:var(--sf139);color:var(--tx155);text-transform:uppercase}
+.difficulty-badge::before{content:'';width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.65}
+.difficulty-badge.dot-easy{background:var(--sf139);color:var(--tx155)}
+.difficulty-badge.dot-medium{background:var(--sf125);color:var(--tx128)}
+.difficulty-badge.dot-hard{background:var(--sf151);color:var(--tx235)}
+.you-label{display:inline-block;margin-left:7px;font-family:var(--mono);font-size:6px;letter-spacing:.6px;padding:2px 4px;border-radius:3px;background:var(--orange-tint);color:var(--orange)}
+.public-post-hint{font-size:8.5px;color:var(--tx160);line-height:1.55;margin-top:8px}
+.public-board.not-connected .empty-state{margin-top:4px}
+
+/* The win prompt: full-width name field, buttons underneath. */
+.public-post-row{flex-wrap:wrap}
+.public-post-row input{flex:1 1 100%;padding:9px 11px;font-size:12px}
+.public-post-row .primary-button{flex:1 1 auto}
+.public-board.not-connected .empty-state{padding:24px 18px}
+.public-board.not-connected .empty-state h3{font-size:15px}

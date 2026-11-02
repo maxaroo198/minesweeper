@@ -13,10 +13,12 @@ const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] }
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
 page.setDefaultTimeout(20000);
 const errors = [];
-await page.addInitScript(() => {
-  let seed = 2148;
-  Math.random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
-});
+// A constant random source makes mine placement identical in the browser and in
+// this script, so tests can compute the exact board before clicking it. A constant
+// is deliberately used instead of a seeded stream: however many values React or
+// the game draw first, the Fisher-Yates shuffle lands in the same place.
+await page.addInitScript(() => { Math.random = () => 0.5; });
+const constantRandom = (fn) => { const real = Math.random; Math.random = () => 0.5; try { return fn(); } finally { Math.random = real; } };
 page.on('pageerror', e => errors.push(e.message));
 await page.goto(BASE, { waitUntil: 'networkidle' });
 await page.evaluate(() => document.fonts.ready);
@@ -54,22 +56,54 @@ await page.clock.fastForward(61000);
 await page.getByText('A mine. Not the end.', { exact: true }).waitFor();
 assert.equal(await page.locator('.tile.exploded').count(), 0);
 await page.getByRole('button', { name: 'See the board', exact: true }).click();
+
+// The daily is locked: Hard every day, or Medium + Hard when the twist runs on a clock.
 await page.locator('.mode-card-daily').click();
-assert.equal(await page.locator('.tile').count(), 256);
+await page.waitForTimeout(300);
+const daily = await page.evaluate(() => ({
+  enabled: [...document.querySelectorAll('.difficulty-tabs button')].filter(b => !b.disabled).map(b => b.textContent.trim()),
+  selected: document.querySelector('.difficulty-tabs button.selected')?.textContent.trim(),
+  tiles: document.querySelectorAll('.tile').length,
+}));
+assert.ok(['Hard', 'Medium'].includes(daily.selected), 'the daily starts on a locked size');
+assert.deepEqual(daily.enabled, daily.selected === 'Medium' ? ['Medium', 'Hard'] : ['Hard'], 'the daily only offers its locked sizes');
+assert.equal(daily.tiles, daily.selected === 'Medium' ? 256 : 900, 'the daily board matches its locked size');
+assert.ok(await page.locator('.daily-hub-lock').innerText().then(t => /locked to hard|medium or hard/i.test(t)), 'the hub says which sizes are locked');
+
+// Win an easy classic board — that is what feeds the records and the local board.
+await page.locator('.mode-card').first().click();
+await page.waitForTimeout(150);
+await page.getByRole('button', { name: 'Easy', exact: true }).click();
+await page.waitForTimeout(150);
+await page.evaluate(() => { const d = document.querySelector('[role="dialog"]'); if (d) [...d.querySelectorAll('button')].find(b => b.textContent.includes('Start fresh'))?.click(); });
+await page.waitForTimeout(300);
 await page.locator('.tile').nth(40).click();
-const solved = plantBoard(dailyBoard('medium'), 40);
+const solved = constantRandom(() => plantBoard(freshGame('classic', 'easy'), 40));
 for (let i = 0; i < solved.cells.length; i++) {
   if (!solved.cells[i].mine && !(await page.locator('.tile').nth(i).isDisabled())) {
     await page.locator('.tile').nth(i).click();
   }
 }
 await page.getByText('Beautifully swept.', { exact: true }).waitFor();
-assert.ok(await page.evaluate(() => JSON.parse(localStorage.getItem('minefield-games-v1')).some(r => r.won)));
+assert.ok(await page.evaluate(() => JSON.parse(localStorage.getItem('minefield-games-v1')).some(r => r.won)), 'a win is recorded locally');
+
+// Every classic win asks for a leaderboard name, connected or not.
+assert.equal(await page.locator('#win-name').count(), 1, 'a classic win always asks for a name');
+const nameInput = page.locator('#win-name');
+await nameInput.click();
+await nameInput.fill('');
+await nameInput.pressSequentially('Square Fan');
+assert.equal(await nameInput.inputValue(), 'Square Fan', 'the name field takes spaces');
+await page.getByRole('button', { name: /Save name|Post/ }).click();
+await page.waitForTimeout(250);
+assert.equal(await page.evaluate(() => localStorage.getItem('minefield-player-name')), 'Square Fan', 'the name is remembered');
+
 await page.getByRole('button', { name: 'See the board', exact: true }).click();
 await page.locator('.nav-item').filter({ hasText: 'Leaderboard' }).click();
-await page.locator('.leaderboard-filters').getByRole('button', { name: 'Daily challenge', exact: true }).click();
-await page.getByLabel('Leaderboard difficulty').selectOption('medium');
+await page.locator('.leaderboard-filters').getByRole('button', { name: 'Classic', exact: true }).click();
+await page.getByLabel('Leaderboard difficulty').selectOption('easy');
 assert.equal(await page.locator('.score-table tbody tr').count(), 1);
+assert.ok(await page.locator('.public-board.not-connected').count() === 1, 'without Firebase the public board explains itself');
 await page.locator('.nav-item').filter({ hasText: 'Preferences' }).click();
 await page.getByRole('switch', { name: 'Higher contrast' }).click();
 assert.equal(await page.locator('.app.high-contrast').count(), 1);
