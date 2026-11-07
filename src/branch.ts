@@ -50,7 +50,13 @@ function childId(parent: BranchArea, index: number) {
 
 /** Attach (or reveal) an area's children. Called when the area is cleared. */
 function growChildren(world: BranchWorld, area: BranchArea): BranchWorld {
-  if (area.children.length) return world;
+  if (area.children.length) {
+    for (const id of area.children) {
+      const child = world.areas[id];
+      if (child?.state === 'locked') child.state = 'open';
+    }
+    return world;
+  }
   const count = childrenCount(area.depth);
   const children: string[] = [];
   for (let i = 0; i < count; i++) {
@@ -68,6 +74,17 @@ export function loadWorld(): BranchWorld | null {
     if (!raw) return null;
     const data = JSON.parse(raw) as BranchWorld;
     if (!data || data.version !== 1 || !data.areas || !data.areas[data.current]) return null;
+    // Repair the older dead-end save: a cleared parent with no playable tips.
+    if (!openAreaIds(data).length) {
+      const parent = Object.values(data.areas).find(a => a.state === 'cleared' && a.children.some(id => data.areas[id]?.state === 'locked'));
+      if (parent) growChildren(data, parent);
+      else {
+        const root = data.areas['0'];
+        if (!root) return null;
+        data.areas['0'] = { ...root, state: 'open', mines: null, revealed: [], flagged: [] };
+      }
+    }
+    if (data.areas[data.current].state === 'locked') data.current = openAreaIds(data)[0] ?? data.current;
     return data;
   } catch {
     return null;
@@ -84,10 +101,12 @@ export function wipeWorld() {
 
 /** Sync an area's progress from the board the player just moved on. */
 export function syncArea(world: BranchWorld, board: BoardState): BranchWorld {
-  const area = world.areas[world.current];
-  if (!area) return world;
+  const id = board.id.startsWith('zen-') ? board.id.slice(4) : world.current;
+  world = copyWorld(world);
+  const area = world.areas[id];
+  if (!area || area.state !== 'open') return world;
   const mines = board.cells.flatMap((c, i) => (c.mine ? [i] : []));
-  world.areas[world.current] = {
+  world.areas[id] = {
     ...area,
     mines: mines.length ? mines : area.mines,
     revealed: board.cells.flatMap((c, i) => (c.revealed && !c.mine ? [i] : [])),
@@ -113,6 +132,7 @@ export function boardFromArea(world: BranchWorld, id: string): BoardState {
 
 /** Clearing an area unlocks the branch behind it. */
 export function clearArea(world: BranchWorld, id: string): BranchWorld {
+  world = copyWorld(world);
   const area = world.areas[id];
   if (!area) return world;
   world.areas[id] = { ...area, state: 'cleared' };
@@ -125,7 +145,9 @@ export function clearArea(world: BranchWorld, id: string): BranchWorld {
  * branch. Returns { world, fallback } where fallback is the re-opened area id.
  */
 export function failArea(world: BranchWorld, id: string): { world: BranchWorld; fallback: string | null; next: string } {
+  world = copyWorld(world);
   const area = world.areas[id];
+  if (!area || area.state !== 'open') return { world, fallback: null, next: openAreaIds(world)[0] ?? world.current };
   if (area) {
     world.areas[id] = { ...area, state: 'locked', mines: null, revealed: [], flagged: [] };
   }
@@ -186,4 +208,9 @@ export function layoutWorld(world: BranchWorld, xGap = 170, yGap = 64): { nodes:
   const width = (maxDepth + 1) * xGap + 80;
   const height = Math.max(leaf, 1) * yGap + 80;
   return { nodes, edges, width, height };
+}
+
+/** Helpers never mutate React state or another saved-world snapshot. */
+function copyWorld(world: BranchWorld): BranchWorld {
+  return { ...world, areas: Object.fromEntries(Object.entries(world.areas).map(([id, a]) => [id, { ...a, children: [...a.children], mines: a.mines ? [...a.mines] : null, revealed: [...a.revealed], flagged: [...a.flagged] }])) };
 }

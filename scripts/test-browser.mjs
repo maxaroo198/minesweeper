@@ -57,7 +57,7 @@ await page.getByText('A mine. Not the end.', { exact: true }).waitFor();
 assert.equal(await page.locator('.tile.exploded').count(), 0);
 await page.getByRole('button', { name: 'See the board', exact: true }).click();
 
-// The daily is locked: Hard every day, or Medium + Hard when the twist runs on a clock.
+// Daily exposes Medium only, regardless of the current twist.
 await page.locator('.mode-card-daily').click();
 await page.waitForTimeout(300);
 const daily = await page.evaluate(() => ({
@@ -65,10 +65,10 @@ const daily = await page.evaluate(() => ({
   selected: document.querySelector('.difficulty-tabs button.selected')?.textContent.trim(),
   tiles: document.querySelectorAll('.tile').length,
 }));
-assert.ok(['Hard', 'Medium'].includes(daily.selected), 'the daily starts on a locked size');
-assert.deepEqual(daily.enabled, daily.selected === 'Medium' ? ['Medium', 'Hard'] : ['Hard'], 'the daily only offers its locked sizes');
+assert.ok(daily.selected === 'Medium', 'the daily starts on a locked size');
+assert.deepEqual(daily.enabled, ['Medium'], 'the daily only offers its locked sizes');
 assert.equal(daily.tiles, daily.selected === 'Medium' ? 144 : 400, 'the daily board matches its locked size');
-assert.ok(await page.locator('.daily-hub-lock').innerText().then(t => /locked to hard|medium or hard/i.test(t)), 'the hub says which sizes are locked');
+assert.ok(await page.locator('.daily-hub-lock').innerText().then(t => /locked to medium/i.test(t)), 'the hub says which sizes are locked');
 
 // Win an easy classic board — that is what feeds the records and the local board.
 await page.locator('.mode-card').first().click();

@@ -29,6 +29,26 @@ interface SensoryOptions {
   haptics: boolean;
 }
 
+/** Device-local volume; older installs start at 50%, without changing mute. */
+export function readSoundVolume(): number {
+  try {
+    const saved = localStorage.getItem('minefield-volume');
+    if (saved === null || saved.trim() === '') return 0.5;
+    const value = Number(saved);
+    return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0.5;
+  } catch { return 0.5; }
+}
+let soundVolume = readSoundVolume();
+export function setSoundVolume(value: number) {
+  soundVolume = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0.5;
+  if (master && ctx) {
+    // Smooth live adjustments. At 50% gain is 1 (previously fixed at 0.42),
+    // giving the default a clear boost while leaving room above it.
+    if (typeof master.gain.setTargetAtTime === 'function') master.gain.setTargetAtTime(soundVolume * 2, ctx.currentTime, 0.015);
+    else master.gain.value = soundVolume * 2;
+  }
+}
+
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let noiseBuffer: AudioBuffer | null = null;
@@ -41,7 +61,7 @@ function audio(): AudioContext | null {
       if (!Context) return null;
       ctx = new Context();
       master = ctx.createGain();
-      master.gain.value = 0.42;
+      master.gain.value = soundVolume * 2;
       master.connect(ctx.destination);
     }
     if (ctx.state !== 'running') void ctx.resume().catch(() => {});
@@ -227,6 +247,7 @@ function playSound(kind: Sense) {
 }
 
 export async function testAudio(): Promise<string> {
+  if (soundVolume === 0) return 'Volume is at 0%. Raise the volume slider to hear the test sound.';
   const context = audio();
   if (!context) return 'Web Audio is unavailable in this app runtime.';
   try {

@@ -1,3 +1,14 @@
+## v1.2.1 — Branch progression, leaderboards and volume
+
+- Branch re-clears reopen existing failed children instead of leaving a dead end. Transitions are immutable and tied to the moved board; one failed limb does not close its sibling. Older dead-end trees are repaired in place without wiping route IDs or saved progress. The hit mine still stays visible until Continue.
+- Louder game audio with a saved 0–100% Preferences slider, defaulting to 50% on new and existing installs. Mute stays separate. The 50% default has about 2.4× the old signal amplitude; actual loudness depends on system output.
+- Riptide hides zero labels only; numbered clues and anchored flagged mines are unchanged.
+- Daily is Medium only, on every twist day.
+- Local/public leaderboards are limited to Classic and Blitz; other modes keep their statistics.
+- Public scores retain failed wins in a restart-safe retry queue, show server error details, use stable game IDs to prevent duplicate retries, and display the latest server-confirmed submission separately from the fastest 20. Sub-second wins meet the existing 1-second Firestore minimum.
+- No new Firestore rules, indexes, or database migration required. No live Firebase verification performed; if the deployed project rejects a post, the game now shows the actual error and keeps the win to retry.
+- Version 1.2.1 / Android code 6. Keep the existing app identifiers, signing key, and app data when updating. No shops or larger Branch expansion included.
+
 # Round 6 — balance, compact modes and reliability (v1.2.0)
 
 - Nightfall/Blackout: +5 percentage points every 2 seconds; caps 70% and 100%.

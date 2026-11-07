@@ -1,0 +1,85 @@
+import { chromium } from '@playwright/test';
+import assert from 'node:assert/strict';
+const BASE=`http://127.0.0.1:${process.env.TEST_PORT || 4182}`;
+const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+try {
+  const p=await browser.newPage({viewport:{width:1400,height:1100}});
+  const errors=[];p.on('pageerror',e=>errors.push(e.message));
+  await p.addInitScript(()=>{Math.random=()=>.5;});
+  await p.goto(BASE,{waitUntil:'networkidle'}); await p.waitForTimeout(2700);
+  const world=()=>p.evaluate(()=>JSON.parse(localStorage.getItem('minefield-zen-v1')));
+  const startArea=async()=>{await p.locator('.tile').nth(40).click();};
+  const clearArea=async()=>{
+    await startArea();
+    const w=await world(), mines=w.areas[w.current].mines;
+    for(let i=0;i<81;i++) if(!mines.includes(i) && await p.locator('.tile').nth(i).isEnabled()) await p.locator('.tile').nth(i).click();
+    await p.locator('.result-card').waitFor();
+  };
+  const failArea=async()=>{
+    await startArea(); const w=await world();
+    await p.locator('.tile').nth(w.areas[w.current].mines[0]).click();
+    await p.locator('.result-card').waitFor();
+  };
+  await p.locator('.mode-card-zen').click();
+  await clearArea();
+  const legacy=await world();
+  await p.getByRole('button',{name:'Continue the branch',exact:true}).click();
+  await failArea();
+  let w=await world();
+  assert.equal(w.areas['0.0'].state,'locked');assert.equal(w.areas['0.1'].state,'open');
+  assert.equal(await p.locator('.tile.exploded.mine-visible').count(),1);
+  await p.getByRole('button',{name:'Continue at the earlier branch',exact:true}).click();
+  await failArea(); w=await world();
+  assert.equal(w.areas['0'].state,'open');
+  assert.equal(w.areas['0.0'].state,'locked');assert.equal(w.areas['0.1'].state,'locked');
+  await p.getByRole('button',{name:'Continue at the earlier branch',exact:true}).click();
+  await clearArea();w=await world();
+  assert.equal(w.areas['0.0'].state,'open');assert.equal(w.areas['0.1'].state,'open');
+  assert.equal(Object.keys(w.areas).length,3);
+  await p.getByRole('button',{name:'Continue the branch',exact:true}).click();
+  await clearArea();w=await world();
+  assert.equal(w.areas['0.0'].children.length,3,'recovered limb keeps growing');
+  assert.equal(w.createdAt,legacy.createdAt);
+  // Load the exact legacy dead-end shape without deleting/restarting the tree.
+  legacy.areas['0.0'].state='locked';legacy.areas['0.1'].state='locked';
+  await p.evaluate(w=>localStorage.setItem('minefield-zen-v1',JSON.stringify(w)),legacy);
+  await p.reload({waitUntil:'networkidle'});await p.waitForTimeout(2700);
+  await p.locator('.mode-card-zen').click();w=await world();
+  assert.equal(w.areas['0.0'].state,'open');assert.equal(w.areas['0.1'].state,'open');
+  assert.equal(w.createdAt,legacy.createdAt);
+  // Fresh Riptide: blanks are blank; numbered clues remain visible.
+  if(await p.getByRole('button',{name:'See the board',exact:true}).isVisible()) await p.getByRole('button',{name:'See the board',exact:true}).click();
+  await p.locator('.mode-card-riptide').click(); await startArea();
+  const zeros=await p.locator('.tile.revealed.number-0').allTextContents();
+  assert.ok(zeros.length>0);assert.ok(zeros.every(s=>s===''),'zero labels are hidden');
+  const clues=await p.locator('.tile.revealed:not(.number-0)').allTextContents();
+  assert.ok(clues.some(s=>/^[1-8]$/.test(s)),'numbered clues still show');
+  // Queue survives app restart, and boards expose only the two permitted modes.
+  const queued=[1,2].map(n=>({id:`queued-${n}`,won:true,mode:'blitz',difficulty:'easy',seconds:n*10,date:'2026-11-07T12:00:00Z'}));
+  await p.evaluate(q=>localStorage.setItem('minefield-pending-public-v1',JSON.stringify(q)),queued);
+  await p.reload({waitUntil:'networkidle'});await p.waitForTimeout(2700);
+  await p.getByRole('button',{name:'Leaderboard',exact:true}).click();
+  assert.deepEqual(await p.locator('.leaderboard-filters .difficulty-tabs button').allTextContents(),['Classic','Blitz']);
+  assert.ok((await p.locator('.public-post').innerText()).includes('2 unposted win(s)'));
+  await p.getByRole('button',{name:'Post saved win / retry',exact:true}).click();
+  await p.waitForFunction(()=>JSON.parse(localStorage.getItem('minefield-pending-public-v1')).length===1);
+  assert.equal(await p.evaluate(()=>JSON.parse(localStorage.getItem('minefield-pending-public-v1'))[0].id),'queued-2');
+  await p.getByRole('button',{name:'Preferences',exact:true}).click();
+  assert.equal(await p.getByRole('slider',{name:'Sound volume',exact:true}).inputValue(),'50');
+  await p.getByRole('slider',{name:'Sound volume',exact:true}).fill('73');
+  await p.waitForFunction(()=>localStorage.getItem('minefield-volume')==='0.73');
+  assert.equal(await p.locator('.volume-control output').innerText(),'73%');
+  await p.getByRole('switch',{name:'Game sound',exact:true}).click();
+  assert.equal(await p.getByRole('slider',{name:'Sound volume',exact:true}).inputValue(),'73','mute preserves chosen volume');
+  await p.reload({waitUntil:'networkidle'});await p.waitForTimeout(2700);
+  await p.getByRole('button',{name:'Preferences',exact:true}).click();
+  assert.equal(await p.getByRole('slider',{name:'Sound volume',exact:true}).inputValue(),'73','volume survives restart');
+  assert.equal(await p.getByRole('switch',{name:'Game sound',exact:true}).getAttribute('aria-checked'),'false','mute survives restart independently');
+  await p.getByRole('slider',{name:'Sound volume',exact:true}).fill('0');
+  await p.getByRole('button',{name:'Test sound',exact:true}).click();
+  await p.getByText('Volume is at 0%. Raise the volume slider to hear the test sound.',{exact:true}).waitFor();
+  await p.setViewportSize({width:390,height:844});
+  assert.ok(await p.getByRole('slider',{name:'Sound volume',exact:true}).isVisible());
+  assert.deepEqual(errors,[]);
+  console.log('Round 7 UI passed: two failed limbs → root replay → reopen → deeper growth; legacy-save repair; blank Riptide zeros/visible numbers; Classic/Blitz-only boards; persisted submission queue.');
+} finally {await browser.close();}

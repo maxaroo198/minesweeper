@@ -28,19 +28,18 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
 - **Daily:** A numbered, seeded puzzle refreshed at midnight UTC. All daily games use a shared seed
   with first-move protection, and each day carries a twist: Classic rules, Packed (+33% mines),
   Flag-free (no flags at all), or Sprint (two minutes on the clock). Streaks, a seven-day result
-  strip and a spoiler-free share grid are built in. The daily is locked to Hard, or Medium and Hard
-  when the day's twist runs on a clock.
+  strip and a spoiler-free share grid are built in. The daily is always Medium, including timed days; there is no Hard variant.
 - **Nightfall:** A 12 × 12 board where opening a square has a chance of showing you nothing at all.
   The chance starts at one in ten, climbs 5% every two seconds and stops at 70%.
   Hidden tiles can touch. **Blackout** starts at one in three and keeps climbing to 100%.
 - **Custom:** Pick any field from 5 to 40 squares a side and any mine count it can hold. The board
-  size is remembered, and every result lands on one shared Custom leaderboard with its size shown.
+  size is remembered; results remain in your local statistics, not a leaderboard.
 - **Riptide:** Every eight seconds the tide shifts every row and column, dragging the mines with
-  it and rewriting the numbers on squares you have already opened.
+  it and rewriting the numbers on squares you have already opened. Correctly flagged mines stay anchored; numbered clues remain visible, while zero labels are blank.
 - **Contract:** Three compatible objectives from a twenty-four-objective pool, plus two optional bonus
   badges, a one-use safe-tile rescue that costs a final star, and replayable contract codes. Use the
   same code, difficulty and first click to reproduce a board. Objectives stay visible in focus mode.
-  The Contract board ranks final stars before time.
+  Contract results retain their stars in local statistics; there is no Contract leaderboard.
 - **Scan:** Start with six charges. Known safe clues cost two; unknowns cost one. Mines
   always return ?, safe tiles have a 40% unknown chance, and the final charge always returns ?.
   A scan cannot be rerolled. Flagging each real mine earns one charge only once.
@@ -51,8 +50,10 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
 - Hover **Let's play** in the sidebar for the mode switcher, which lists every mode with the daily underneath.
 - Every Classic and Blitz win asks who to put on the leaderboard, and the Blitz board lists each
   entry's time and board size next to the name.
+- Louder game audio with a saved 0–100% Preferences volume slider, starting at 50%. Mute is independent.
 - Locally saved game history, personal bests, sound settings, and high-contrast/reduced-motion options.
-- No accounts, advertising, analytics, or remote APIs.
+- No accounts, advertising, or analytics. Public Classic/Blitz scores optionally use Firebase.
+- Leaderboards exist only for Classic and Blitz. Failed submissions remain in a device-local retry queue; the public board shows the latest confirmed submission separately from the fastest 20.
 
 ## Web
 

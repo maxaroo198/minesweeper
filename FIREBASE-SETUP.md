@@ -147,3 +147,13 @@ The board now displays query failures and a Retry button instead of disguising
 them as an empty board. If Firebase requests an index, follow its generated link,
 wait for Enabled, and retry. Posting completion triggers a refresh. This update
 was tested with mocked Firebase queries, not against your live database.
+
+## v1.2.1 posting diagnostics (no database migration)
+
+No new rules, indexes, or database-side changes are required by this update. The existing `scores` fields and per-mode/per-difficulty/time index are unchanged. Older documents are retained. Only Classic and Blitz are exposed by the client.
+
+Posting now uses the game ID as the document ID so retrying cannot create duplicate entries. Existing create-only/read-public rules are compatible: a retry reads the existing matching score rather than updating it. Sub-second wins submit 1 second to satisfy the existing minimum.
+
+Choose **Post / retry** after winning; this is not automatic uploading. Failed or timed-out submissions stay on this device, including after restarting. Open Leaderboard → **Post saved win / retry**. The exact server error remains visible. If it says permission-denied, check the rules actually deployed to the configured Firebase project against `firestore.rules`; changing a source file alone never deploys rules. Loading still needs the existing mode/difficulty/seconds index; if Firebase requests one, create the index using its console link.
+
+The public table shows only the fastest 20 (Blitz merges all three sizes). A newer slower win does not replace an older faster win. **Your latest confirmed submission** is a separate device-local receipt shown only after server acknowledgement. It is not a query of every historical score and does not sync to other devices. Reads request the server rather than silently presenting an offline cache as current. Live project writes/rules cannot be verified by mocked tests.

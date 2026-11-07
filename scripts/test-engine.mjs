@@ -76,12 +76,15 @@ assert.equal(cascade.change.wave[0], 0);
 assert.ok(Object.values(cascade.change.wave).every(d => d >= 0 && Number.isInteger(d)));
 assert.equal(plantBoard(board, 0).cells.filter(c => c.mine).length, 10);
 
+assert.deepEqual(MODE_DIFFICULTIES.daily, ['medium']);
+
 // Daily twists: same puzzle for everyone, rotating day by day, mines scaled to match.
 for (let day = 0; day < 8; day++) {
   const twist = dailyTwist(day);
   for (const difficulty of ['easy', 'medium', 'hard']) {
     const board = dailyBoard(difficulty, day);
-    const base = DIFFICULTIES[difficulty].mines;
+    assert.equal(board.difficulty, 'medium', 'Daily never offers a hard/easy variant');
+    const base = DIFFICULTIES.medium.mines;
     const expected = twist.mineScale ? Math.round(base * twist.mineScale) : base;
     assert.equal(board.mines, expected, `day ${day} ${difficulty} carries the twist's mine count`);
     assert.ok(board.mines <= board.cells.length - 9, 'the safe opening always has room');
@@ -267,3 +270,37 @@ const branch = await load('branch');
 const failedRoot = branch.failArea(branch.newWorld(), '0');
 assert.equal(failedRoot.world.areas['0'].state, 'open', 'root failure leaves playable fallback');
 console.log('Expanded rules passed: Scan costs/unknowns, anchored tides, 24 contracts, persistent daily dates, Branch fallback.');
+
+// Branch regression: fail both forward tips, replay the root, then keep growing.
+{
+  const initial = branch.newWorld(); const frozen = JSON.stringify(initial);
+  let w = branch.clearArea(initial, '0');
+  assert.equal(JSON.stringify(initial), frozen, 'clearing must not mutate React state');
+  const before = JSON.stringify(w);
+  const failedA = branch.failArea(w, '0.0');
+  assert.equal(JSON.stringify(w), before, 'failing must not mutate the input');
+  assert.deepEqual(branch.failArea(w, '0.0'), failedA, 'replayed StrictMode calculation has identical results');
+  assert.equal(failedA.world.areas['0.1'].state, 'open', 'one failure cannot close its sibling');
+  const failedB = branch.failArea(failedA.world, '0.1');
+  assert.equal(failedB.fallback, '0');
+  w = branch.clearArea(failedB.world, '0');
+  assert.deepEqual(branch.openAreaIds(w), ['0.0','0.1'], 're-clearing reopens existing locked children');
+  assert.equal(Object.keys(w.areas).length,3,'no duplicate or discarded nodes');
+  w = branch.clearArea(w, '0.0');
+  assert.equal(w.areas['0.0'].children.length,3,'growth continues beyond recovered tips');
+  const board = branch.boardFromArea(w,'0.1');
+  const shifted = {...w,current:'0.0.0'};
+  const synced = branch.syncArea(shifted,game.toggleFlag(board,0));
+  assert.deepEqual(synced.areas['0.1'].flagged,[0], 'move is tied to its board, not a changed current pointer');
+  assert.deepEqual(synced.areas['0.0.0'].flagged,[]);
+  const store = new Map();
+  globalThis.localStorage = {getItem:k=>store.get(k)??null,setItem:(k,v)=>store.set(k,v)};
+  const stuck = branch.clearArea(branch.newWorld(),'0');
+  stuck.areas['0.0'].state='locked';stuck.areas['0.1'].state='locked';
+  branch.saveWorld(stuck);
+  const recovered=branch.loadWorld();
+  assert.deepEqual(branch.openAreaIds(recovered),['0.0','0.1'],'legacy dead-end save is repaired in place');
+  assert.equal(recovered.createdAt,stuck.createdAt);
+  assert.deepEqual(recovered.areas['0'].children,stuck.areas['0'].children);
+  console.log('Branch regressions passed: isolated failure, immutable/repeatable transitions, parent replay, deeper growth, board identity, legacy save recovery.');
+}

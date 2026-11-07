@@ -1520,3 +1520,10 @@ color-scheme:dark;
 .tile.tile-popped,.tile.tile-expanded{animation:none}
 .tile.tile-popped .number-marker,.tile.tile-expanded .number-marker{animation:none;opacity:1;transform:none}
 @media(max-width:900px){.play-layout:has(.mode-column){grid-template-columns:minmax(0,1fr)}.mode-bar .mode-card{padding:9px 10px;font-size:10px}}
+
+/* Volume stays usable in the narrow native settings dialog. */
+.volume-setting > div { min-width: 0; }
+.volume-control { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.volume-control input { width: 100%; min-width: 0; accent-color: var(--orange); cursor: pointer; }
+.volume-control input:focus-visible { outline: 2px solid var(--orange); outline-offset: 4px; }
+.volume-control output { min-width: 4ch; text-align: right; font-family: var(--mono); font-size: 12px; color: var(--tx35); }

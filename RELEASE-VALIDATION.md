@@ -1,3 +1,13 @@
+# Round 7 validation (v1.2.1)
+
+TypeScript and production web builds, 240 randomized engine games plus rule regressions, mocked Firebase/audio services, browser/mobile UI suites, browser-process restart/persistence with shell bridges simulated, and new Round 7 regressions pass in the sandbox. Branch coverage includes two separate child failures, root fallback and replay, reopening existing children, deeper growth, immutable/repeatable calculations, board-specific synchronization, and old dead-end save repair without wiping the tree. UI checks cover blank Riptide zero labels with numbered clues retained, Medium-only Daily, only Classic/Blitz leaderboard tabs, and submission queue persistence. Firebase mocks cover idempotent posting, zero-second minimum compatibility, explicit permission errors, latest-confirmed receipts, and unchanged indexed Blitz top-20 merging.
+
+Node 24.22.2 / npm 12.2.2 `npm ci --ignore-scripts` passed with the repaired WASI entry intact. npm audit still reports 6 dependency advisories (1 low, 5 high); no force upgrade or unrelated dependency change was attempted. The embedded source ZIP download also passes desktop/mobile/Android-dialog browser tests.
+
+Volume regressions cover the louder 50% default, zero/full gain, input clamping, slider changes, persistence after reload, independent mute and an explicit zero-volume Test sound message. Actual speaker loudness still needs verification on the target device.
+
+**Not validated live:** the user's Firebase database/rules, actual CachyOS speaker output, new Windows/Linux/Android binaries, or an actual phone update. Run the installer workflow and test those artifacts on the real devices. No signing keys, app identities, or existing storage keys changed. Firestore source rules and query indexes are unchanged; no database deployment is needed for this patch itself. Do not claim that the user's exact missing-score cause is verified until a real post succeeds or its server error is observed.
+
 # Round 6 validation notes
 
 TypeScript, production web build, randomized engine suite, mocked Firebase/audio tests, browser interaction tests, restart-persistence tests and Round 6 regression tests are run for this update. Regressions cover compact mode navigation, visible Branch death, playable root fallback, Scan costs/no-reroll and daily streaks without rolling history.

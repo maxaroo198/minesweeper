@@ -73,7 +73,7 @@ export const MODE_DIFFICULTIES: Record<Mode, Difficulty[]> = {
   classic: ['easy', 'medium', 'hard'],
   blitz: ['easy', 'medium', 'hard'],
   zen: ['easy'],
-  daily: ['easy', 'medium', 'hard'],
+  daily: ['medium'],
   nightfall: ['easy', 'medium', 'hard', 'blackout'],
   custom: ['custom'],
   riptide: ['easy', 'medium', 'hard'],
@@ -328,7 +328,8 @@ export function dailyTwist(index = dailyNumber()): DailyTwist {
 }
 
 /** A daily board, with today's twist already applied. */
-export function dailyBoard(difficulty: Difficulty, index = dailyNumber()): BoardState {
+export function dailyBoard(_difficulty: Difficulty = 'medium', index = dailyNumber()): BoardState {
+  const difficulty: Difficulty = 'medium';
   const twist = dailyTwist(index);
   const board = { ...freshGame('daily', difficulty), dailyDay: dayKey() };
   if (twist.mineScale) {
