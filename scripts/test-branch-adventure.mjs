@@ -14,15 +14,17 @@ try {
   const load=name=>import(pathToFileURL(join(dir,`${name}.mjs`)).href);
   const game=await load('game'),branch=await load('branch'),a=await load('branchAdventure');
   const copy=w=>JSON.parse(JSON.stringify(w));
-  const boardStop=(w,kind='board')=>a.startEncounter(a.chooseStop(w,kind));
+  // Keep the original economy regression fixture neutral; the new mechanics have a separate suite.
+  const begin=input=>{const w=a.beginExpedition(input);for(const stop of a.routeFor(w).stops)stop.event='trailkeeper';return w;};
+  const boardStop=(w,kind='board')=>{w=a.startEncounter(a.chooseStop(w,kind));a.stopFor(w).variant=undefined;return w;};
   const completeBoard=w=>{
     let b=a.expeditionBoard(w);
     if(b.status==='ready') {const next=game.reveal(b,40).state;const out=a.settleMove(w,b,next,()=>.9);w=out.world;b=out.board;}
     for(let i=0;i<b.cells.length && b.status==='playing';i++) if(!b.cells[i].mine && !b.cells[i].revealed){const next=game.reveal(b,i).state;const out=a.settleMove(w,b,next,()=>.9);w=out.world;b=out.board;}
-    assert.equal(b.status,'won');return w;
+    assert.equal(b.status,'won');w.expeditions.reward=undefined;return w;
   };
   const fresh=branch.newWorld(),saved=JSON.stringify(fresh);
-  let w=a.beginExpedition(fresh);
+  let w=begin(fresh);
   assert.equal(JSON.stringify(fresh),saved,'starting never mutates the input tree');
   assert.equal(w.createdAt,fresh.createdAt);assert.deepEqual(w.areas,fresh.areas);
   assert.equal(a.routeFor(w).stops.length,5);
@@ -58,7 +60,7 @@ try {
   assert.equal(miss.expeditions.coins,0,'10% threshold is exclusive');
   let missRolls=0;a.enterExpedition(miss,'0',()=>{missRolls++;return 0;});assert.equal(missRolls,0,'failed recovery cannot be rerolled by map hopping');
   // Complete a real five-stop route, including multiple boss phases.
-  w=boardStop(a.beginExpedition(branch.newWorld()));
+  w=boardStop(begin(branch.newWorld()));
   w=completeBoard(w);assert.equal(a.routeFor(w).cursor,1);assert.ok(w.expeditions.coins>0);
   w=a.finishStop(a.chooseStop(w,'event'),'gift');assert.equal(w.expeditions.surveyCharges,2);
   w=a.equipItem(w,'survey');assert.equal(w.expeditions.active.length,2);
@@ -84,7 +86,7 @@ try {
   assert.deepEqual(fallback.expeditions.paid,w.expeditions.paid);
   assert.equal(fallback.expeditions.bank,w.expeditions.bank);
   // Shop pricing, permanent upgrades and charges survive retries; owned items cannot be duplicated.
-  let shop=a.beginExpedition(branch.newWorld());shop.expeditions.coins=1000;
+  let shop=begin(branch.newWorld());shop.expeditions.coins=1000;
   shop.expeditions.routes['0'].cursor=1;shop=a.chooseStop(shop,'shop');
   shop=a.buyItem(shop,'survey');assert.equal(shop.expeditions.surveyCharges,2);
   shop=a.buyItem(shop,'purse');shop=a.buyItem(shop,'boots');shop=a.buyItem(shop,'charm');
@@ -95,15 +97,15 @@ try {
   const coins=shop.expeditions.coins;shop=a.buyItem(shop,'purse');assert.equal(shop.expeditions.coins,coins);
   shop=a.finishStop(shop);const outside=shop.expeditions.bank;shop=a.bankCoins(shop,'deposit');assert.equal(shop.expeditions.bank,outside,'no banking outside shelter');
   // Replay ledger stops reward and event farming.
-  let replay=boardStop(a.beginExpedition(branch.newWorld()));replay=completeBoard(replay);
+  let replay=boardStop(begin(branch.newWorld()));replay=completeBoard(replay);
   const balance=replay.expeditions.coins;
-  replay.expeditions.routes['0'].cursor=0;replay.expeditions.routes['0'].stops[0].board=undefined;replay=a.startEncounter(replay);replay=completeBoard(replay);
+  replay.expeditions.routes['0'].cursor=0;replay.expeditions.routes['0'].stops[0].board=undefined;replay=a.startEncounter(replay);a.stopFor(replay).variant=undefined;replay=completeBoard(replay);
   assert.equal(replay.expeditions.coins,balance,'replaying a paid board gives no extra money');
   replay=a.finishStop(a.chooseStop(replay,'event'),'coins');const gift=replay.expeditions.coins;
   replay.expeditions.routes['0'].cursor=1;replay=a.finishStop(replay,'coins');assert.equal(replay.expeditions.coins,gift,'event gift is once per stop');
   // All three boss rules have real, distinct phase mechanics.
   for(let boss=0;boss<3;boss++){
-    let test=a.beginExpedition(branch.newWorld()),r=a.routeFor(test);r.cursor=r.stops.length-1;r.boss=boss;
+    let test=begin(branch.newWorld()),r=a.routeFor(test);r.cursor=r.stops.length-1;r.boss=boss;
     test=a.chooseStop(test,'boss');a.stopFor(test).phase=1;
     const rules=a.rulesFor(test);
     if(boss===0)assert.ok(rules.noFlags);if(boss===1)assert.equal(rules.fog,.5);if(boss===2)assert.ok(rules.noChord&&rules.halfFlags);

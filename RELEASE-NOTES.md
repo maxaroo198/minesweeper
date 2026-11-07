@@ -1,3 +1,13 @@
+## v1.4.0 — One Branch, builds and livelier minefields
+
+- Unifies ordinary Branch and expeditions into one map → encounter → loot → next path flow. Removes opt-in/Begin and the legacy plain-board bypass. All open limbs use routes automatically; unfinished legacy grids retain mines, reveals, flags, IDs and descendants.
+- Adds crystal-cache safe bursts, supplied-clue camps, optional clear/flag bounties and rectangular crossings, with previews and live optional-goal progress.
+- Adds one-time milestone loot drafts with auto-equipping into free slots, plus Seam Breaker, Treasure Magnet and Crystal Dynamo. Strengthens Pathfinder to three safe cells and Survey to five clues. Preserves two active/three passive slots and saved cooldowns/charges.
+- Adds protection/recharge shrine and deterministic risky-chest events alongside trailkeepers. Cache, board, event and loot ledgers prevent retry farming.
+- Retains visible mine-hit acknowledgement, restart-safe Continue, earlier-limb fallback, safe banking, 10–100% carried-money loss and once-per-attempt 10% pouch recovery.
+- Classic and all other modes are unchanged. Three existing phased bosses retained; the 50+ boss roster remains unfinished.
+- v1.4.0 / Android code 9. No Firestore rules, indexes or database-side changes. Build new native packages with the existing signing key and app IDs; do not uninstall/clear saves.
+
 ## v1.3.1 — Visual Branch atlas and post-failure travel fix
 
 - Replaces the text route strip with an original illustrated node map, opened by the existing Branch map icon. Hexagonal custom vector icons, connected dashed paths, highlighted reachable nodes, saved choices and completed paths; future nodes cannot skip progression.

@@ -12,18 +12,25 @@ try {
   assert.equal(await p.locator('.mode-bar .mode-card').count(), 9);
   assert.equal(await p.locator('.mode-column .mode-card').count(), 0);
   await p.locator('.mode-card-zen').click();
+  await p.getByRole('button',{name:'Minefield · stop 1 · available',exact:true}).click();
+  await p.getByRole('button',{name:'Enter minefield',exact:true}).click();
+  await p.getByRole('button',{name:/Inventory ·/}).click();
+  await p.getByRole('checkbox',{name:/Use a Return Totem/}).uncheck();
+  await p.getByRole('button',{name:'Close inventory',exact:true}).click();
   await p.locator('.tile').nth(40).click();
-  const mine = await p.evaluate(() => JSON.parse(localStorage.getItem('minefield-zen-v1')).areas['0'].mines[0]);
+  const mine = await p.evaluate(() => JSON.parse(localStorage.getItem('minefield-zen-v1')).expeditions.routes['0'].stops[0].board.cells.findIndex(c=>c.mine));
   await p.locator('.tile').nth(mine).click();
   await p.locator('.result-card').waitFor();
   assert.equal(await p.locator('.tile.exploded.mine-visible').count(), 1, 'hit mine stays on the lost board');
-  assert.ok(await p.getByRole('button', { name: 'Continue at the earlier branch' }).isVisible());
+  assert.ok(await p.locator('.expedition-hud').getByRole('button', { name: 'Continue after the mine hit' }).isVisible());
   await p.getByRole('button', { name: 'See the board', exact: true }).click();
   assert.equal(await p.locator('.tile.exploded').count(), 1, 'viewing loss does not auto-teleport');
   await p.reload({ waitUntil: 'networkidle' });
   await p.waitForTimeout(2700);
   await p.locator('.mode-card-zen').click();
-  assert.equal(await p.locator('.tile.exploded').count(), 0, 'root fallback is playable after reload');
+  assert.equal(await p.locator('.tile.exploded').count(), 1, 'mine-hit acknowledgement persists after reload');
+  await p.locator('.expedition-hud').getByRole('button',{name:'Continue after the mine hit',exact:true}).click();
+  await p.getByRole('button',{name:'Close map',exact:true}).click();
   await p.locator('.mode-card-scan').click();
   // Root is ready, so switching needs no confirmation.
   await p.locator('.scan-toggle').click();

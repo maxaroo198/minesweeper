@@ -2,7 +2,7 @@
 
 **Start with [RELEASES.md](RELEASES.md)** for the GitHub Actions release pipeline,
 Android signing secrets, Windows/Linux packages and per-device save behavior.
-The current native app version is **1.3.1**. Node **24 LTS** is recommended.
+The current native app version is **1.4.0**. Node **24 LTS** is recommended.
 The website now links to complete GitHub releases rather than embedding the old
 APK. Run `npm run android:build` for a signed release APK (`--release --no-embed`);
 the legacy embedding commands below remain available for local experimentation.

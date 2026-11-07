@@ -44,6 +44,8 @@ await page.getByRole('button', { name: 'Hard', exact: true }).click();
 assert.equal(await page.locator('.tile').count(), 400);
 assert.equal(await page.locator('.board-dimensions').innerText().then(t => t.includes('20 × 20')), true, 'hard is a 20 x 20 square');
 await page.locator('.mode-card-zen').click();
+await page.getByRole('button',{name:'Minefield · stop 1 · available',exact:true}).click();
+await page.getByRole('button',{name:'Enter minefield',exact:true}).click();
 assert.equal(await page.locator('.tile').count(), 81);
 await page.locator('.tile').nth(40).click();
 assert.equal(await page.locator('.board-stat').first().locator('svg.lucide-infinity').count(), 1);

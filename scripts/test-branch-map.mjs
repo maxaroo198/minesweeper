@@ -16,8 +16,7 @@ try {
  await p.goto(BASE,{waitUntil:'networkidle'});await p.waitForTimeout(2700);
  const world=()=>p.evaluate(()=>JSON.parse(localStorage.getItem('minefield-zen-v1')));
  await p.locator('.mode-card-zen').click();
- await p.getByRole('button',{name:'Open branch map',exact:true}).click();
- await p.getByRole('button',{name:'Begin expedition in this limb',exact:true}).click();
+ assert.equal(await p.getByRole('button',{name:'Begin expedition in this limb',exact:true}).count(),0);
  assert.equal(await p.locator('.atlas-node').count(),7);
  assert.equal(await p.locator('.atlas-edge').count(),9);
  assert.equal(await p.locator('.expedition-route').count(),0,'text route removed');
@@ -47,6 +46,8 @@ try {
  await p.getByRole('button',{name:'Whole tree',exact:true}).click();
  await p.getByRole('button',{name:'Limb 0.1 · open',exact:true}).click();
  assert.equal(await p.getByRole('dialog',{name:'Branch map',exact:true}).count(),0);
+ await p.getByRole('button',{name:'Minefield · stop 1 · available',exact:true}).click();
+ await p.getByRole('button',{name:'Enter minefield',exact:true}).click();
  assert.equal(await p.locator('.tile.exploded').count(),0,'open sibling is playable, not the stale lost board');
  await p.locator('.tile').nth(40).click();
  assert.ok(await p.locator('.tile.revealed').count()>0,'video reproduction: sibling really accepts moves');

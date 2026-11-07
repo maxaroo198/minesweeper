@@ -3,7 +3,7 @@ import type {BranchWorld} from './branch';
 import type {BoardState} from './game';
 import BranchExpeditionPanel from './BranchExpeditionPanel';
 import type {ExpeditionAction} from './BranchExpeditionPanel';
-import {BOSSES,routeFor} from './branchAdventure';
+import {BOSSES,routeFor,variantFor} from './branchAdventure';
 import type {StopKind} from './branchAdventure';
 
 /** Original inline vector icons: no external fonts, art downloads or image dependencies. */
@@ -27,17 +27,17 @@ export default function BranchRouteMap({world,game,act,onClose,onTree,onContinue
   useEffect(()=>{const previous=document.activeElement as HTMLElement|null;close.current?.focus();return()=>previous?.focus();},[]);
   useEffect(()=>{if(viewport.current&&route)viewport.current.scrollLeft=Math.max(0,(90+route.cursor*155)*zoom-viewport.current.clientWidth/2);},[route?.cursor,zoom]);
   const count=route?.stops.length??5,width=Math.max(880,count*155+70),height=390;
-  const nodes=route?.stops.flatMap((stop,index)=>stop.options.map((kind,lane)=>({kind,index,lane,x:90+index*155,y:stop.options.length===1?190:lane===0?105:275,chosen:stop.kind===kind,done:route.complete||index<route.cursor,available:!pending&&!route.complete&&index===route.cursor&&(!stop.kind||stop.kind===kind)})))??[];
+  const nodes=route?.stops.flatMap((stop,index)=>stop.options.map((kind,lane)=>({kind,index,lane,x:90+index*155,y:stop.options.length===1?190:lane===0?105:275,chosen:stop.kind===kind,done:route.complete||index<route.cursor,available:!pending&&!world.expeditions?.reward&&!route.complete&&index===route.cursor&&(!stop.kind||stop.kind===kind)})))??[];
   const edgeList=nodes.flatMap(node=>nodes.filter(n=>n.index===node.index+1).map(next=>({node,next,visited:node.chosen&&next.chosen&&node.index<route!.cursor})));
   const current=route?.stops[route.cursor];
-  return <div className="modal-backdrop route-map-backdrop" onClick={onClose}><div className="route-map-modal" role="dialog" aria-modal="true" aria-label="Branch route map" ref={dialog} onClick={e=>e.stopPropagation()} onKeyDown={e=>{
+  return <div className="modal-backdrop route-map-backdrop" onClick={onClose}><div className={`route-map-modal ${world.expeditions?.reward?'has-reward':''}`} role="dialog" aria-modal="true" aria-label="Branch route map" ref={dialog} onClick={e=>e.stopPropagation()} onKeyDown={e=>{
     if(e.key==='Escape'){e.preventDefault();e.stopPropagation();onClose();}
     if(e.key==='Tab'){const all=[...(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled),[tabindex="0"],input:not(:disabled)')??[])];const first=all[0],last=all[all.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}
   }}>
-    <header className="route-map-header"><div><span className="route-map-kicker">THE BRANCH ATLAS</span><h2>{pending?'A way back awaits':route?`Limb ${route.area}`:'Choose your next adventure'}</h2><p>{route?`Depth ${route.depth} · ${count} stops · attempt ${route.attempt+1}`:'Your saved tree is intact. Each open limb can hold an expedition.'}</p></div><button className="route-map-close" aria-label="Close map" ref={close} onClick={onClose}>×</button></header>
+    <header className="route-map-header"><div><span className="route-map-kicker">THE BRANCH ATLAS</span><h2>{pending?'A way back awaits':world.expeditions?.reward?'Choose your loot':route?`Limb ${route.area}`:'Choose your next adventure'}</h2><p>{route?`Depth ${route.depth} · ${count} stops · attempt ${route.attempt+1}`:'Select an open limb on the whole tree to continue Branch.'}</p></div><button className="route-map-close" aria-label="Close map" ref={close} onClick={onClose}>×</button></header>
     <nav className="route-map-tabs" aria-label="Map view"><span aria-current="page">Limb route</span><button onClick={onTree}><RouteIcon kind="limb" size={19}/>Whole tree</button><div className="route-map-coins">Carried <b>{world.expeditions?.coins??0}</b><i/>Banked <b>{world.expeditions?.bank??0}</b></div></nav>
     {pending&&<div className="route-return-banner" role="alert"><div><strong>{pending.protected?'Your totem protected this run.':'This limb failed, but your journey is not over.'}</strong><p>{world.expeditions?.notice}</p></div><button onClick={onContinue}>Continue to an open limb →</button></div>}
-    <div className="route-map-toolbar"><span>{pending?'Continue above to unlock travel.':route?.complete?'Boss defeated · new limbs await on the whole tree.':'Select a glowing node. Dim paths are not yet reachable.'}</span><div><button aria-label="Zoom out route" onClick={()=>setZoom(v=>Math.max(.6,v-.2))}>−</button><button aria-label="Reset route zoom" onClick={()=>setZoom(1)}>{Math.round(zoom*100)}%</button><button aria-label="Zoom in route" onClick={()=>setZoom(v=>Math.min(1.8,v+.2))}>+</button></div></div>
+    <div className="route-map-toolbar"><span>{pending?'Continue above to unlock travel.':world.expeditions?.reward?'Choose your first-clear loot, then the next path opens.':route?.complete?'Boss defeated · new limbs await on the whole tree.':'Select a glowing node. Dim paths are not yet reachable.'}</span><div><button aria-label="Zoom out route" onClick={()=>setZoom(v=>Math.max(.6,v-.2))}>−</button><button aria-label="Reset route zoom" onClick={()=>setZoom(1)}>{Math.round(zoom*100)}%</button><button aria-label="Zoom in route" onClick={()=>setZoom(v=>Math.min(1.8,v+.2))}>+</button></div></div>
     <div className="route-map-canvas" ref={viewport}>
       <svg width={width*zoom} height={height*zoom} viewBox={`0 0 ${width} ${height}`} aria-label="Connected expedition paths" className="route-atlas">
         <defs><pattern id="atlas-grain" width="38" height="38" patternUnits="userSpaceOnUse"><path d="M0 38 38 0M28 38l10-10" stroke="#e8d8a0" strokeOpacity=".025"/><circle cx="10" cy="18" r="1" fill="#e8d8a0" fillOpacity=".055"/></pattern></defs>
@@ -51,16 +51,17 @@ export default function BranchRouteMap({world,game,act,onClose,onTree,onContinue
             <g transform="translate(-16,-16)"><RouteIcon kind={n.kind}/></g>
             {n.done&&n.chosen&&<g transform="translate(24,-25)"><circle r="9" fill="#d9c894"/><path d="m-4 0 3 3 5-6" stroke="#15221d" strokeWidth="2" fill="none"/></g>}
             {n.available&&<circle r="43" className="atlas-active-ring"/>}
-            <text y="62" textAnchor="middle" className="atlas-node-label">{LABEL[n.kind]}</text>
+            <text y="62" textAnchor="middle" className="atlas-node-label">{LABEL[n.kind]}</text>{(n.kind==='board'||n.kind==='danger')&&<text y="79" textAnchor="middle" className="atlas-variant-label">{({crystal:'Crystal seams',surveyed:'Survey camp',bounty:'Bounty field',narrow:'Long crossing'})[route!.stops[n.index].variant??variantFor({...world,expeditions:{...world.expeditions!,routes:{...world.expeditions!.routes,[world.current]:{...route!,cursor:n.index}}}},n.kind)]}</text>}
           </g>;
         })}
-        {!route&&<g transform={`translate(${width/2},180)`}><g transform="translate(-26,-40)"><RouteIcon kind="limb" size={52}/></g><text textAnchor="middle" y="40" className="atlas-empty">An uncharted limb</text><text textAnchor="middle" y="64" className="atlas-empty-sub">Begin below to reveal its paths.</text></g>}
+        {!route&&<g transform={`translate(${width/2},180)`}><g transform="translate(-26,-40)"><RouteIcon kind="limb" size={52}/></g><text textAnchor="middle" y="40" className="atlas-empty">An uncharted limb</text><text textAnchor="middle" y="64" className="atlas-empty-sub">Open the whole tree to find your next limb.</text></g>}
       </svg>
     </div>
     <div className="atlas-legend"><span><i className="available"/>Available</span><span><i className="completed"/>Travelled</span><span><i/>Unreached</span><small>Scroll or swipe to explore · keyboard-accessible nodes</small></div>
     {!pending&&<section className="route-encounter-sheet" aria-label="Selected encounter">
       {current?.board&&['ready','playing'].includes(game.status)&&<button className="route-return-game" onClick={onClose}>Return to minefield →</button>}
-      {route&&!route.complete&&!current?.kind&&<p className="atlas-select-hint">Choose one of the highlighted icons above to plan your next stop.</p>}
+      {route?.complete&&!world.expeditions?.reward&&<button className="route-return-game" onClick={onContinue}>Grow the next limb →</button>}
+      {route&&!route.complete&&!world.expeditions?.reward&&!current?.kind&&<p className="atlas-select-hint">Choose one of the highlighted icons above to plan your next stop.</p>}
       <BranchExpeditionPanel world={world} game={game} act={act} mapContent onContinue={onContinue} openMap={()=>{}}/>
     </section>}
     <footer className="route-map-footer"><span>Safe banks. Risky paths. One growing tree.</span><button onClick={onClose}>Back to the board</button></footer>

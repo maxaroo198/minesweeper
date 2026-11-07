@@ -1621,3 +1621,21 @@ color-scheme:dark;
 .route-map-footer { padding:18px 28px; display:flex; justify-content:space-between; gap:10px; border-top:1px solid #48503f; color:#abb49c; font-size:11px; }.route-map-footer button { color:#e9cf8a; }
 .tree-return-banner { padding:13px; margin:14px 0; border:1px solid var(--orange); border-radius:7px; }.tree-return-banner p { font-size:12px; margin-bottom:9px; }
 @media(max-width:650px) { .expedition-hud { margin:10px; padding:10px 12px; }.expedition-hud .expedition-heading > button { width:auto; }.route-map-backdrop { padding:8px; }.route-map-modal { max-height:calc(100dvh - 16px); border-radius:10px; }.route-map-header { padding:20px 17px; }.route-map-header h2 { font-size:25px; }.route-map-tabs { gap:17px; padding:9px 17px; }.route-map-coins { width:100%; margin-left:0; }.route-map-toolbar { padding:12px; font-size:10px; }.route-map-toolbar > span { max-width:190px; }.route-map-canvas { margin:0 8px; }.route-map-canvas { max-height:360px; }.atlas-legend { gap:12px; padding:12px; }.atlas-legend small { width:100%; margin:0; }.route-encounter-sheet { padding:15px; }.route-return-banner { flex-direction:column; align-items:stretch; margin:12px; }.route-return-banner button { width:100%; }.route-map-footer { padding:15px; }.route-map-footer > span { max-width:180px; } }
+
+/* Branch-only rule previews, relic drafts and crystal chain feedback. */
+.branch-board-brief { margin-top:9px; padding:8px 10px; border-left:2px solid var(--orange); border-radius:0 5px 5px 0; background:var(--sf159); }
+.branch-board-brief p { font-size:10px; line-height:1.6; margin:0; }
+.branch-board-brief b { display:block; font-family:var(--mono); font-size:10px; margin-top:5px; }
+.branch-cache-info { display:block; color:var(--orange); font-size:11px; margin-bottom:4px; }
+.branch-crystal { font-size:15px; color:#e4b84e; text-shadow:0 0 9px #e4b84e88; line-height:1; }
+.branch-reward { padding:18px; border:1px solid #e0c27a; border-radius:9px; background:linear-gradient(125deg,#383b28,#1a2b24); }
+.branch-reward h3 { color:#f1d894; font-size:22px; margin:8px 0; }
+.branch-reward .eyebrow { color:#cfc38e; font-size:8px; letter-spacing:2px; }
+.branch-reward .expedition-shop article { border-color:#8f8760; }
+.atlas-variant-label { fill:currentColor; font-size:9px; opacity:.9; }
+.branch-preview { padding:12px; border:1px solid #63765b; border-radius:7px; background:#15271f; }
+
+/* A loot choice is the next beat of the same map, not a panel below a tall graph. */
+.route-map-modal.has-reward .route-map-canvas,
+.route-map-modal.has-reward .atlas-legend,
+.route-map-modal.has-reward .route-map-toolbar > div { display:none; }

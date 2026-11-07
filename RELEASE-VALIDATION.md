@@ -1,3 +1,15 @@
+# Unified Branch (v1.4.0)
+
+Automated coverage exercises automatic/idempotent migration, preservation of old grid mines/reveals/flags, pre-opening flags, safe crystal chains with both cache passives, one-time loot and auto-equip, optional bounty payouts, supplied clues, rectangular grids, stronger abilities, saved varied events and anti-farming. The original engine economy/failure suite remains, with a neutral fixture for its original fixed-payout assertions.
+
+The unified browser flow covers map-first entry with no Begin switch, actual minefield clears, loot choice, shop/equipment/charged skill, bank, phased boss, saved visible loss, Continue after See the board/restart, no-farm replay, automatic child routes and mobile inventory. The map video regression still continues to an open sibling and plays its automatically created encounter. Legacy UI setup now enters an encounter instead of a removed standalone board; unrelated mode/public-score checks remain.
+
+TypeScript, production build, randomized game-engine tests, service/audio mocks, browser/mobile and simulated shell-persistence suites, and embedded source-download tests are run before packaging. Classic mechanics are untouched (`src/game.ts` unchanged). Three phased bosses remain, not 50+. No Firestore rules, indexes or database-side changes.
+
+Native installer builds, real phone/desktop upgrade and lifecycle tests, audible hardware output and live Firebase are not verified in the sandbox. Run the release workflow and test artifacts with the same signing key/app IDs. Do not uninstall or clear saves.
+
+## Historical validation (earlier releases)
+
 # Visual Branch atlas (v1.3.1)
 
 The recorded failure flow is reproduced with a cleared root, a failed expedition child, and an open non-expedition sibling. Browser coverage dismisses the result using See the board, verifies the persistent recovery button, opens the map and continues, selects the open sibling in Whole tree, and actually reveals tiles there. No resets of currency, inventory or tree are needed. Map coverage also checks custom icon nodes/edges, rejected future-node clicks, keyboard node selection, zoom, focus restoration, mobile overflow and Escape. The prior expedition UI suite now navigates through the actual visual map for shop, event, bank and boss phase controls.

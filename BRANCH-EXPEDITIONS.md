@@ -1,29 +1,23 @@
-# Visual map update — v1.3.1
+# Unified Branch — v1.4.0
 
-Use the existing **Branch map** icon beside the game heading. It now opens the illustrated **Limb route** atlas: original hexagonal icons for minefields, danger, events, shops, banks and bosses, with connected dashed paths. Only current reachable nodes can be selected; the saved choice and travelled path are highlighted. Scroll/swipe and zoom explore longer routes. The **Whole tree** view is available in the same map for travel between limbs. Route choices and encounter details are no longer a text route above the board.
+## One mode and preserved progress
 
-To begin in an unconverted open limb, open the map and choose **Begin expedition in this limb**. Inventory and equipped abilities remain available in the compact board HUD. Shops/events/bank/boss phase controls live in the selected-encounter section below the illustrated map. Entering combat closes the map and returns to the grid.
+Entering Branch opens the illustrated route map, not a second optional mode. Every open limb automatically has a saved route. Select an encounter, play or decide, claim any milestone reward, then move on. Entering a minefield closes the map; the existing Branch map button reopens it. Whole tree is the travel view. Defeating the last boss phase grows the next limbs; the map offers **Grow the next limb**.
 
-After failure, Continue remains available in the HUD even after **See the board**, and the map exposes an explicit Continue action before travel. This fixes the video case where an open sibling was visible but travel was blocked by an unacknowledged pending loss. Continue does not apply the money penalty again or reroll recovery already checked for that attempt. Existing saves and all money/progress rules below are retained without migration.
+Old tree IDs, descendants, progress and all existing expedition money/items survive. An unfinished old single-board limb is adopted without replacing its mines, reveals or flags (including flags placed before the first reveal). The save still uses `minefield-zen-v1` and version 1 with optional new fields. Existing played expedition boards are not rerolled to add variants. Do not uninstall or clear app data.
 
-# Branch expeditions — first playable pass, v1.3.0
+## Minefields and builds
 
-## Status and entry
-
-This is a playable foundation, not the complete agreed Branch expansion. Enter Branch and an open limb, open its map, then choose **Begin expedition in this limb**. Existing trees and old one-board limbs are not automatically converted. Converting an unfinished one-board limb asks for confirmation. Converting does not remove the area, its IDs, or any descendants.
-
-Finished encounters discard full cell snapshots; completed routes keep a compact boss-board trophy to reduce save growth. The current board, route, carried coins, bank, equipment, charges, cooldown, boss phases, dropped pouches and one-time reward ledger are saved inside the existing `minefield-zen-v1` world. No account, transfer, cloud sync, Firestore changes, or new storage origin is used. Legacy worlds without expedition data remain valid. Do not uninstall or clear app data to update.
-
-## What this pass implements
-
-- A saved mini-adventure per opted-in limb. Route length is `5 + floor(depth / 2)` stops. Routes offer boards, danger paths, shops, events, a bank shelter and a boss gate. Choices are retained on retry.
-- Board width and height grow from 9 toward 20 with depth; density increases toward 26%, with additional danger and boss-phase modifiers. Bosses gain another phase every four depths, so progression does not stop at the maximum board size.
-- Completing every boss phase clears the limb and unlocks its children on the existing endless tree. Children can each become their own expedition. No generic three-life system.
-- A visible mine hit and explicit Continue, including after a restart. A Return Totem consumes one item, preserves money and the pre-hit board, and flags the mine. Without protection the limb locks, and the existing earlier-area fallback remains. A completed expedition ancestor reopened by exhausted children becomes replayable, retaining its reward ledger.
-- Eight item types: Pathfinder, Survey Lantern, Return Totem, Trail Ration, Lucky Purse, Trail Boots, Trader Charm and Reward Pouch Upgrade. Shops mix active abilities, consumables, passives and a permanent three-level upgrade. A trailkeeper event can grant Survey Lantern and charges instead of coins.
-- Inventory throughout Branch, including mid-board and at non-combat stops. Two active slots and three passive slots. Equipping never resets charges or cooldowns.
-- Pathfinder reveals one safe square, recharging after two first-clear boards (one with equipped Boots). Survey uses limited charges to mark three covered safe clues, without revealing squares. Rations reduce Pathfinder cooldown. Shop prices and first-clear payouts respond to equipped passives and permanent upgrades.
-- Only first clears of each board/phase give coins and cooldown progress. Replaying already-paid boards or events cannot farm either. Charged items can still be bought again at their full current price.
+- **Crystal seams:** after the safe first opening, up to three covered safe caches are marked with diamonds. Open one for 6 coins and a burst revealing nearby safe cells. Bursts can collect other caches in the same move. Paid cache slots cannot pay or burst again on retries.
+- **Survey camp:** the first opening supplies up to five covered safe clues.
+- **Bounty field:** clear within 24 reveal actions for +12 coins; finish with at least three correctly flagged mines for another +8. Optional goals never cause a loss. Abilities count as one reveal action; flags and Survey do not.
+- **Long crossing:** wider rectangular grid; +12 coins for a clear within 24 reveal actions, with no timer.
+- The initial root board is Crystal seams; other ordinary encounters vary deterministically. Variant previews match actual encounters. Board size/density and route length still grow with depth; boss rules remain separate from these variants.
+- Milestone first clears (first board, danger route, last boss phase) offer up to three items or carried coins. No new encounter can start before the outstanding choice. Rewards auto-equip into a free appropriate slot. If all equipment is owned, later drafts offer consumable/refill rewards instead. Claims are one-time and saved.
+- **11 item types:** the previous eight plus **Seam Breaker** (safe 3×3 patch, 3-clear recharge), **Treasure Magnet** (double cache coins), **Crystal Dynamo** (+1 Lantern charge per new cache). Magnet and Dynamo combine. Pathfinder opens three safe cells plus cascades; Lantern marks five exact safe clues per charge. Rations reduce both rechargeable ability cooldowns by one clear.
+- **2 active + 3 passive slots.** Inventory is available throughout Branch. Equipping does not reset cooldowns or charges. Replaying paid boards does not recharge abilities or award money; Lantern refills can still be purchased.
+- Events include trailkeepers (Lantern refill or coins), shrines (10 coins for a totem or free full ability recharge), and chests (15 safe coins or a deterministic 65% chance of 60 coins, otherwise losing up to 15 carried coins). Event gifts cannot reroll or pay twice.
+- Routes have `5 + floor(depth / 2)` stops. Completing every boss phase clears a limb and unlocks its children. There is no three-life limit. Completed boards are compacted; the current board, kit, wallet, bank, pouches and one-time ledger remain local.
 
 ## Money, loss and recovery
 
@@ -45,7 +39,7 @@ All use the same safe-opening protection and require every safe tile to be revea
 
 ## Remaining agreed scope
 
-The full roster of at least 50 announced boss twists, richer encounter/event variety, more equipment and consumables, and further route/boss balancing remain unfinished. This pass does not claim to implement that roster using renamed parameter variants. Opt-in entry is deliberate while this foundation is tested with existing saves.
+The full roster of at least 50 announced boss twists remains unfinished. This update adds real minefield variants, equipment combinations and events but does not claim they are additional bosses. Further content and balancing remain possible. Classic is unchanged in this update.
 
 ## Validation and limits
 

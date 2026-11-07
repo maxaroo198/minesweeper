@@ -41,20 +41,22 @@ for (const shell of ['browser', 'android', 'desktop']) {
     assert.ok(JSON.parse(records).some(r => r.won && r.mode === 'classic'), 'actual win is saved');
     await page.getByRole('button', { name: 'See the board', exact: true }).click();
     await page.locator('.mode-card-zen').click();
+    await page.getByRole('button',{name:'Minefield · stop 1 · available',exact:true}).click();
+    await page.getByRole('button',{name:'Enter minefield',exact:true}).click();
     await page.locator('.tile').nth(40).click();
     const flagIndex = await page.locator('.tile').evaluateAll(tiles => tiles.findIndex(t => !t.classList.contains('revealed')));
     await page.locator('.tile').nth(flagIndex).click({ button: 'right' });
     await page.waitForTimeout(200);
     const saved = await page.evaluate(() => localStorage.getItem('minefield-zen-v1'));
-    assert.ok(JSON.parse(saved).areas['0'].revealed.length > 0);
-    assert.ok(JSON.parse(saved).areas['0'].flagged.length > 0);
+    assert.ok(JSON.parse(saved).expeditions.routes['0'].stops[0].board.cells.filter(c=>c.revealed&&!c.mine).length > 0);
+    assert.ok(JSON.parse(saved).expeditions.routes['0'].stops[0].board.cells.filter(c=>c.flagged).length > 0);
     await ctx.close(); context = null;
     ({ ctx, page } = await open()); context = ctx;
     assert.equal(await page.evaluate(() => localStorage.getItem('minefield-games-v1')), records, 'stats survive full browser process restart');
     assert.equal(await page.evaluate(() => localStorage.getItem('minefield-zen-v1')), saved, 'Branch save survives full restart');
     await page.locator('.mode-card-zen').click();
     assert.ok((await page.locator('.tile').nth(flagIndex).getAttribute('class')).includes('flagged'), 'Branch flag restored into UI');
-    assert.equal(await page.locator('.tile.revealed').count(), JSON.parse(saved).areas['0'].revealed.length, 'Branch reveals restored into UI');
+    assert.equal(await page.locator('.tile.revealed').count(), JSON.parse(saved).expeditions.routes['0'].stops[0].board.cells.filter(c=>c.revealed&&!c.mine).length, 'Branch reveals restored into UI');
     await ctx.close(); context = null;
     console.log(`Persistent saves passed: ${shell} shell simulation, actual win + Branch reveal/flag, process close/reopen.`);
   } finally {

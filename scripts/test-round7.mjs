@@ -7,46 +7,18 @@ try {
   const errors=[];p.on('pageerror',e=>errors.push(e.message));
   await p.addInitScript(()=>{Math.random=()=>.5;});
   await p.goto(BASE,{waitUntil:'networkidle'}); await p.waitForTimeout(2700);
-  const world=()=>p.evaluate(()=>JSON.parse(localStorage.getItem('minefield-zen-v1')));
   const startArea=async()=>{await p.locator('.tile').nth(40).click();};
-  const clearArea=async()=>{
-    await startArea();
-    const w=await world(), mines=w.areas[w.current].mines;
-    for(let i=0;i<81;i++) if(!mines.includes(i) && await p.locator('.tile').nth(i).isEnabled()) await p.locator('.tile').nth(i).click();
-    await p.locator('.result-card').waitFor();
-  };
-  const failArea=async()=>{
-    await startArea(); const w=await world();
-    await p.locator('.tile').nth(w.areas[w.current].mines[0]).click();
-    await p.locator('.result-card').waitFor();
-  };
+  // Legacy dead-end trees migrate into one route flow without losing IDs.
+  await p.evaluate(()=>{
+    const area=(id,state,parent,children)=>({id,state,parent,children,depth:parent?1:0,mines:null,revealed:[],flagged:[]});
+    localStorage.setItem('minefield-zen-v1',JSON.stringify({version:1,current:'0',createdAt:12345,areas:{'0':area('0','cleared',null,['0.0','0.1']),'0.0':area('0.0','locked','0',[]),'0.1':area('0.1','locked','0',[])}}));
+  });
   await p.locator('.mode-card-zen').click();
-  await clearArea();
-  const legacy=await world();
-  await p.getByRole('button',{name:'Continue the branch',exact:true}).click();
-  await failArea();
-  let w=await world();
-  assert.equal(w.areas['0.0'].state,'locked');assert.equal(w.areas['0.1'].state,'open');
-  assert.equal(await p.locator('.tile.exploded.mine-visible').count(),1);
-  await p.getByRole('button',{name:'Continue at the earlier branch',exact:true}).click();
-  await failArea(); w=await world();
-  assert.equal(w.areas['0'].state,'open');
-  assert.equal(w.areas['0.0'].state,'locked');assert.equal(w.areas['0.1'].state,'locked');
-  await p.getByRole('button',{name:'Continue at the earlier branch',exact:true}).click();
-  await clearArea();w=await world();
-  assert.equal(w.areas['0.0'].state,'open');assert.equal(w.areas['0.1'].state,'open');
-  assert.equal(Object.keys(w.areas).length,3);
-  await p.getByRole('button',{name:'Continue the branch',exact:true}).click();
-  await clearArea();w=await world();
-  assert.equal(w.areas['0.0'].children.length,3,'recovered limb keeps growing');
-  assert.equal(w.createdAt,legacy.createdAt);
-  // Load the exact legacy dead-end shape without deleting/restarting the tree.
-  legacy.areas['0.0'].state='locked';legacy.areas['0.1'].state='locked';
-  await p.evaluate(w=>localStorage.setItem('minefield-zen-v1',JSON.stringify(w)),legacy);
-  await p.reload({waitUntil:'networkidle'});await p.waitForTimeout(2700);
-  await p.locator('.mode-card-zen').click();w=await world();
-  assert.equal(w.areas['0.0'].state,'open');assert.equal(w.areas['0.1'].state,'open');
-  assert.equal(w.createdAt,legacy.createdAt);
+  const w=await p.evaluate(()=>JSON.parse(localStorage.getItem('minefield-zen-v1')));
+  assert.equal(w.createdAt,12345);assert.equal(w.areas['0.0'].state,'open');assert.equal(w.areas['0.1'].state,'open');
+  assert.ok(w.expeditions.routes[w.current]);
+  assert.equal(await p.getByRole('button',{name:'Begin expedition in this limb',exact:true}).count(),0);
+  await p.getByRole('button',{name:'Close map',exact:true}).click();
   // Fresh Riptide: blanks are blank; numbered clues remain visible.
   if(await p.getByRole('button',{name:'See the board',exact:true}).isVisible()) await p.getByRole('button',{name:'See the board',exact:true}).click();
   await p.locator('.mode-card-riptide').click(); await startArea();
@@ -81,5 +53,5 @@ try {
   await p.setViewportSize({width:390,height:844});
   assert.ok(await p.getByRole('slider',{name:'Sound volume',exact:true}).isVisible());
   assert.deepEqual(errors,[]);
-  console.log('Round 7 UI passed: two failed limbs → root replay → reopen → deeper growth; legacy-save repair; blank Riptide zeros/visible numbers; Classic/Blitz-only boards; persisted submission queue.');
+  console.log('Round 7 UI passed: unified legacy-save repair; blank Riptide zeros/visible numbers; Classic/Blitz-only boards; persisted submission queue.');
 } finally {await browser.close();}

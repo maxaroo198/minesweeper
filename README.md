@@ -23,8 +23,8 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
 
 - **Classic:** Perfect squares — Easy (9 × 9, 10 mines), Medium (12 × 12, 24 mines), and Hard (20 × 20, 70 mines).
 - **Blitz:** A race against the clock, from 15 seconds to 5 minutes, on all three board sizes.
-- **Branch:** No pressure and no visible timer. Clear a 9 × 9 square to grow the limbs behind
-  it — the tree forks wider the deeper you go, and your tree is saved on the device.
+- **Branch:** One saved adventure tree: visual route → encounter → loot → next path. Crystal caches,
+  optional minefield bounties, equipment combinations, events and phased bosses; no separate opt-in mode.
 - **Daily:** A numbered, seeded puzzle refreshed at midnight UTC. All daily games use a shared seed
   with first-move protection, and each day carries a twist: Classic rules, Packed (+33% mines),
   Flag-free (no flags at all), or Sprint (two minutes on the clock). Streaks, a seven-day result
@@ -55,13 +55,17 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
 - No accounts, advertising, or analytics. Public Classic/Blitz scores optionally use Firebase.
 - Leaderboards exist only for Classic and Blitz. Failed submissions remain in a device-local retry queue; the public board shows the latest confirmed submission separately from the fastest 20.
 
-## Branch expeditions — first playable pass (v1.3.0)
+## Unified Branch (v1.4.0)
 
-Open Branch → enter an open limb → use the **Branch map** icon → **Begin expedition in this limb**. The map uses custom hexagonal encounter icons and connected paths, not a text route. Shops, events, banking and boss phases open there. This is opt-in: the existing one-board tree is preserved and still playable. Each expedition is saved inside its own limb with choices, minefields, danger routes, a shop or event, banking and a phased boss. The starter kit includes Pathfinder and one Return Totem. Inventory is available throughout Branch, including while playing; two active and three passive slots are enforced. Routes grow longer with depth and boards get larger/denser; deeper bosses gain phases. No three-life system.
+Enter **Branch** to open its visual route map. Choose an encounter, play its minefield or make its decision, claim any milestone loot, then choose the next path. Finish the phased boss to grow harder limbs. The existing Branch map button reopens the same map; **Whole tree** lets you revisit open limbs. There is no separate “Begin adventure” switch or plain-board bypass.
 
-Unprotected failure drops a random **10–100% of all carried coins**, with an explicit **You dropped some money!** message. Banked coins are never touched. Every unrecovered pouch stays tied to its original limb: the next return after a failed attempt gets a **10%** recovery roll per pouch. Each pouch is checked once per attempt; reopening the map or restarting cannot reroll it. Totems absorb a mine hit without coin loss and preserve the board, but you still see the hit and choose Continue.
+Old tree IDs and progress remain. An unfinished legacy minefield is adopted with its mines, reveals and flags intact. New routes convert automatically. Your starter kit includes Pathfinder and a Return Totem; inventory stays available throughout Branch with **2 active + 3 passive** slots.
 
-**Scope:** this pass implements 3 distinct bosses and 8 shop item types, not the agreed full 50+ twist roster. See **BRANCH-EXPEDITIONS.md** for exact mechanics, testing and remaining scope. No Firebase rules, indexes, or database-side changes are required; all expedition data is local to the existing saved tree.
+Ordinary minefields now include **Crystal seams** (safe cache bursts), **Survey camps** (supplied safe clues), **Bounty fields** (optional swift-clear/correct-flag bonuses), and rectangular **Long crossings**. Milestone clears offer items or coins. Treasure Magnet doubles cache coins; Crystal Dynamo turns caches into Lantern charges; Seam Breaker opens a safe patch. Pathfinder opens three safe cells and Survey marks five safe clues. Trails also offer shops, bank shelters and three event types with protection, recharge or risk/reward choices.
+
+Unprotected failure drops **10–100% of carried coins**, never banked coins. Pouches retain the same once-per-attempt **10%** recovery chance in their original limb. You see the mine hit before explicitly continuing; that Continue remains available after **See the board** and after restarting. First-clear rewards and caches cannot be farmed on retries.
+
+**Classic is unchanged.** There are **3 phased bosses and 11 item types**; the previously discussed 50+ boss roster is still unfinished. See **BRANCH-EXPEDITIONS.md** for mechanics and limits. **No Firestore rules, indexes, or database-side changes are required.** All Branch data stays in the existing local save; do not uninstall or clear app data to update.
 
 ## Web
 
