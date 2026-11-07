@@ -55,6 +55,14 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
 - No accounts, advertising, or analytics. Public Classic/Blitz scores optionally use Firebase.
 - Leaderboards exist only for Classic and Blitz. Failed submissions remain in a device-local retry queue; the public board shows the latest confirmed submission separately from the fastest 20.
 
+## Branch expeditions — first playable pass (v1.3.0)
+
+Open Branch → enter an open limb → **Begin expedition in this limb**. This is opt-in: the existing one-board tree is preserved and still playable. Each expedition is saved inside its own limb with choices, minefields, danger routes, a shop or event, banking and a phased boss. The starter kit includes Pathfinder and one Return Totem. Inventory is available throughout Branch, including while playing; two active and three passive slots are enforced. Routes grow longer with depth and boards get larger/denser; deeper bosses gain phases. No three-life system.
+
+Unprotected failure drops a random **10–100% of all carried coins**, with an explicit **You dropped some money!** message. Banked coins are never touched. Every unrecovered pouch stays tied to its original limb: the next return after a failed attempt gets a **10%** recovery roll per pouch. Each pouch is checked once per attempt; reopening the map or restarting cannot reroll it. Totems absorb a mine hit without coin loss and preserve the board, but you still see the hit and choose Continue.
+
+**Scope:** this pass implements 3 distinct bosses and 8 shop item types, not the agreed full 50+ twist roster. See **BRANCH-EXPEDITIONS.md** for exact mechanics, testing and remaining scope. No Firebase rules, indexes, or database-side changes are required; all expedition data is local to the existing saved tree.
+
 ## Web
 
 ```sh

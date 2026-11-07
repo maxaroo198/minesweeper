@@ -1527,3 +1527,37 @@ color-scheme:dark;
 .volume-control input { width: 100%; min-width: 0; accent-color: var(--orange); cursor: pointer; }
 .volume-control input:focus-visible { outline: 2px solid var(--orange); outline-offset: 4px; }
 .volume-control output { min-width: 4ch; text-align: right; font-family: var(--mono); font-size: 12px; color: var(--tx35); }
+
+/* Saved Branch expeditions: a compact travelling ledger above the minefield. */
+.expedition-panel { margin: 20px 24px 8px; padding: 22px; border: 1px solid var(--sf50); border-radius: 14px; background: var(--sf131); color: var(--tx63); }
+.expedition-heading,.expedition-stop-title { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+.expedition-heading h3 { font-size:18px; margin-top:7px; color:var(--tx35); letter-spacing:-.5px; }
+.expedition-heading .eyebrow { font-size:8px; letter-spacing:1.3px; }
+.expedition-panel .secondary-button,.expedition-panel .primary-button { font-size:11px; padding:10px 13px; white-space:normal; }
+.expedition-panel p { font-size:12px; line-height:1.75; margin:10px 0; }
+.expedition-wallet { display:flex; flex-wrap:wrap; gap:10px; margin:18px 0; }
+.expedition-wallet span { padding:8px 11px; border:1px solid var(--sf50); border-radius:7px; font-size:11px; background:var(--sf159); }
+.expedition-wallet b { font-family:var(--mono); color:var(--tx35); margin-left:5px; }
+.expedition-route { display:flex; gap:7px; overflow-x:auto; margin:18px 0; padding-bottom:10px; list-style:none; }
+.expedition-route li { display:flex; align-items:center; gap:7px; flex:0 0 135px; font-size:10px; padding:10px; border:1px solid var(--sf50); border-radius:8px; }
+.expedition-route li span { flex-shrink:0; font-family:var(--mono); font-size:11px; }
+.expedition-route .current { border-color:var(--orange); color:var(--tx35); background:var(--sf159); }
+.expedition-route .done { opacity:.6; }
+.expedition-notice { padding:12px 14px; border-left:3px solid var(--orange); background:var(--sf159); border-radius:0 8px 8px 0; }
+.expedition-notice.money-drop { border:1px solid var(--orange); font-weight:600; }
+.expedition-stop { padding-top:10px; }
+.expedition-stop-title h4,.expedition-shop h4 { font-size:13px; color:var(--tx35); }
+.expedition-stop-title > span { font-size:10px; }
+.expedition-choices,.expedition-abilities { display:flex; gap:9px; flex-wrap:wrap; margin-top:14px; }
+.expedition-boss { margin:14px 0; padding:15px; border:1px solid var(--orange); border-radius:9px; background:var(--sf159); }
+.expedition-boss > b { font-size:17px; color:var(--tx35); }
+.expedition-shop { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin:15px 0; }
+.expedition-shop article { display:flex; flex-direction:column; align-items:flex-start; border:1px solid var(--sf50); background:var(--sf159); padding:15px; border-radius:9px; }
+.expedition-shop .eyebrow { font-size:8px; margin-bottom:7px; }
+.expedition-shop p { flex:1; font-size:11px; }
+.expedition-small { font-size:10px !important; opacity:.85; }
+.expedition-inventory { margin-top:18px; padding-top:18px; border-top:1px solid var(--sf50); }
+.expedition-protection { display:flex; align-items:center; gap:9px; font-size:12px; line-height:1.5; }
+.expedition-protection input { accent-color:var(--orange); width:17px; height:17px; flex-shrink:0; }
+.expedition-complete { color:var(--tx35); font-weight:600; }
+@media(max-width:600px) { .expedition-panel { margin:12px 10px; padding:15px; } .expedition-heading h3 { font-size:16px; } .expedition-heading > button { width:100%; justify-content:center; } .expedition-shop { grid-template-columns:1fr; } .expedition-panel p { font-size:11px; } }

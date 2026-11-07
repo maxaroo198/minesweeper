@@ -1,3 +1,14 @@
+## v1.3.0 — Branch expeditions, first playable pass
+
+- Optional saved mini-adventures inside open Branch limbs. Choose **Begin expedition in this limb**; existing trees and one-board limbs remain intact.
+- Routes grow with depth and include minefields, danger choices, shops, events, bank shelters and phased bosses. Boss completion opens the next limbs.
+- Shared carried money and a protected bank. Unprotected failure drops a random 10–100% of carried coins with a visible money-drop message. Returning after a failed attempt has a 10% chance per pouch to recover its money; no reload/map rerolls.
+- Starter Pathfinder and Return Totem; 8 item types spanning consumables, active/passive abilities and upgrades. Inventory anytime in Branch; 2 active and 3 passive slots. Abilities mix first-clear cooldowns and limited charges. Events can grant abilities.
+- Totems preserve the board and money after a visible mine hit. No generic three-life system. First-clear/event reward tracking prevents replay farming.
+- **Only 3 implemented bosses in this pass.** The agreed 50+ announced twist roster remains for a later expansion; this foundation does not claim it is finished.
+- Preserves Round 7 fixes and the louder saved volume slider. No Firestore rules, indexes or database changes required.
+- v1.3.0 / Android code 7. Keep the same app identities, signing key and device data when updating. Native binaries require rebuilding and real-device testing.
+
 ## v1.2.1 — Branch progression, leaderboards and volume
 
 - Branch re-clears reopen existing failed children instead of leaving a dead end. Transitions are immutable and tied to the moved board; one failed limb does not close its sibling. Older dead-end trees are repaired in place without wiping route IDs or saved progress. The hit mine still stays visible until Continue.

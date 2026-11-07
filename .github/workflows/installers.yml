@@ -31,6 +31,7 @@ jobs:
       - run: npx tsc --noEmit
       - run: node scripts/test-engine.mjs
       - run: node scripts/test-services.mjs
+      - run: node scripts/test-branch-adventure.mjs
       - name: Build offline test fixture (do not submit test scores to Firebase)
         run: npm run build
         env:

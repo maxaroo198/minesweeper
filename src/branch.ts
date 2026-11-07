@@ -9,6 +9,7 @@
  * persisted to localStorage, so closing the app (including the Android WebView
  * shell) keeps your progress.
  */
+import type { Expeditions } from './branchAdventure';
 import type { BoardState, Cell } from './game';
 import { DIFFICULTIES, freshGame, neighbors } from './game';
 
@@ -27,6 +28,7 @@ export interface BranchArea {
 
 export interface BranchWorld {
   version: 1;
+  expeditions?: Expeditions;
   areas: Record<string, BranchArea>;
   current: string;
   createdAt: number;

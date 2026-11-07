@@ -1,3 +1,11 @@
+# Branch expedition foundation (v1.3.0)
+
+TypeScript, production web build, existing 240-game randomized engine suite, service/audio/volume mocks and old browser/mobile/persistence regressions are retained. New pure engine tests run real route and multi-phase boss clears, verify child unlocking and completed-ancestor replay, both 10–100% penalty endpoints, untouched bank funds, totem preservation, exact 10% recovery boundary, once-per-attempt recovery checks, equipment, shop pricing, upgrades and anti-farming. New browser tests exercise the actual route UI, purchases, equipment, charged abilities, banking, phase announcements, visible money drop/mine hit, reload during pending loss, explicit Continue and mobile inventory. The new engine and UI suites are included in CI.
+
+This is explicitly an opt-in first pass: 3 implemented phased bosses, not the full 50+ agreed twist roster. The existing tree is not automatically converted. Expedition saves extend the existing world key and preserve old area IDs, devices, signing and origins. No Firestore rules, indexes or database-side changes required.
+
+New native packages, actual phone/desktop update lifecycles, live Firebase and audible device output are not verified by these web/mocked checks. Run a fresh installer workflow on the updated commit and check its artifacts on the real devices. Do not uninstall or clear app data.
+
 # Round 7 validation (v1.2.1)
 
 TypeScript and production web builds, 240 randomized engine games plus rule regressions, mocked Firebase/audio services, browser/mobile UI suites, browser-process restart/persistence with shell bridges simulated, and new Round 7 regressions pass in the sandbox. Branch coverage includes two separate child failures, root fallback and replay, reopening existing children, deeper growth, immutable/repeatable calculations, board-specific synchronization, and old dead-end save repair without wiping the tree. UI checks cover blank Riptide zero labels with numbered clues retained, Medium-only Daily, only Classic/Blitz leaderboard tabs, and submission queue persistence. Firebase mocks cover idempotent posting, zero-second minimum compatibility, explicit permission errors, latest-confirmed receipts, and unchanged indexed Blitz top-20 merging.

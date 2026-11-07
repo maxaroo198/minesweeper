@@ -23,6 +23,10 @@ import { sense, testAudio, unlockAudio, readSoundVolume, setSoundVolume } from '
 import type { Sense } from './sensory';
 import { boardFromArea, clearArea, failArea, layoutWorld, loadWorld, newWorld, openAreaIds, saveWorld, syncArea } from './branch';
 import type { BranchWorld } from './branch';
+import BranchExpeditionPanel from './BranchExpeditionPanel';
+import type { ExpeditionAction } from './BranchExpeditionPanel';
+import { beginExpedition, enterExpedition, expeditionBoard, routeFor, stopFor, inExpedition, rulesFor, chooseStop, startEncounter, finishStop, buyItem, bankCoins, equipItem, toggleProtection, useRation, useAbility, settleMove, saveBoard, continueAfterLoss } from './branchAdventure';
+import type { ItemId, StopKind } from './branchAdventure';
 import { playerName, publicBoardEnabled, setPlayerName, submitPublicScore, topPublicScores, lastPublicPostError, latestPublicSubmission } from './publicBoard';
 import type { PublicScore } from './publicBoard';
 import { mergeDailyWins, readDailyWins, saveDailyWins, streakFor } from './dailyProgress';
@@ -76,7 +80,7 @@ const MODE_BLURB: Record<Mode, string> = {
 const GUIDE_COPY: Record<Mode, string> = {
   classic: 'The game you know, with three ways to challenge yourself. Easy: 9 × 9, 10 mines. Medium: 12 × 12, 24 mines. Hard: 20 × 20, 70 mines.',
   blitz: 'One timer, any length from 15 seconds to five minutes. Clear the board before it runs out. Easy is a good place to warm up; Hard is a real test of speed and strategy.',
-  zen: 'One endless tree of 9 × 9 squares. Clear a square to grow the limbs behind it — the branch forks 2, then 3, then 4 wide the deeper you go. Hit a mine and that limb locks and reshuffles: grow a different tip, or re-clear the square before it to reopen the path. Your tree is saved on this device.',
+  zen: 'An endless saved tree. Begin an optional expedition inside any open limb for growing routes, shops, events, banking and phased bosses. Your starter kit includes Pathfinder and a totem; inventory is always available in Branch. Unprotected failure drops 10–100% of carried coins; banked money stays safe. The older one-board route remains available. One endless tree of 9 × 9 squares. Clear a square to grow the limbs behind it — the branch forks 2, then 3, then 4 wide the deeper you go. Hit a mine and that limb locks and reshuffles: grow a different tip, or re-clear the square before it to reopen the path. Your tree is saved on this device.',
   daily: 'The same seeded puzzle for every player, updated at midnight UTC. Always Medium, with no Hard variant. Come back tomorrow for something new.',
   nightfall: 'A 12 × 12 board where the numbers are not guaranteed. Every square you open has a chance of coming up blank — one in ten at the start, another 5% every two seconds, up to 70%. Hidden tiles can touch. Blackout starts at one in three and keeps rising to 100%, with no lower gameplay cap. A number you have earned never comes back, and a fogged square cannot be chorded.',
   custom: 'Any field from 5 to 40 squares a side, with as many mines as it can hold. Your last size is remembered, results stay in your local statistics, and the first click is always safe.',
@@ -530,11 +534,12 @@ function App() {
   };
   const continueBranch = () => {
     // Entering Branch resumes the saved tree if there is one.
-    const saved = loadWorld();
+    let saved = loadWorld();
     if (saved) {
+      saved = enterExpedition(saved, saved.current);
       saveWorld(saved); // Persist any legacy dead-end repair without replacing the tree.
       setBranchWorld(saved);
-      setGame(boardFromArea(saved, saved.current));
+      setGame(expeditionBoard(saved) ?? (inExpedition(saved) ? expeditionWaitingBoard() : boardFromArea(saved, saved.current)));
     } else {
       startGame('zen', 'easy');
       return;
@@ -543,11 +548,45 @@ function App() {
     setShowPreview(false); setFlagMode(false); setResultVisible(false); setNow(Date.now());
     setView('play'); setModal(null); setSidebarOpen(false);
   };
+  const expeditionWaitingBoard = () => ({ ...freshGame('zen', 'easy'), id: 'exp:waiting' });
+  const applyAdventureWorld = (world: BranchWorld, board?: BoardState) => {
+    saveWorld(world); setBranchWorld(world);
+    const next = board ?? expeditionBoard(world) ?? (inExpedition(world) ? expeditionWaitingBoard() : boardFromArea(world, world.current));
+    if (next.id !== game.id) recorded.current = '';
+    setGame(next); setShowPreview(false); setNow(Date.now());
+  };
+  const adventureAction = (action: ExpeditionAction, value?: string) => {
+    if (!branchWorld) return;
+    let world = branchWorld;
+    if (action === 'begin') {
+      if (game.status === 'playing' && !window.confirm('Replace this limb’s unfinished single board with a saved expedition? Your tree stays intact.')) return;
+      world = beginExpedition(world);
+    } else if (action === 'choose') world = chooseStop(world, value as StopKind);
+    else if (action === 'start') world = startEncounter(world);
+    else if (action === 'leave' || action === 'gift' || action === 'coins') world = finishStop(world, action);
+    else if (action === 'buy') world = buyItem(world, value as ItemId);
+    else if (action === 'deposit' || action === 'withdraw') world = bankCoins(world, action);
+    else if (action === 'equip') world = equipItem(world, value as ItemId);
+    else if (action === 'protect') world = toggleProtection(world);
+    else if (action === 'ration') world = useRation(world);
+    else if (action === 'ability') {
+      const result = useAbility(world, game, value as 'pathfinder' | 'survey');
+      applyAdventureWorld(result.world, result.board); if (result.notice) notify(result.notice); return;
+    }
+    applyAdventureWorld(world);
+    if (['begin','choose','start','leave','gift','coins'].includes(action)) setResultVisible(false);
+  };
+  const continueAdventure = () => {
+    if (!branchWorld) return;
+    if (branchWorld.expeditions?.pendingLoss) { applyAdventureWorld(continueAfterLoss(branchWorld)); setBranchReturn(null); }
+    else if (routeFor(branchWorld)?.complete) { const next = openAreaIds(branchWorld)[0]; if (next) jumpToArea(next); }
+    setResultVisible(false);
+  };
   const jumpToArea = (id: string) => {
+    if (branchWorld?.expeditions?.pendingLoss) { notify('Continue from the mine-hit screen before travelling.'); return; }
     if (!branchWorld || !branchWorld.areas[id] || branchWorld.areas[id].state === 'locked') return;
-    const next = { ...branchWorld, current: id };
-    saveWorld(next); setBranchWorld(next);
-    setGame(boardFromArea(next, id));
+    const next = enterExpedition({ ...branchWorld, current: id }, id);
+    applyAdventureWorld(next);
     recorded.current = ''; setBranchReturn(null);
     setMapOpen(false); setResultVisible(false);
   };
@@ -560,6 +599,7 @@ function App() {
     requestGame(mode, mode === 'daily' ? dailyDefault : MODE_DIFFICULTIES[mode][0]);
   };
   const requestGame = (mode = game.mode, difficulty = game.difficulty, custom?: CustomConfig) => {
+    if (mode === 'zen' && branchWorld?.expeditions) { notify('Your expedition tree is saved. Use the route controls or map to continue; New game will not erase it.'); return; }
     if (game.status === 'playing') { setPendingGame({ mode, difficulty, custom }); setModal('confirm'); }
     else startGame(mode, difficulty, custom);
   };
@@ -571,6 +611,10 @@ function App() {
   };
   const handleReveal = (index: number) => {
     if (isFinished || modal) return;
+    if (game.mode === 'zen' && branchWorld && inExpedition(branchWorld)) {
+      if (!stopFor(branchWorld)?.board) { notify('Choose a route stop and enter its minefield first.'); return; }
+      if (game.cells[index]?.revealed && rulesFor(branchWorld).noChord) { notify('This boss phase seals chording.'); return; }
+    }
     if (timeLimit !== null && game.startedAt !== null && Date.now() >= game.startedAt + timeLimit * 1000) { setGame({ ...game, status: 'lost', finishedAt: game.startedAt + timeLimit * 1000 }); feel('lose'); return; }
     if (handleScan(index)) return;
     if (flagMode) { handleFlag(index); return; }
@@ -581,7 +625,10 @@ function App() {
     if (!change.opened.length) return;
     setGame(next); setNow(Date.now());
     setRevealFx({ opened: change.opened, wave: change.wave, origin: index, nonce: Date.now() });
-    if (next.mode === 'zen' && branchWorld) {
+    if (next.mode === 'zen' && branchWorld && inExpedition(branchWorld)) {
+      const result = settleMove(branchWorld, game, next);
+      applyAdventureWorld(result.world, result.board);
+    } else if (next.mode === 'zen' && branchWorld) {
       const id = next.id.startsWith('zen-') ? next.id.slice(4) : branchWorld.current;
       let nextWorld = syncArea(branchWorld, next);
       if (next.status === 'won') {
@@ -631,6 +678,12 @@ function App() {
   };
   const handleFlag = (index: number) => {
     if (isFinished || modal) return;
+    if (game.mode === 'zen' && branchWorld && inExpedition(branchWorld)) {
+      if (!stopFor(branchWorld)?.board) return;
+      const rules = rulesFor(branchWorld);
+      if (rules.noFlags) { notify('This boss phase seals flags.'); return; }
+      if (rules.halfFlags && !game.cells[index].flagged && flags >= Math.floor(game.mines / 2)) { notify('This boss phase permits only half the mine count in flags.'); return; }
+    }
     if (flagsLocked) { notify('No flags today — this daily is pure deduction.'); return; }
     if (game.cells[index].revealed) return;
     if (!game.cells[index].flagged && flags >= game.mines) { notify('All your flags are in use. Move one to keep going.'); return; }
@@ -638,7 +691,7 @@ function App() {
     if (next === game) return;
     setShowPreview(false); setGame(next);
     if (next.mode === 'zen' && branchWorld) {
-      const updated = syncArea(branchWorld, next);
+      const updated = inExpedition(branchWorld) ? saveBoard(branchWorld, next) : syncArea(branchWorld, next);
       saveWorld(updated); setBranchWorld(updated);
     }
     feel(game.cells[index].flagged ? 'unflag' : 'flag');
@@ -764,6 +817,7 @@ function App() {
           <div className="play-layout">
             <section className="game-panel" aria-label={`${MODE_NAMES[game.mode]} Minesweeper game`}>
               {game.mode === 'contract' && !showPreview && <section className="contract-panel" aria-label="Contract objectives"><div className="contract-head"><div><div className="eyebrow">CONTRACT BRIEF</div><h3>Three ways to earn a star.</h3></div><span className={`contract-score ${objectivesDone === 3 ? 'full' : ''}`}>{starLabel(contractStars(game.objectives, game, elapsed))}</span></div><p className="contract-code">Code: {game.id} · Replay uses the same difficulty and first click.</p><ul>{objectives.map(o => <li key={o.id} className={o.done ? 'done' : ''}><span className="contract-check">{o.done ? <Check size={12} strokeWidth={3} /> : null}</span><span><b>{o.label}</b><i>{o.blurb}</i></span></li>)}</ul>{game.status === 'won' && <p className="contract-footer">{objectivesDone} of 3 kept — {objectivesDone === 3 ? 'a perfect contract.' : 'stars are what the board ranks on.'}</p>}<div className="contract-extras"><h4>Optional bonus badges</h4>{bonusObjectives(game, elapsed).map(o => <p key={o.id}>{o.done ? '✓' : '◇'} {o.label} — {o.blurb}</p>)}<p>Rescue reveals one safe square, but deducts one final star.</p><button className="secondary-button" disabled={game.status !== 'playing' || !!game.rescues} onClick={() => { const i = game.cells.findIndex(c => !c.mine && !c.revealed && !c.flagged); if (i < 0) return; const result = reveal({ ...game, rescues: 1 }, i); setGame(result.state); setNow(Date.now()); }}>Use rescue {game.rescues ? '(used)' : '(−1 star)'}</button><button className="secondary-button" onClick={() => { const code = window.prompt('Contract code to replay (same difficulty + first click reproduces board):', game.id)?.trim(); if (!code) return; if (code.length > 100) { notify('Code must be at most 100 characters.'); return; } if (game.status === 'playing' && !window.confirm('Leave this board and replay the contract?')) return; const board = freshGame('contract', game.difficulty); recorded.current = ''; setRevealFx(null); setGame({ ...board, id: code, objectives: dealObjectives(code) }); setShowPreview(false); setResultVisible(false); setNow(Date.now()); }}>Replay / enter code</button>{!!game.rescues && <p>Rescue used: final rating has a one-star deduction.</p>}</div></section>}
+              {game.mode === 'zen' && branchWorld && <BranchExpeditionPanel world={branchWorld} game={game} act={adventureAction} />}
               <div className="game-panel-head"><div className="game-title"><div className={`mode-icon mode-${game.mode}`}><ModeIcon mode={game.mode} size={20} /></div><div><h2>{MODE_NAMES[game.mode]}<span className={`game-mode-tag ${game.mode === 'blitz' ? 'purple' : ''} ${game.mode === 'nightfall' || game.mode === 'riptide' || game.mode === 'contract' || game.mode === 'scan' || game.mode === 'custom' ? 'mint' : ''}`}>{game.mode === 'daily' ? 'DAILY #' + dailyIdx + (twist.id === 'standard' ? '' : ' · ' + twist.name.toUpperCase()) : MODE_TAG[game.mode]}</span></h2><p>{pageDescription}</p></div></div><div style={{ display: 'flex', gap: 6 }}>{game.mode === 'zen' && <button className="icon-button" onClick={() => setMapOpen(true)} aria-label="Open branch map" title="Branch map — zoom out"><GitBranch size={17} /></button>}<button className="icon-button" onClick={() => setFocusMode(!focusMode)} aria-label={focusMode ? 'Exit focus mode' : 'Enter focus mode'} title={focusMode ? 'Exit focus mode' : 'Focus mode'}>{focusMode ? <Minimize2 size={17} /> : <Expand size={17} />}</button></div></div>
               <div className="difficulty-row">
                 {game.mode === 'custom' ? <button className="resize-button" onClick={() => { setCustomDraft(customConfig); setModal('custom'); }}><Ruler size={14} />{game.cols} × {game.rows}<span>· {game.mines} mines · change size</span></button>
@@ -791,7 +845,7 @@ function App() {
                   </div>
                 </div>
 
-                {isFinished && resultVisible && <div className={`result-overlay ${game.status === 'won' ? 'won' : ''}`}><div className="result-card"><div className="result-icon">{game.status === 'won' ? <Trophy size={30} /> : <BrandMark />}</div><div className="eyebrow">{game.status === 'won' ? 'A LITTLE WIN. A BIG FEELING.' : timeLimit !== null && elapsed >= timeLimit ? 'TIME’S UP, NOT GAME OVER' : 'THERE’S ALWAYS ANOTHER SQUARE'}</div><h3>{game.status === 'won' ? 'Beautifully swept.' : 'A mine. Not the end.'}</h3><p>{game.status === 'won' ? `You cleared all ${totalSafe} safe squares. Nicely done.` : game.mode === 'daily' ? 'Today’s board is still out there until midnight. One more go?' : game.mode === 'zen' ? 'You hit the marked mine. Your progress is saved; continue when you are ready to return to an open branch.' : 'Take a breath. Your next great game is one click away.'}</p>{game.mode === 'daily' && <div className="daily-result-tag"><span className={`daily-twist-chip twist-${twist.id}`}>{twist.name}</span><span>Daily #{dailyIdx}</span>{game.status === 'won' && <span><Flame size={11} />{dailyStreak} day streak</span>}</div>}<div className="result-stats"><span><Clock3 size={15} />{formatTime(elapsed)}</span><span><Target size={15} />{progress}% cleared</span>{game.mode === 'contract' && <span className="result-stars">{starLabel(contractStars(game.objectives, game, elapsed))}</span>}{game.mode === 'scan' && <span>{game.scans} scans used</span>}</div><button className="primary-button" onClick={() => { if (game.mode === 'zen' && game.status === 'lost' && branchReturn) { jumpToArea(branchReturn); } else if (game.mode === 'zen' && game.status === 'won' && branchWorld) { const next = openAreaIds(branchWorld)[0]; if (next) jumpToArea(next); else setMapOpen(true); } else startGame(game.mode, game.difficulty); }}><RotateCcw size={16} />{game.mode === 'zen' && game.status === 'lost' ? 'Continue at the earlier branch' : game.mode === 'zen' && game.status === 'won' ? 'Continue the branch' : game.status === 'won' ? 'One more good game' : 'Let’s try again'}</button><div className="result-secondary"><button onClick={() => setResultVisible(false)}>See the board</button><span>·</span><button onClick={shareResult}>{game.mode === 'daily' ? 'Share your grid' : 'Share result'} <ArrowUpRight size={13} /></button></div>{game.status === 'won' && publicQueue.some(r => r.id === game.id) && <div className="public-post"><label htmlFor="win-name">What name should go on your leaderboard?</label><div className="public-post-row"><input id="win-name" value={nameDraft} maxLength={24} disabled={postingPublic} onChange={e => setNameDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void postPendingScore(game.id); }} /><button className="primary-button" disabled={postingPublic} onClick={() => void postPendingScore(game.id)}>{postingPublic ? 'Posting…' : publicBoardEnabled() ? 'Post / retry' : 'Save name'}</button><button className="secondary-button" disabled={postingPublic} onClick={() => { setPlayerName(nameDraft); setPublicQueue(previous => previous.filter(r => r.id !== game.id)); setPostError(''); }}>Skip</button></div>{postError && <p role="alert">{postError}</p>}</div>}</div></div>}
+                {isFinished && resultVisible && <div className={`result-overlay ${game.status === 'won' ? 'won' : ''}`}><div className="result-card"><div className="result-icon">{game.status === 'won' ? <Trophy size={30} /> : <BrandMark />}</div><div className="eyebrow">{game.status === 'won' ? 'A LITTLE WIN. A BIG FEELING.' : timeLimit !== null && elapsed >= timeLimit ? 'TIME’S UP, NOT GAME OVER' : 'THERE’S ALWAYS ANOTHER SQUARE'}</div><h3>{game.status === 'won' ? 'Beautifully swept.' : 'A mine. Not the end.'}</h3><p>{game.status === 'won' ? `You cleared all ${totalSafe} safe squares. Nicely done.` : game.mode === 'daily' ? 'Today’s board is still out there until midnight. One more go?' : game.mode === 'zen' ? branchWorld?.expeditions?.pendingLoss ? branchWorld.expeditions.notice : 'You hit the marked mine. Your progress is saved; continue when you are ready to return to an open branch.' : 'Take a breath. Your next great game is one click away.'}</p>{game.mode === 'daily' && <div className="daily-result-tag"><span className={`daily-twist-chip twist-${twist.id}`}>{twist.name}</span><span>Daily #{dailyIdx}</span>{game.status === 'won' && <span><Flame size={11} />{dailyStreak} day streak</span>}</div>}<div className="result-stats"><span><Clock3 size={15} />{formatTime(elapsed)}</span><span><Target size={15} />{progress}% cleared</span>{game.mode === 'contract' && <span className="result-stars">{starLabel(contractStars(game.objectives, game, elapsed))}</span>}{game.mode === 'scan' && <span>{game.scans} scans used</span>}</div><button className="primary-button" onClick={() => { if (game.mode === 'zen' && game.id.startsWith('exp:') && branchWorld) { continueAdventure(); } else if (game.mode === 'zen' && game.status === 'lost' && branchReturn) { jumpToArea(branchReturn); } else if (game.mode === 'zen' && game.status === 'won' && branchWorld) { const next = openAreaIds(branchWorld)[0]; if (next) jumpToArea(next); else setMapOpen(true); } else startGame(game.mode, game.difficulty); }}><RotateCcw size={16} />{game.mode === 'zen' && game.id.startsWith('exp:') ? branchWorld?.expeditions?.pendingLoss ? 'Continue after the mine hit' : routeFor(branchWorld)?.complete ? 'Grow the next limb' : 'Continue expedition' : game.mode === 'zen' && game.status === 'lost' ? 'Continue at the earlier branch' : game.mode === 'zen' && game.status === 'won' ? 'Continue the branch' : game.status === 'won' ? 'One more good game' : 'Let’s try again'}</button><div className="result-secondary"><button onClick={() => setResultVisible(false)}>See the board</button><span>·</span><button onClick={shareResult}>{game.mode === 'daily' ? 'Share your grid' : 'Share result'} <ArrowUpRight size={13} /></button></div>{game.status === 'won' && publicQueue.some(r => r.id === game.id) && <div className="public-post"><label htmlFor="win-name">What name should go on your leaderboard?</label><div className="public-post-row"><input id="win-name" value={nameDraft} maxLength={24} disabled={postingPublic} onChange={e => setNameDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void postPendingScore(game.id); }} /><button className="primary-button" disabled={postingPublic} onClick={() => void postPendingScore(game.id)}>{postingPublic ? 'Posting…' : publicBoardEnabled() ? 'Post / retry' : 'Save name'}</button><button className="secondary-button" disabled={postingPublic} onClick={() => { setPlayerName(nameDraft); setPublicQueue(previous => previous.filter(r => r.id !== game.id)); setPostError(''); }}>Skip</button></div>{postError && <p role="alert">{postError}</p>}</div>}</div></div>}
                 {timeLimit !== null && game.status === 'playing' && <div className="blitz-progress"><span style={{ width: `${Math.max(0, Math.min(1, (timeLeft ?? 0) / timeLimit)) * 100}%` }} /></div>}
               </div>
               <div className="game-controls">{game.mode === 'scan' && <button className={`scan-toggle ${scanArmed ? 'enabled' : ''}`} disabled={game.charges === 0 || isFinished} aria-pressed={scanArmed} onClick={() => setScanArmed(a => !a)}><ScanSearch size={15} /><span>{scanArmed ? 'Pick a square' : 'Scan'}</span><b>{game.charges}</b></button>}{flagsLocked ? <span className="flag-toggle locked" title="Today’s twist removes flags"><Flag size={15} /><span>No flags today</span></span> : <button className={`flag-toggle ${flagMode ? 'enabled' : ''}`} onClick={() => setFlagMode(!flagMode)} aria-pressed={flagMode}><Flag size={15} fill={flagMode ? 'currentColor' : 'none'} /><span>Flag mode</span><span className="toggle-track"><i /></span></button>}<span className="board-tip"><MousePointer2 size={13} /><span>{flagsLocked ? 'Every square is a guess worth making' : 'Right-click to flag'}</span></span><button className="new-game-text" onClick={() => requestGame()}><RotateCcw size={14} />New game</button></div>

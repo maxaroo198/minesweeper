@@ -29,7 +29,7 @@ APK_STUB = (
 TOP_LEVEL = (
     'README.md', 'BUILDING.md', '.gitignore', 'package.json', 'package-lock.json',
     'index.html', 'tsconfig.json', 'vite.config.ts', '.env.example', 'firestore.rules',
-    'FIREBASE-SETUP.md', 'RELEASES.md', 'RELEASE-NOTES.md', 'RELEASE-VALIDATION.md', 'CHANGES.md',
+    'FIREBASE-SETUP.md', 'BRANCH-EXPEDITIONS.md', 'RELEASES.md', 'RELEASE-NOTES.md', 'RELEASE-VALIDATION.md', 'CHANGES.md',
 )
 SOURCE_EXTENSIONS = {'.ts', '.tsx', '.css', '.java', '.xml', '.mjs', '.py', '.html', '.svg', '.webmanifest', '.rs', '.toml', '.lock', '.json', '.yml', '.yaml'}
 SKIP_FOLDERS = {'node_modules', '__pycache__', '.android-build', '.android-tools', 'dist', 'build', '.git', 'target', 'icons', 'gen'}
