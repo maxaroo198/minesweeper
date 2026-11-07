@@ -1,3 +1,27 @@
+# Navigation and new modes — v1.7.0
+
+Tests include TypeScript, production build, the base engine and existing Branch economy/backpack
+regressions. New pure tests generate and verify 100 seeded Puzzle boards, validate all six seeded
+Puzzle positions and restrictions/goals, exercise Survival life loss and stage progression, and
+check partial deposit/withdrawal, over-balance/fractional/invalid atomic rejection and longer routes.
+The solver infers solely from visible clues and flags, not mine positions. Actual board verification
+runs before any Puzzle board is returned, not just in tests.
+
+New browser coverage checks desktop side-by-side map/actions, both map-scope controls, nine-stop
+new routes, mobile collapse/expand, amount-based bank transfers, Puzzle hints and local saves,
+Puzzle rule enforcement, Survival visible loss/explicit Continue and 390px overflow. The full older
+browser suite remains, with route-length expectations updated and variable route traversal retained.
+Fixes the result overlay being covered by the sticky focus-mode tool dock. Existing eight modes,
+local-save simulation, map travel/fallback, economic loss and charged abilities are regression tested.
+
+Source download and release consistency checks run after refreshing the embedded archive. Firebase
+configuration validation uses placeholders, not live keys. No Firestore rules, indexes, database changes
+or Firebase deploy required. No native packages, real-device upgrades/lifecycle, audible hardware tests
+or live public-score posts were tested. No assistant push/release. New modes use separate local saves
+and do not submit public rankings or the old shared statistics. Large item/boss expansion remains pending.
+
+## Previous validation records
+
 # Branch backpack and replay update — v1.6.0
 
 Validation for this release includes TypeScript, production build, randomized base-engine tests,

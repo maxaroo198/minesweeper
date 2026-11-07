@@ -54,6 +54,22 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
 - No accounts, advertising, or analytics. Public Classic/Blitz scores optionally use Firebase.
 - Leaderboards exist only for Classic and Blitz. Failed submissions remain in a device-local retry queue; the public board shows the latest confirmed submission separately from the fastest 20.
 
+## Navigation and new modes — v1.7.0
+
+Branch now keeps its map visible with a dedicated actions rail, clear **Inside limb / Full tree**
+controls, and a collapsible actions sheet on mobile. New routes start at **nine stops**, with more
+optional paths; existing saved routes stay their original size. Banks let you **enter a gold amount**
+for deposits or withdrawals, choose quick amounts, or transfer everything.
+
+Two additional playable modes appear directly below the existing mode bar:
+- **Puzzle challenges:** six seeded 7×7 puzzles with distinct goals, saved completion and retries.
+- **Survival:** three lives, progressively harder stages, visible mine hits and explicit Continue.
+
+Their saves are separate from each other and from your existing game. Close and reopen to resume.
+They show their own progress and do not submit public scores or write the old shared stats list.
+All eight existing modes remain. No Firestore rules, indexes, database migration or Firebase deploy.
+Android v1.7.0/code 12; build with the existing signing key and install over the old app to retain saves.
+
 ## Backpack and fresh routes — v1.6.0
 
 Branch now has a **six-space backpack** (each individual stored item counts), separate **2 active / 3

@@ -17,11 +17,11 @@ try {
  const world=()=>p.evaluate(()=>JSON.parse(localStorage.getItem('minefield-zen-v1')));
  await p.locator('.mode-card-zen').click();
  assert.equal(await p.getByRole('button',{name:'Begin expedition in this limb',exact:true}).count(),0);
- assert.equal(await p.locator('.atlas-node').count(),7);
- assert.equal(await p.locator('.atlas-edge').count(),9);
+ assert.equal(await p.locator('.atlas-node').count(),15);
+ assert.equal(await p.locator('.atlas-edge').count(),25);
  assert.equal(await p.locator('.expedition-route').count(),0,'text route removed');
  const before=JSON.stringify(await world());
- await p.getByRole('button',{name:'Boss gate · stop 5 · locked',exact:true}).evaluate(el=>el.dispatchEvent(new MouseEvent('click',{bubbles:true})));
+ await p.getByRole('button',{name:'Boss gate · stop 9 · locked',exact:true}).evaluate(el=>el.dispatchEvent(new MouseEvent('click',{bubbles:true})));
  assert.equal(JSON.stringify(await world()),before,'clicking future node cannot skip progression');
  await p.getByRole('button',{name:'Zoom in route',exact:true}).click();
  assert.equal(await p.getByRole('button',{name:'Reset route zoom'}).innerText(),'120%');
@@ -43,7 +43,7 @@ try {
  await p.getByRole('button',{name:'Open branch map',exact:true}).click();
  await p.getByRole('button',{name:'Continue to an open limb →',exact:true}).click();
  assert.equal((await world()).expeditions.pendingLoss,undefined);
- await p.getByRole('button',{name:'Whole tree',exact:true}).click();
+ await p.getByRole('button',{name:'Full tree',exact:true}).click();
  await p.getByRole('button',{name:'Limb 0.1 · open',exact:true}).click();
  assert.equal(await p.getByRole('dialog',{name:'Branch map',exact:true}).count(),0);
  await p.getByRole('button',{name:'Minefield · stop 1 · available',exact:true}).click();

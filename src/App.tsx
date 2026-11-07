@@ -1,3 +1,5 @@
+import ExtraModes from './ExtraModes';
+import type {ExtraMode} from './extraModes';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode, RefObject } from 'react';
 import {
@@ -131,7 +133,7 @@ function HelpContent({ compact = false }: { compact?: boolean }) {
     <div className="keyboard-guide"><span><kbd>N</kbd> New game</span><span><kbd>F</kbd> Flag mode</span><span><kbd>?</kbd> Help</span><span><MousePointer2 size={14} /> Long press to flag</span></div>
   </div>;
 }
-function BranchTreeMap({ world, onJump, onClose, onRoute, onContinue }: { world: BranchWorld; onJump: (id: string) => void; onClose: () => void; onRoute:()=>void; onContinue:()=>void }) {
+function BranchTreeMap({ world, game, act, onJump, onClose, onRoute, onContinue }: { game:BoardState;act:(action:ExpeditionAction,value?:string,replace?:ItemId[])=>void;world: BranchWorld; onJump: (id: string) => void; onClose: () => void; onRoute:()=>void; onContinue:()=>void }) {
   const { nodes, edges, width, height } = useMemo(() => layoutWorld(world), [world]);
   const pos = useMemo(() => new Map(nodes.map(n => [n.area.id, n])), [nodes]);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -196,14 +198,14 @@ function BranchTreeMap({ world, onJump, onClose, onRoute, onContinue }: { world:
     // space just stop panning.
     void wasTap;
   };
-  return <div className="modal-backdrop" onClick={onClose}><div className="modal zen-map-modal" role="dialog" aria-modal="true" aria-label="Branch map" onClick={e => e.stopPropagation()}>
+  return <div className="modal-backdrop" onClick={onClose}><div className="modal zen-map-modal branch-full-tree" role="dialog" aria-modal="true" aria-label="Branch map" onClick={e => e.stopPropagation()}>
     <button className="icon-button modal-close" onClick={onClose} aria-label="Close map"><X size={19} /></button>
     <div className="eyebrow">BRANCH · YOUR TREE SO FAR</div>
-    <button className="secondary-button" onClick={onRoute}>← Current limb route</button>
+    <nav className="route-map-tabs" aria-label="Map view"><button onClick={onRoute}>Inside limb</button><button aria-current="page">Full tree</button></nav>
     {world.expeditions?.pendingLoss && <div className="tree-return-banner"><p>Travel is waiting for you to continue after the mine hit. Your saved open limbs are still available.</p><button className="primary-button" onClick={onContinue}>Continue after the mine hit</button></div>}
     <h2>Every clear grows the tree<span className="heading-dot">.</span></h2>
     <p className="modal-intro">Cleared squares are filled. Glowing tips are open to grow. Dim squares are still locked — clear the square before them to unlock the next limb. Drag to pan, scroll or pinch to zoom.</p>
-    <div className="zen-map-viewport" ref={viewportRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endPointer} onPointerCancel={endPointer}>
+    <div className="tree-navigation-body"><aside className="tree-navigation-actions"><BranchExpeditionPanel world={world} game={game} act={act} mapContent onContinue={onContinue} openMap={onRoute}/></aside><div className="tree-navigation-map"><div className="zen-map-viewport" ref={viewportRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endPointer} onPointerCancel={endPointer}>
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Branch map of your tree" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, transformOrigin: '0 0' }} className="zen-map-canvas">
         {edges.map(({ from, to }) => {
           const a = pos.get(from.area.id)!, b = pos.get(to.area.id)!;
@@ -224,7 +226,7 @@ function BranchTreeMap({ world, onJump, onClose, onRoute, onContinue }: { world:
         })}
       </svg>
     </div>
-    <div className="zen-map-legend"><span><i className="dot cleared" />Cleared</span><span><i className="dot open" />Open — tap to play</span><span><i className="dot locked" />Locked</span></div>
+    <div className="zen-map-legend"><span><i className="dot cleared" />Cleared</span><span><i className="dot open" />Open — tap to play</span><span><i className="dot locked" />Locked</span></div></div></div>
   </div></div>;
 }
 /**
@@ -297,6 +299,7 @@ function DailyHub({ idx, dateLabel, twist, countdown, finished, streak, best, so
   </section>;
 }
 function App() {
+  const [extraMode,setExtraMode]=useState<ExtraMode|null>(null);
   const [view, setView] = useState<View>('play');
   const [game, setGame] = useState<BoardState>(() => previewBoard());
   const [classicChallenges,setClassicChallenges]=useState(()=>{try{return localStorage.getItem('minefield-classic-challenges')==='true';}catch{return false;}});
@@ -573,7 +576,7 @@ function App() {
     else if (action === 'start') world = startEncounter(world);
     else if (action === 'leave' || action === 'gift' || action === 'coins') world = finishStop(world, action,replace);
     else if (action === 'buy') world = buyItem(world, value as ItemId,replace);
-    else if (action === 'deposit' || action === 'withdraw') world = bankCoins(world, action);
+    else if (action === 'deposit' || action === 'withdraw') world = bankCoins(world, action,value===undefined?undefined:Number(value));
     else if (action === 'equip') world = equipItem(world, value?.split('|')[0] as ItemId,value?.split('|')[1] as ItemId);
     else if(action==='discard'&&value) world=discardItem(world,value.replace('reserve:','') as ItemId,value.startsWith('reserve:'));
     else if(action==='recover'&&value) world=recoverStoredItem(world,value as ItemId);
@@ -704,7 +707,7 @@ function App() {
   };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (modal || /INPUT|TEXTAREA|SELECT/.test((e.target as HTMLElement)?.tagName)) return;
+      if (modal || extraMode || /INPUT|TEXTAREA|SELECT/.test((e.target as HTMLElement)?.tagName)) return;
       if (e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); requestGame(); }
       if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); setFlagMode(f => !f); }
       if (e.key === '?') setModal('help');
@@ -820,6 +823,7 @@ function App() {
 
 
           <nav className="mode-bar" aria-label="Game modes">{MODES.map(mode => <button key={mode.id} className={`mode-card mode-card-${mode.id} ${game.mode === mode.id ? 'selected' : ''}`} onClick={() => pickMode(mode.id)} aria-pressed={game.mode === mode.id} title={mode.description}><ModeIcon mode={mode.id} size={16} /><span>{MODE_NAMES[mode.id]}</span></button>)}</nav>
+          <nav className="extra-mode-picker" aria-label="Additional game modes"><button onClick={()=>setExtraMode('puzzle')}><strong>Puzzle challenges</strong><span>Six seeded positions & goals</span></button><button onClick={()=>setExtraMode('survival')}><strong>Survival</strong><span>Three lives · rising difficulty</span></button></nav>
           <div className="play-layout">
             <section className="game-panel" aria-label={`${MODE_NAMES[game.mode]} Minesweeper game`}>
               {game.mode==='classic'&&<div className="classic-challenges-control"><label><input type="checkbox" checked={classicChallenges} onChange={e=>{const enabled=e.target.checked;if(game.status==='playing'&&!window.confirm('Start a fresh Classic board with this challenge setting?'))return;setClassicChallenges(enabled);const board=freshGame('classic',game.difficulty);setGame({...board,objectives:enabled?dealObjectives(board.id):[]});recorded.current='';setShowPreview(false);setResultVisible(false);setRevealFx(null);setNow(Date.now());}}/>Optional challenges</label><span>{hasChallenges?'Local challenge history only · no leaderboard':'Contract objectives, now inside Classic'}</span></div>}
@@ -864,7 +868,7 @@ function App() {
 
             {view === 'daily' && <aside className="mode-column"><DailyHub idx={dailyIdx} dateLabel={dailyDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} twist={twist} countdown={nextDaily} finished={dailyFinished} streak={dailyStreak} best={dailyBest} solved={dailySolved} week={dailyWeek} lockNote="Locked to Medium every day" /></aside>}
           </div>
-          {mapOpen && branchWorld && (treeMapOpen ? <BranchTreeMap world={branchWorld} onJump={jumpToArea} onClose={()=>setMapOpen(false)} onRoute={()=>setTreeMapOpen(false)} onContinue={()=>{continueAdventure();setTreeMapOpen(false);}}/> : <BranchRouteMap world={branchWorld} game={game} act={adventureAction} onClose={()=>setMapOpen(false)} onTree={()=>setTreeMapOpen(true)} onContinue={continueAdventure}/>)}
+          {mapOpen && branchWorld && (treeMapOpen ? <BranchTreeMap world={branchWorld} game={game} act={adventureAction} onJump={jumpToArea} onClose={()=>setMapOpen(false)} onRoute={()=>setTreeMapOpen(false)} onContinue={()=>{continueAdventure();setTreeMapOpen(false);}}/> : <BranchRouteMap world={branchWorld} game={game} act={adventureAction} onClose={()=>setMapOpen(false)} onTree={()=>setTreeMapOpen(true)} onContinue={continueAdventure}/>)}
 
           <section className="progress-strip" aria-label="Your personal progress"><div className="progress-intro"><span className="progress-icon"><Flame size={21} strokeWidth={1.5} /></span><div><h3>Little games. Little wins.</h3><p>Your progress, one square at a time.</p></div></div><div className="progress-stat"><span>GAMES PLAYED</span><b>{String(records.length).padStart(2, '0')}</b></div><div className="progress-stat"><span>WIN RATE</span><b>{records.length ? winRate : '—'}<small>{records.length ? '%' : ''}</small></b></div><div className="progress-stat"><span>BEST TIME · EASY</span><b>{Number.isFinite(best) ? formatTime(best) : '—'}</b></div><button className="icon-button" onClick={() => navigate('stats')} title="View your statistics" aria-label="View your statistics"><ArrowUpRight size={19} /></button></section>
           <footer className="page-footer"><span><Heart size={12} />A classic game. A calmer kind of play.</span><span>Made for your next little break.<span className="footer-dot">✳</span></span></footer>
@@ -897,6 +901,7 @@ function App() {
     {modal === 'reset-stats' && <Modal title="A completely clean slate?" eyebrow="RESET YOUR STATISTICS" close={() => setModal(null)}><p className="modal-intro">This will permanently clear {records.length} game records and all your personal bests from this device. Your preferences and current game won’t change.</p><div className="modal-actions"><button className="secondary-button" onClick={() => setModal(null)}>Keep my progress</button><button className="primary-button danger" onClick={() => { setRecords([]); setDailyDays([]); saveDailyWins([]); recorded.current = game.id; setModal(null); notify('A clean slate. Here’s to your next little win.'); }}><Trash2 size={15} />Clear my stats</button></div></Modal>}
     {modal === 'profile' && <Modal title="Hey there, curious mind." eyebrow="NO ACCOUNT. JUST A GOOD GAME." close={() => setModal(null)}><div className="profile-summary"><div className="avatar big">Y</div><div><h3>You, the player</h3><p>Local player · All your progress stays with you.</p></div></div><div className="profile-numbers"><span><b>{records.length}</b>games played</span><span><b>{wins.length}</b>little victories</span><span><b>{winRate}%</b>win rate</span></div><div className="settings-note"><ShieldCheck size={17} /><span>No sign-ups, no cloud, no tracking. Your Android app and browser keep separate local saves.</span></div><button className="primary-button full-width" onClick={() => { setModal(null); navigate('stats'); }}>See your little wins <ArrowRight size={16} /></button></Modal>}
     {modal === 'android' && <Modal title="Your next break. Anywhere." eyebrow="ANDROID · WINDOWS · LINUX" close={() => setModal(null)} className="android-modal"><Installers />{!isAndroidApp && !isDesktopApp && <SourceDownload className="secondary-button full-width source-download-inline" />}</Modal>}
+    {extraMode&&<ExtraModes key={extraMode} kind={extraMode} onClose={()=>setExtraMode(null)}/>}
     {toast && <div className="toast" role="status"><CheckCircle2 size={18} /><span>{toast}</span><button onClick={() => setToast('')} aria-label="Dismiss notification"><X size={15} /></button></div>}
   </div>;
 }

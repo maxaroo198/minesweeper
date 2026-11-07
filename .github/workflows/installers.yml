@@ -34,6 +34,7 @@ jobs:
       - run: node scripts/test-branch-adventure.mjs
       - run: node scripts/test-branch-unified.mjs
       - run: node scripts/test-branch-backpack.mjs
+      - run: node scripts/test-extra-modes.mjs
       - name: Build offline test fixture (do not submit test scores to Firebase)
         run: npm run build
         env:

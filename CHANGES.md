@@ -1,3 +1,14 @@
+## v1.7.0 — Branch navigation, amount banking and two new modes
+
+- Keeps the dark charcoal/orange Branch map visible alongside a dedicated actions rail rather than replacing the map with encounter screens. Inside limb / Full tree navigation is explicit; both views expose the current kit/actions. Mobile uses a collapsible below-map actions sheet. Backpack, equipment, loot, shop and bank actions remain available; no systems removed.
+- New routes start at nine stops, growing further with depth, with more optional minefield/danger/event/shop/bank pairs. Existing saved routes are not resized. Boss gate and the guaranteed bank shelter are retained, along with existing root/deeper failure and Totem behavior.
+- Banks support positive whole-number amounts for deposits and withdrawals, quick 25/50/100/half/max selections, and all-balance actions. Invalid or over-balance requests move no gold. Banked gold remains safe.
+- Adds Puzzle challenges: six fixed seeded 7×7 positions with flag-free, mark-all-mines, no-chording, 24-action, three-marker and final-clear goals. Each starting board is verified deduction-solvable. Includes progress, retries and explanatory hints.
+- Adds Survival: three lives, rising mine counts/board sizes, explicit visible mine hit before Continue, stage progression and persistent current run. A failed stage costs one life and retries on a fresh board at that stage.
+- All eight previous modes remain. The two new modes have independent local resumable saves and their own progress display; they do not write Classic/Blitz rankings or the older shared statistics. Existing Branch saves and equipment are preserved. Fixes mine-hit acknowledgement being covered by the sticky tool dock.
+- v1.7.0 / Android code 12, same app IDs/signing configuration. No Firestore rules, indexes, database changes or Firebase deployment required. Native builds and real-device upgrade/lifecycle checks remain outside sandbox validation. The large future item/boss roster is not included.
+
+
 ## v1.6.0 — Six-space backpack, fresh retries and 19 trail events
 
 - Adds an openable backpack with six **individual** physical item spaces, separate from two active and three passive equipment slots. Full-capacity equipment swaps work without temporarily needing a seventh space. Charges and permanent upgrades use no spaces.

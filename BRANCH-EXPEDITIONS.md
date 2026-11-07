@@ -1,3 +1,25 @@
+# v1.7.0 — Map and actions navigation
+
+The Branch atlas stays visible when choosing encounters, shopping, banking and claiming loot.
+Desktop actions live in the left rail, with the map to the right. Mobile puts a collapsible **Show actions /
+Collapse actions** sheet below the map. **Inside limb** and **Full tree** controls switch map scope;
+the full tree also exposes the current limb's kit/actions. Nothing was removed from the backpack or equipment.
+
+New routes start at **9 stops + floor(depth / 2)**, instead of 5. The opening keeps its first encounter
+choices familiar, with varied optional paths afterward, a guaranteed bank and a final phased boss.
+Saved older routes remain unchanged until a normal fresh route is generated. Root/deeper resets and
+Totem preservation remain as in v1.6. Increasing the route is not a new boss or item roster.
+
+At a bank choose **Deposit** or **Withdraw**, enter a positive whole-number gold amount, then confirm.
+Quick 25/50/100/Half/Max buttons fill the amount; they do not transfer until confirmation. Full-balance
+buttons remain. Requests beyond the available balance, fractions and invalid values transfer nothing.
+Your current carried/banked balances and their risk are shown beside the controls.
+
+No Firestore rules, indexes, database changes or Firebase deploy required. The two new local modes
+are separate from Branch; see README for their rules and independent saves.
+
+---
+
 # v1.6.0 — Backpack, failure generations and meaningful events
 
 ## Backpack and descriptions

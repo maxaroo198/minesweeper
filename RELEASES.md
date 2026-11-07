@@ -10,7 +10,7 @@ website, or separately installed Linux profiles.
 
 `.github/workflows/installers.yml` builds on GitHub's Windows and Linux runners:
 
-- `minefield-android.apk`: Android 8+; package `app.minefield`, version 1.6.0/code 11.
+- `minefield-android.apk`: Android 8+; package `app.minefield`, version 1.7.0/code 12.
 - `minefield-windows-x64-setup.exe`: x64 NSIS installer, Tauri 2 / WebView2.
 - `minefield-linux-x86_64.AppImage`: x86_64 AppImage, may need FUSE.
 - `minefield-linux-amd64.deb`: Debian/Ubuntu-compatible package.
@@ -29,7 +29,7 @@ launch and in-place upgrade must still be tested on actual devices.
 
 ## 1. Push this patch
 
-Apply the v1.6.0 Branch backpack patch to your clean `~/minefield-patched` checkout and push main.
+Apply the v1.7.0 navigation and modes patch to your clean `~/minefield-patched` checkout and push main.
 No GitHub connector is available in this chat, so these actions run from your repo,
 not from the assistant. You remain in control of secrets and publishing.
 

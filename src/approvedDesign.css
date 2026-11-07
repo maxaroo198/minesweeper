@@ -99,3 +99,45 @@
 
 .backpack-dialog>.expedition-stop-title{position:sticky;top:-20px;z-index:170;background:#1c1f24;padding:8px 0;border-bottom:1px solid #3c414a;margin-bottom:14px}
 @media(max-width:560px){.backpack-dialog>.expedition-stop-title{top:-14px}}
+
+/* Branch navigation: persistent map with a discoverable actions rail. */
+.branch-navigation-layout.route-map-modal {display:grid!important;grid-template-columns:340px minmax(0,1fr);grid-template-areas:"heading heading" "tabs tabs" "actions toolbar" "actions canvas" "actions legend" "footer footer";width:min(1260px,96vw);max-height:94dvh;overflow:auto;background:#191c22}
+.branch-navigation-layout>.route-map-header{grid-area:heading}
+.branch-navigation-layout>.route-map-tabs{grid-area:tabs}
+.branch-navigation-layout>.route-map-toolbar{grid-area:toolbar;min-width:0}
+.branch-navigation-layout>.route-map-canvas{grid-area:canvas;display:block!important;min-width:0;overflow:auto;min-height:340px}
+.branch-navigation-layout>.atlas-legend{grid-area:legend;display:flex!important}
+.branch-navigation-layout>.route-encounter-sheet{grid-area:actions;margin:0;padding:18px;border-right:1px solid #373c45;border-top:0;max-height:65dvh;overflow:auto;background:#20242b}
+.branch-navigation-layout>.route-map-footer{grid-area:footer}
+.branch-navigation-layout>.route-return-banner{grid-column:1/-1}
+.branch-navigation-layout .route-map-tabs button[aria-current=page]{background:#393027;color:#ffb16b;border-color:#d58c4c}
+.branch-navigation-layout .expedition-shop{grid-template-columns:1fr}
+.branch-bank{display:grid;gap:12px;margin:14px 0}
+.bank-balances{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bank-balances>span{display:grid;gap:4px;border:1px solid #404650;border-radius:10px;padding:12px;font-size:12px}
+.bank-balances strong{font-size:24px;color:#ffb16b}.bank-balances small{color:#b0b8c4;font-size:11px}
+.bank-direction,.bank-quick,.bank-all{display:flex;gap:6px;flex-wrap:wrap}
+.branch-bank label{display:grid;gap:8px;font-size:13px}
+.branch-bank input{width:100%;box-sizing:border-box;background:#15181d;border:1px solid #606774;color:#fff;padding:12px;border-radius:8px;font-size:16px;min-height:44px}
+.branch-bank button{min-height:44px}
+@media(max-width:760px){.branch-navigation-layout.route-map-modal{grid-template-columns:minmax(0,1fr);grid-template-areas:"heading" "tabs" "toolbar" "canvas" "legend" "actions" "footer";width:98vw}.branch-navigation-layout>.route-map-canvas{min-height:240px;max-height:35dvh}.branch-navigation-layout>.route-encounter-sheet{max-height:45dvh;border-right:0;border-top:1px solid #414650}.branch-navigation-layout .route-map-coins{display:none}.branch-navigation-layout .route-map-header h2{font-size:22px}.branch-navigation-layout .route-map-header{padding:14px}}
+.extra-mode-picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0 18px}
+.extra-mode-picker button{display:grid;text-align:left;gap:4px;min-height:62px;padding:12px;border:1px solid #414650;border-radius:12px;background:#252930;color:#e9ebef;cursor:pointer}
+.extra-mode-picker button:hover{border-color:#e79c54}.extra-mode-picker span{font-size:11px;color:#adb5c3}.extra-mode-picker strong{font-size:13px}
+.extra-mode-backdrop{z-index:220}.extra-mode-dialog{width:min(650px,96vw);max-height:94dvh;overflow:auto;border:1px solid #444c57;border-radius:18px;background:#1b1e24;color:#e6e8ed;padding:22px;overscroll-behavior:contain}
+.extra-mode-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px}.extra-mode-dialog h2{font-size:24px;margin:5px 0}.extra-mode-dialog>p,.extra-mode-dialog footer p{font-size:13px;line-height:1.6;color:#b9c0cd}
+.extra-mode-stats{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;padding:12px;background:#282e37;border-radius:10px}
+.extra-mode-controls{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap}.extra-mode-dialog button{min-height:40px}.extra-mode-hint{padding:12px;border:1px solid #c69052;border-radius:10px}
+.extra-board-scroll{overflow:auto;padding:4px 0}.extra-board{display:grid;gap:3px;margin:0 auto}.extra-mode-dialog .extra-tile{padding:0;aspect-ratio:1;min-height:0;min-width:0;border:1px solid #5b626e;border-radius:5px;background:#363d47;color:#edf1f7;font-weight:800;font-size:16px;cursor:pointer;touch-action:manipulation}
+.extra-mode-dialog .extra-tile.revealed{background:#20252c;border-color:#313844}.extra-tile.flagged{color:#ff9b4a!important}.extra-tile.exploded{background:#a94139!important}.extra-tile.hinted{outline:3px solid #f6b264;outline-offset:-3px}.extra-tile[data-number="1"].revealed{color:#7eb8ed}.extra-tile[data-number="2"].revealed{color:#91c791}.extra-tile[data-number="3"].revealed{color:#f1988c}
+.extra-result{border:1px solid #786044;background:#2d2924;border-radius:12px;padding:15px;margin:16px 0}.extra-result h3{margin:0 0 7px}.extra-result p{font-size:13px;line-height:1.5}.extra-mode-dialog footer{margin-top:16px}
+@media(max-width:560px){.extra-mode-picker{grid-template-columns:1fr}.extra-mode-picker button{min-height:52px}.extra-mode-dialog{padding:14px}.extra-mode-dialog h2{font-size:20px}}
+.branch-actions-toggle{width:100%;margin-bottom:12px}.sheet-collapsed .branch-actions-content{display:none}
+.branch-full-tree.zen-map-modal{width:min(1260px,96vw);max-height:94dvh;overflow:auto;background:#191c22}
+.tree-navigation-body{display:grid;grid-template-columns:320px minmax(0,1fr);gap:18px}.tree-navigation-actions{max-height:60dvh;overflow:auto;border:1px solid #3a424e;background:#20242b;border-radius:12px;padding:14px}.tree-navigation-map{min-width:0}.tree-navigation-actions .expedition-shop{grid-template-columns:1fr}
+@media(max-width:760px){.tree-navigation-body{display:flex;flex-direction:column-reverse}.tree-navigation-actions{max-height:40dvh}.tree-navigation-map .zen-map-viewport{height:30dvh;min-height:200px}}
+/* The mine-hit acknowledgement must stay above the sticky ability dock. */
+.game-panel .result-overlay{z-index:20}
+@media(max-width:560px){.extra-mode-picker{grid-template-columns:repeat(3,minmax(0,1fr))}.extra-mode-picker button{padding:9px 7px;min-height:76px}.extra-mode-picker strong{font-size:11px}.extra-mode-picker span{font-size:9px;line-height:1.4}}
+.branch-full-tree .route-map-tabs button[aria-current=page]{background:#393027;color:#ffb16b;border-color:#d58c4c}
+.extra-mode-picker{grid-template-columns:repeat(2,minmax(0,1fr))}

@@ -27,7 +27,7 @@ try {
   let w=begin(fresh);
   assert.equal(JSON.stringify(fresh),saved,'starting never mutates the input tree');
   assert.equal(w.createdAt,fresh.createdAt);assert.deepEqual(w.areas,fresh.areas);
-  assert.equal(a.routeFor(w).stops.length,5);
+  assert.equal(a.routeFor(w).stops.length,9);
   assert.ok(a.routeLength(20)>a.routeLength(2));assert.ok(a.phaseCount(20)>a.phaseCount(0));
   assert.equal(w.expeditions.inventory.totem,1);assert.deepEqual(w.expeditions.active,['pathfinder']);
   w=boardStop(w);let b=a.expeditionBoard(w),next=game.reveal(b,40).state;
@@ -65,6 +65,7 @@ try {
   w=a.finishStop(a.chooseStop(w,'event'),'gift');assert.equal(w.expeditions.surveyCharges,2);
   w=a.equipItem(w,'survey');assert.equal(w.expeditions.active.length,2);
   w=boardStop(w,'danger');w=completeBoard(w);
+  while(a.routeFor(w).cursor<a.routeFor(w).stops.length-2){const options=a.stopFor(w).options;const kind=['board','danger','shop','bank','event'].find(k=>options.includes(k));w=['board','danger'].includes(kind)?completeBoard(boardStop(w,kind)):a.finishStop(a.chooseStop(w,kind),kind==='event'?'coins':'leave');}
   w=a.chooseStop(w,'bank');const earned=w.expeditions.coins;
   w=a.bankCoins(w,'deposit');assert.equal(w.expeditions.coins,0);assert.equal(w.expeditions.bank,earned);
   w=a.finishStop(w);w=a.chooseStop(w,'boss');

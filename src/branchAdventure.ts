@@ -47,7 +47,7 @@ function initialise(world: BranchWorld): Expeditions {
   const state=world.expeditions ??= { version:1,coins:0,bank:0,inventory:{pathfinder:1,totem:1},active:['pathfinder'],passive:[],cooldown:0,surveyCharges:0,autoTotem:true,routes:{},paid:[],drops:[],notice:'Starter kit: Pathfinder and one Return Totem. Banked coins are never lost.' };
   migrateBackpack(state);return state;
 }
-export function routeLength(depth: number) { return 5 + Math.floor(depth / 2); }
+export function routeLength(depth: number) { return 9 + Math.floor(depth / 2); }
 export function phaseCount(depth: number) { return 2 + Math.floor(depth / 4); }
 function makeRoute(world: BranchWorld, area: string,attempt=0,oldBoss?:number): AdventureRoute {
   const depth=world.areas[area].depth,length=routeLength(depth),random=seededRandom(`expedition-${world.createdAt}-${area}-${attempt}`);
@@ -55,7 +55,7 @@ function makeRoute(world: BranchWorld, area: string,attempt=0,oldBoss?:number): 
   const choices:StopKind[][]=[['board','danger'],['event','danger'],['shop','board'],['event','shop'],['bank','danger']];
   const stops:RouteStop[]=Array.from({length},(_,i)=>{
     let event=deck[i%deck.length];if(event==='crossroads'&&i>=length-3)event='cartographer';
-    return {options:i===0?['board']:i===length-1?['boss']:i===length-2?['bank']:attempt===0&&depth===0&&!world.expeditions?.treesReset?(i===1?['event','shop']:['board','danger']):[...choices[Math.floor(random()*choices.length)]],kind:null,phase:0,bought:[],event};
+    return {options:i===0?['board']:i===length-1?['boss']:i===length-2?['bank']:attempt===0&&depth===0&&!world.expeditions?.treesReset&&i<=2?(i===1?['event','shop']:['board','danger']):[...choices[Math.floor(random()*choices.length)]],kind:null,phase:0,bought:[],event};
   });
   const boss=oldBoss===undefined?Math.floor(random()*BOSSES.length):(oldBoss+1+Math.floor(random()*(BOSSES.length-1)))%BOSSES.length;
   return {area,depth,cursor:0,stops,attempt,complete:false,boss};
@@ -220,10 +220,12 @@ export function buyItem(input:BranchWorld,id:ItemId,replace:ItemId[]=[]):BranchW
  if(!receiveItems(s,[id],replace))return world;
  s.coins-=price;s.shopCoupon=0;stop.bought.push(id);s.notice=`Bought ${item.name} for ${price} coins.`;return world;
 }
-export function bankCoins(input:BranchWorld,direction:'deposit'|'withdraw'):BranchWorld {
+export function bankCoins(input:BranchWorld,direction:'deposit'|'withdraw',amount?:number):BranchWorld {
   const world=clone(input),s=world.expeditions;if(!s || stopFor(world)?.kind!=='bank' || s.pendingLoss || s.reward)return world;
-  if(direction==='deposit'){s.bank+=s.coins;s.coins=0;s.notice='All carried coins banked. They are safe from failure.';}
-  else {s.coins+=s.bank;s.bank=0;s.notice='Bank coins withdrawn. Carried coins are at risk again.';}return world;
+  const balance=direction==='deposit'?s.coins:s.bank,value=amount===undefined?balance:amount;
+  if(!Number.isSafeInteger(value)||value<=0||value>balance){s.notice='Choose a positive whole amount within your available gold balance. Nothing was transferred.';return world;}
+  if(direction==='deposit'){s.bank+=value;s.coins-=value;s.notice=`Deposited ${value} gold. Banked gold is safe from failure.`;}
+  else{s.coins+=value;s.bank-=value;s.notice=`Withdrew ${value} gold. Carried gold is at risk again.`;}return world;
 }
 export function equipItem(input:BranchWorld,id:ItemId,swap?:ItemId):BranchWorld {
  const world=clone(input),s=world.expeditions,item=ITEM[id];if(!s||!item||!s.inventory[id]||!['active','passive'].includes(item.kind))return world;

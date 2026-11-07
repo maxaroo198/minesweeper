@@ -15,7 +15,7 @@ try {
  let mobileLootChecked=false;
  const claim=async()=>{
   if(await p.locator('.branch-reward').isVisible()) {
-   if(!mobileLootChecked){await p.setViewportSize({width:390,height:844});assert.equal(await p.locator('.route-map-canvas').isVisible(),false,'loot is prominent instead of below the full graph');assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await p.screenshot({path:'.screenshots/branch-unified-loot-mobile.png',animations:'disabled'});mobileLootChecked=true;}
+   if(!mobileLootChecked){await p.setViewportSize({width:390,height:844});assert.equal(await p.locator('.route-map-canvas').isVisible(),true,'loot actions stay alongside the map');assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await p.screenshot({path:'.screenshots/branch-unified-loot-mobile.png',animations:'disabled'});mobileLootChecked=true;}
    const magnet=p.getByRole('button',{name:'Take Treasure Magnet',exact:true});
    if(await magnet.isVisible())await magnet.click();else await p.getByRole('button',{name:/Take \d+ coins instead/}).click();
    await p.setViewportSize({width:1440,height:1100});
@@ -25,7 +25,7 @@ try {
  await p.locator('.mode-card-zen').click();
  assert.ok(await p.getByRole('dialog',{name:'Branch route map',exact:true}).isVisible(),'Branch is the route, not opt-in');
  assert.equal(await p.getByRole('button',{name:'Begin expedition in this limb',exact:true}).count(),0);
- assert.equal(await p.locator('.atlas-node').count(),7);
+ assert.equal(await p.locator('.atlas-node').count(),15);
  await p.getByRole('button',{name:'Minefield · stop 1 · available',exact:true}).click();
  await p.getByRole('button',{name:'Enter minefield',exact:true}).click();
  await p.getByRole('button',{name:/Backpack ·/}).click();await p.getByRole('checkbox',{name:/Automatically use Return Totems/}).uncheck();await p.getByRole('button',{name:'Close backpack',exact:true}).click();
@@ -46,9 +46,11 @@ try {
  w=await world();let r=w.expeditions.routes[w.current],b=r.stops[r.cursor].board;
  for(const i of b.cells.flatMap((c,i)=>!c.mine?[i]:[]))if(await p.locator('.tile').nth(i).isEnabled())await p.locator('.tile').nth(i).click();
  await p.locator('.route-map-modal').waitFor();await advance();
- await p.getByRole('button',{name:'Bank shelter · stop 4 · available',exact:true}).click();
+ while((await world()).expeditions.routes['0'].cursor<7){const route=(await world()).expeditions.routes['0'],cursor=route.cursor,kind=['board','danger','shop','bank','event'].find(k=>route.stops[cursor].options.includes(k)),label={board:'Minefield',danger:'Danger route',shop:'Trading post',bank:'Bank shelter',event:'Trail event'}[kind];await p.getByRole('button',{name:`${label} · stop ${cursor+1} · available`,exact:true}).click();if(['board','danger'].includes(kind)){await p.getByRole('button',{name:'Enter minefield',exact:true}).click();await clear();await advance();}else await p.getByRole('button',{name:kind==='shop'?'Leave trading post':kind==='bank'?'Continue from shelter':'Move on without taking an offer',exact:true}).click();}
+
+ await p.getByRole('button',{name:'Bank shelter · stop 8 · available',exact:true}).click();
  await p.getByRole('button',{name:'Bank all carried coins',exact:true}).click();const bank=(await world()).expeditions.bank;assert.ok(bank>0);
- await p.getByRole('button',{name:'Continue from shelter',exact:true}).click();await p.getByRole('button',{name:'Boss gate · stop 5 · available',exact:true}).click();
+ await p.getByRole('button',{name:'Continue from shelter',exact:true}).click();await p.getByRole('button',{name:'Boss gate · stop 9 · available',exact:true}).click();
  await p.getByRole('button',{name:'Start announced phase 1',exact:true}).click();await clear();await advance();
  assert.match(await p.locator('.expedition-boss').innerText(),/Phase 2 \/ 2/);
  await p.getByRole('button',{name:'Start announced phase 2',exact:true}).click();await p.locator('.tile').nth(40).click();
@@ -62,7 +64,7 @@ try {
  assert.notEqual((await world()).createdAt,w.createdAt,'root failure replaces the overall tree');
  assert.equal((await world()).expeditions.bank,bank);
  // Walk a freshly generated route rather than assuming the failed route is reused.
- for(let step=0;step<24;step++){
+ for(let step=0;step<40;step++){
   await claim();const current=await world(),route=current.expeditions.routes[current.current];if(route.complete)break;
   const stop=route.stops[route.cursor];
   if(!stop.kind){const kind=['board','danger','shop','bank','event','boss'].find(k=>stop.options.includes(k));const label={board:'Minefield',danger:'Danger route',shop:'Trading post',bank:'Bank shelter',event:'Trail event',boss:'Boss gate'}[kind];await p.getByRole('button',{name:`${label} · stop ${route.cursor+1} · available`,exact:true}).click();continue;}
