@@ -3,7 +3,7 @@ import {chromium} from '@playwright/test';
 import ts from 'typescript';import {readFileSync,writeFileSync,mkdtempSync,rmSync} from 'node:fs';import {join} from 'node:path';import {tmpdir} from 'node:os';import {pathToFileURL} from 'node:url';
 const dir=mkdtempSync(join(tmpdir(),'design-ui-'));let browser;
 try{
- for(const n of ['game','branch','branchAdventure'])writeFileSync(join(dir,`${n}.mjs`),ts.transpileModule(readFileSync(new URL(`../src/${n}.ts`,import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '\.\/([A-Za-z]+)'/g,"from './$1.mjs'"));
+ for(const n of ['game','branch','branchEvents','branchAdventure'])writeFileSync(join(dir,`${n}.mjs`),ts.transpileModule(readFileSync(new URL(`../src/${n}.ts`,import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '\.\/([A-Za-z]+)'/g,"from './$1.mjs'"));
  const load=n=>import(pathToFileURL(join(dir,`${n}.mjs`)).href),a=await load('branchAdventure'),b=await load('branch');
  let fixture=a.startEncounter(a.chooseStop(a.unifyBranch(b.newWorld()),'board'));a.stopFor(fixture).variant=undefined;fixture.expeditions.inventory.survey=1;fixture.expeditions.surveyCharges=3;fixture=a.equipItem(fixture,'survey');
  browser=await chromium.launch({args:['--no-sandbox']});const p=await browser.newPage({viewport:{width:1440,height:1100}}),errors=[];

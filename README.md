@@ -54,6 +54,26 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
 - No accounts, advertising, or analytics. Public Classic/Blitz scores optionally use Firebase.
 - Leaderboards exist only for Classic and Blitz. Failed submissions remain in a device-local retry queue; the public board shows the latest confirmed submission separately from the fastest 20.
 
+## Backpack and fresh routes — v1.6.0
+
+Branch now has a **six-space backpack** (each individual stored item counts), separate **2 active / 3
+passive** equipment slots, full-capacity equipment swaps, bank discards and explicit full-loot
+replacement. Hover a tool/passive or tap its separate information button for its description.
+Old excess items are preserved in legacy bank storage; nothing is silently deleted.
+
+An unprotected **root failure resets the entire tree on Continue, even after deeper progress**.
+Deeper failures retain the tree/fallback and regenerate the failed route on retry. Totems preserve the
+board/route and protect coins. Remaining wallet, bank and kit survive either reset. Fresh routes earn
+fresh one-time rewards; reloads do not reroll routes. Same-tree pouch recovery remains 10% once per
+eligible return. Retired-root pouches cannot recover into a different tree.
+
+**19 events** now include parcel delivery, tool tuning, cooldown repair, bank/route choices, supplied
+clues, optional clear goals and temporary flag/chord/fog restrictions—not just renamed coin gambles.
+There is always a free move-on choice. See **BRANCH-EXPEDITIONS.md** for exact effects and capacity rules.
+This is not the full boss/item expansion: **3 bosses, 11 existing item types plus courier parcel**.
+Android v1.6.0/code 11; all eight modes and the approved style retained. **No Firestore rules, indexes,
+database migration or Firebase deployment required.** Actual native upgrade/device checks still needed.
+
 ## Approved dark redesign — v1.5.0
 
 The approved familiar layout is now in the real app: charcoal panels, orange accents, compact counters,
@@ -75,7 +95,7 @@ without consuming another charge. All shop item prices have increased; existing 
 This release implements the approved design and these core changes, **not the larger content expansion**.
 The roster remains **11 item types and 3 bosses**. No new Firestore rules, indexes or database-side changes.
 
-## Unified Branch (v1.4.0)
+## Unified Branch (v1.4.0 historical overview; v1.6 retry rules above supersede it)
 
 Enter **Branch** to open its visual route map. Choose an encounter, play its minefield or make its decision, claim any milestone loot, then choose the next path. Finish the phased boss to grow harder limbs. The existing Branch map button reopens the same map; **Whole tree** lets you revisit open limbs. There is no separate “Begin adventure” switch or plain-board bypass.
 

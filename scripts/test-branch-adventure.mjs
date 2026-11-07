@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 const dir=mkdtempSync(join(tmpdir(),'branch-adventure-'));
 try {
-  for(const name of ['game','branch','branchAdventure']) {
+  for(const name of ['game','branch','branchEvents','branchAdventure']) {
     const source=readFileSync(new URL(`../src/${name}.ts`,import.meta.url),'utf8');
     const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '\.\/([A-Za-z]+)'/g,"from './$1.mjs'");
     writeFileSync(join(dir,`${name}.mjs`),js);
@@ -52,8 +52,8 @@ try {
   assert.equal(a.routeFor(out.world).attempt,1);
   let rolls=0;
   let returned=a.continueAfterLoss(out.world,()=>{rolls++;return .099;});
-  assert.equal(rolls,1);assert.equal(returned.expeditions.coins,200);assert.ok(returned.expeditions.drops[0].recovered);
-  returned=a.enterExpedition(returned,'0',()=>{rolls++;return 0;});assert.equal(rolls,1,'same return/reload cannot reroll or duplicate recovered money');
+  assert.equal(rolls,0,'retired root pouches do not recover into the new tree');assert.equal(returned.expeditions.coins,180);assert.ok(!returned.expeditions.drops[0].recovered);assert.notEqual(returned.createdAt,out.world.createdAt);
+  returned=a.enterExpedition(returned,'0',()=>{rolls++;return 0;});assert.equal(rolls,0,'same return/reload cannot reroll or duplicate recovered money');
   const max=a.settleMove(w,b,lost,()=>.99999);
   assert.equal(max.world.expeditions.coins,0,'maximum loss is 100%');assert.equal(max.world.expeditions.bank,500);
   const miss=a.continueAfterLoss(max.world,()=>.1);

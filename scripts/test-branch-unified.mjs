@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';import {join} from 'node:path';import {pathToFile
 const dir=mkdtempSync(join(tmpdir(),'branch-unified-'));
 const originalRandom=Math.random,originalNow=Date.now;Math.random=()=>.5;Date.now=()=>1794070000000;
 try{
- for(const n of ['game','branch','branchAdventure'])writeFileSync(join(dir,`${n}.mjs`),ts.transpileModule(readFileSync(new URL(`../src/${n}.ts`,import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '\.\/([A-Za-z]+)'/g,"from './$1.mjs'"));
+ for(const n of ['game','branch','branchEvents','branchAdventure'])writeFileSync(join(dir,`${n}.mjs`),ts.transpileModule(readFileSync(new URL(`../src/${n}.ts`,import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.ESNext}}).outputText.replace(/from '\.\/([A-Za-z]+)'/g,"from './$1.mjs'"));
  const load=n=>import(pathToFileURL(join(dir,`${n}.mjs`)).href);const g=await load('game'),b=await load('branch'),a=await load('branchAdventure');
  const start=w=>a.startEncounter(a.chooseStop(w,'board'));
  const initial=b.newWorld(),snapshot=JSON.stringify(initial);let w=a.unifyBranch(initial);assert.equal(JSON.stringify(initial),snapshot);assert.ok(a.routeFor(w));assert.equal(w.createdAt,initial.createdAt);
@@ -67,7 +67,7 @@ try{
   let x=a.expeditionBoard(v),r=a.settleMove(v,x,g.reveal(x,40).state);v=r.world;x=r.board;
   r=a.useAbility(v,x,'survey');v=r.world;x=r.board;assert.equal(v.expeditions.surveyCharges,2);assert.ok(x.cells.some(c=>c.scanned!==null));
   const mine=x.cells.findIndex(c=>c.mine);r=a.settleMove(v,x,g.reveal(x,mine).state,()=>.5);v=r.world;
-  v=a.continueAfterLoss(JSON.parse(JSON.stringify(v)),()=>.5);if(!protectedRun)v=a.startEncounter(v);
+  v=a.continueAfterLoss(JSON.parse(JSON.stringify(v)),()=>.5);if(!protectedRun)v=a.startEncounter(a.chooseStop(v,'board'));
   x=a.expeditionBoard(v);assert.ok(x);assert.equal(v.expeditions.surveyCharges,2);assert.equal(x.cells.filter(c=>c.scanned!==null).length,0,'no free or restored active scans after Continue');
   const saved=JSON.parse(JSON.stringify(v));assert.equal(a.expeditionBoard(a.unifyBranch(saved)).cells.filter(c=>c.scanned!==null).length,0,'reload also cannot reapply a tool');
  }

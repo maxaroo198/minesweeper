@@ -1,3 +1,83 @@
+# v1.6.0 — Backpack, failure generations and meaningful events
+
+## Backpack and descriptions
+
+Open **Backpack · N/6** beside the Branch wallet, or **Open backpack** in a route encounter.
+Every stored physical item uses one of six spaces, including each ration, totem and courier parcel.
+Your two equipped actives and three equipped passives do not use these spaces. Lantern charges,
+shop vouchers and permanent Pouch Upgrades are counters, not physical objects. Unequipping needs
+an empty bag space; swapping a stored tool/passive for an equipped one works with a full bag.
+Charges and cooldowns remain unchanged by equipment transfers. Hover a tool/passive or tap its
+separate **i** button to read it without activating anything. Backpack cards also show descriptions.
+
+At a bank, **Discard permanently** asks for confirmation and removes one stored item without payment.
+Before taking full-bag loot, an event gift or a shop purchase, open **Choose stored items to replace
+permanently**, select enough individual spaces, then take the offer. Equipped items are never removed.
+Only necessary, valid replacement transactions are applied; if the incoming offer fits without swaps,
+checked items are retained. If it still does not fit, no items, coins, trades, vouchers or rewards are consumed.
+New equipment auto-equips for a relic reward if a matching slot is free; other acquisitions normally go
+in the bag, using a free matching equipment slot as a fallback if the bag is full. Repeated Lantern
+purchases refill charges without adding another physical Lantern. Permanent upgrades need no space.
+
+Old saves with more than six off-equipped objects move surplus to **legacy bank storage**. Nothing is
+deleted: collect one at a time at any bank, or explicitly discard stored surplus there. Do not clear data.
+
+## Failure and replay
+
+A mine hit remains visible until explicit **Continue**, including after See the board or restarting.
+Unprotected losses still take a rolled 10–100% of carried coins (rounded up), never banked coins.
+- **Root / Limb 0:** Continue replaces the entire tree, even if it had deeper descendants. Keep bank,
+  remaining carried coins, kit, charges, upgrades and vouchers. Old-tree pouches remain recorded as
+  retired and cannot be recovered by revisiting the new root with the same textual limb ID.
+- **Deeper limb:** keep the overall tree, earlier progress and normal open-sibling/ancestor fallback.
+  That limb is marked for a fresh route; retrying it once it is unlocked generates fresh choices,
+  encounters, minefields and a different boss. Reopened completed ancestors generate fresh routes too.
+  The existing 10% pouch-recovery check runs once per eligible same-tree return, not on map/reload.
+- **Return Totem:** consumes a totem, protects money and preserves this exact board and route. Continue
+  flags the hit; spent active-tool scans remain spent, while supplied camp clues use their own metadata.
+
+Route generations and reward ledgers are saved. Reload/map open never produces a fresh generation.
+Each generated route pays its own encounters once; fresh retry routes can earn fresh rewards.
+
+## Event catalogue (19)
+
+Original trailkeeper, protection/recharge shrine and fixed-outcome chest remain. Added encounters:
+- **Courier depot:** take a physical parcel, redeem at a bank for 60 banked coins, or take 12 now.
+- **Survey desk:** five supplied clues in the next combat, or two stored Lantern charges.
+- **Flag-free passage:** no manual flags next combat for +35 clear coins, or eight coins now.
+- **Sealed tools gate:** no chording next combat for +30, or two supplied safe clues instead.
+- **Clear-action wager:** stake 20; +55 on the next clear within 24 reveal actions, or take eight now.
+- **Smoked-glass tunnel:** 25% fog on newly revealed numbered clues next combat for +35, or a ration.
+- **Tool repair bench:** shorten either Pathfinder's or Seam Breaker's cooldown by two clears.
+- **Totem carver:** exchange two rations for a totem, or buy one for 45 coins.
+- **Quartermaster:** buy two rations for 25, or four stored Lantern charges for 20.
+- **Unassisted-clear record:** optional +30 next clear with no active-tool use, or take ten now.
+- **Abandoned supplies:** choose one totem or two individual rations.
+- **Mine-marking challenge:** optional +30 for at least three correctly flagged mines next combat,
+  or two supplied clues instead. Incorrect flags do not count.
+- **Tool tuning bench:** next combat's manual Pathfinder opens up to five safe cells per use, or
+  the equipped Lantern marks up to eight safe clues per charge. No free charge or activation.
+- **Trader's offer:** a non-stacking one-purchase 30% voucher (combines with Charm), or 12 coins now.
+- **Route survey:** change the next undecided optional stop to bank/minefield or event/danger.
+  It cannot remove the mandatory bank or boss gate.
+- **Chording lesson:** optional +30 for two successful chords in the next combat, or a Lantern charge.
+
+Event descriptions and buttons disclose restrictions, costs and payouts. You can move on for free
+without taking either offer; passed events cannot later be claimed in the same route. Optional goal
+failure does not lose a board. Effects apply to the next combat/first boss phase only, are saved on its
+stop, and persist through protected Continue. Multiple prepared effects combine; supplied-clue counts
+and tuning take the stronger amount. The current/next modifier is visible in the HUD/route screen.
+Stacked optional goals pay independently: failing one does not cancel a different completed bonus.
+Events don't auto-activate abilities. Fog only affects new numbered reveals; existing numbers remain.
+
+This update does not implement the large item/boss roster: the 11 existing item types plus parcel and
+3 bosses are present. All eight modes and the approved v1.5 design remain. **No Firestore rules,
+indexes, database migrations or Firebase deployment are required.** Local saves remain per-device.
+
+---
+
+## Historical release notes (superseded where v1.6 rules differ)
+
 # v1.5.0 interface and active-tool update
 
 Selecting a node opens a focused encounter screen with a fade. Use Route overview to inspect the map again.

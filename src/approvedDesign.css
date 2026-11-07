@@ -63,3 +63,39 @@
 
 [data-theme="dark"] .sidebar-promo,[data-theme="dark"] .progress-strip{background:#252a31;border-color:#393f48}
 [data-theme="dark"] .progress-icon{background:#ff885d15;color:#ff9d76}
+
+/* Six physical backpack spaces, separate equipment, and touch-accessible descriptions. */
+.item-with-info {position:relative;min-width:0}
+.item-info-button {display:inline-grid;place-items:center;min-width:36px;min-height:36px;border:1px solid var(--border);border-radius:50%;background:var(--panel);color:var(--text);font-weight:800;font-style:italic;cursor:pointer}
+.item-tooltip {display:none;position:absolute;z-index:160;left:0;bottom:calc(100% + 7px);width:min(280px,calc(100vw - 60px));padding:13px;border:1px solid #f29a4b;border-radius:12px;background:#22262d;color:#f5f5f5;box-shadow:0 8px 25px #0008;font-size:13px;line-height:1.45;text-align:left;pointer-events:none}
+.item-tooltip p {margin:6px 0 0!important;color:#d7d9dd!important}
+.item-with-info:focus-within>.item-tooltip,.item-tooltip-open {display:block}
+@media(hover:hover){.item-with-info:hover>.item-tooltip{display:block}}
+.active-tool-with-info {flex:1;display:flex;align-items:center;gap:5px}
+.active-tool-with-info .branch-active-tool {flex:1;min-width:0;width:100%}
+.active-tool-with-info:last-child>.item-tooltip {left:auto;right:0}
+.equipped-passives {display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.passive-item {display:flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:12px;padding:4px 8px;font-size:12px}
+.backpack-backdrop {position:fixed;inset:0;z-index:200;background:#080a0edc;display:grid;place-items:center;padding:18px;overscroll-behavior:contain}
+.backpack-dialog.expedition-inventory {width:min(780px,100%);max-height:calc(100dvh - 36px);overflow-y:auto;overscroll-behavior:contain;background:#1c1f24;color:#eee;border:1px solid #444951;border-radius:20px;padding:20px;box-shadow:0 18px 80px #000a;margin:0;position:relative}
+.backpack-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:10px 0 18px}
+.backpack-card,.backpack-empty {border:1px solid #3c414a;border-radius:12px;padding:14px;min-width:0}
+.backpack-card h4 {padding-right:32px;margin-top:7px}
+.backpack-card>.item-info-button {position:absolute;top:9px;right:9px}
+.backpack-card>.item-tooltip {bottom:auto;top:43px}
+.backpack-card:nth-child(even)>.item-tooltip {left:auto;right:0}
+.backpack-card p {font-size:13px;line-height:1.5;color:#b9bec6}
+.backpack-empty {display:grid;place-items:center;min-height:75px;border-style:dashed;color:#9298a3;font-size:13px}
+.backpack-swap-actions {display:grid;gap:7px}
+.backpack-dialog button,.loot-replacement label {min-height:44px}
+.legacy-storage-row {display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.loot-replacement {border:1px solid #4d5158;border-radius:12px;padding:12px;margin:10px 0 14px;max-width:100%}
+.loot-replacement summary {cursor:pointer;min-height:35px;font-size:13px;font-weight:700}
+.loot-replacement label {display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer}
+.loot-replacement input {width:20px;height:20px;accent-color:#f29a4b}
+.event-modifier {color:#f1b776!important;font-weight:600}
+.backpack-dialog .danger-text {color:#f5a2a2}
+@media(max-width:560px){.backpack-backdrop{padding:8px}.backpack-dialog.expedition-inventory{padding:14px;max-height:calc(100dvh - 16px)}.backpack-grid{grid-template-columns:1fr}.backpack-card:nth-child(even)>.item-tooltip{left:0;right:auto}.active-tool-with-info{gap:3px}.active-tool-with-info .item-info-button{min-width:32px;min-height:40px}.expedition-abilities .ability-buttons{flex-wrap:wrap}.active-tool-with-info{flex-basis:calc(50% - 8px)}}
+
+.backpack-dialog>.expedition-stop-title{position:sticky;top:-20px;z-index:170;background:#1c1f24;padding:8px 0;border-bottom:1px solid #3c414a;margin-bottom:14px}
+@media(max-width:560px){.backpack-dialog>.expedition-stop-title{top:-14px}}

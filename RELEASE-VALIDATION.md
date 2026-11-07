@@ -1,3 +1,30 @@
+# Branch backpack and replay update — v1.6.0
+
+Validation for this release includes TypeScript, production build, randomized base-engine tests,
+Branch economy/unification tests and a new backpack/event/generation suite. The latter checks
+six individual spaces excluding equipment, full-slot swaps, blocked unequip, atomic shop/reward/event
+acquisitions, valid/invalid and multi-item replacements, no unnecessary deletion, bank-only discard,
+lossless one-time legacy migration, bank collection, parcels, all 38 event offers, safe event skip,
+actual goal rewards and unmet goals, supplied clues, tuning, vouchers and route edits. It checks
+root reset after prior descendants, preserved wallet/bank/kit, explicit loss acknowledgement,
+totem board/route preservation, deeper route/new-boss generation, same-tree recovery and no reload reroll.
+
+The full browser runner retains all eight-mode, persistence, approved-design, public-ranking,
+route-map/keyboard and See board → Continue → open sibling regressions. A new mobile/browser suite
+checks full-loot replacement, individual six-slot display, full equipment swaps, confirmed bank discard,
+nested-modal Escape/focus behavior, desktop hover/mobile information tap without activation, overflow
+at 390px, and a real event's flag restriction. Simulated Android/desktop browser persistence is not
+native lifecycle validation. Source download/mobile/Android-dialog and version gates are checked
+after refreshing the embedded source archive. The release gate uses placeholder Firebase variables,
+not live credentials. No native installers, real-device audio/lifecycle/upgrades or live Firebase posts
+were tested; build with the existing signing key and app IDs, without uninstalling or clearing saves.
+
+**No Firestore rules, indexes, database changes or Firebase deployment required.** No assistant push
+or release. Content scope is 19 event types, the existing 11 item types plus parcel, and 3 bosses—not
+the requested large future boss/item roster.
+
+## Previous validation record
+
 # Approved real-app design — v1.5.0
 
 TypeScript, production build, 240 randomized engine games, Branch economy/unification tests, public-score

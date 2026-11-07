@@ -26,7 +26,7 @@ import type { BranchWorld } from './branch';
 import BranchExpeditionPanel, {BranchAbilityBar} from './BranchExpeditionPanel';
 import BranchRouteMap, { RouteIcon } from './BranchRouteMap';
 import type { ExpeditionAction } from './BranchExpeditionPanel';
-import { unifyBranch, claimReward, enterExpedition, expeditionBoard, routeFor, stopFor, inExpedition, rulesFor, chooseStop, startEncounter, finishStop, buyItem, bankCoins, equipItem, toggleProtection, useRation, useAbility, settleMove, saveBoard, continueAfterLoss } from './branchAdventure';
+import { unifyBranch, claimReward, enterExpedition, expeditionBoard, routeFor, stopFor, inExpedition, rulesFor, chooseStop, startEncounter, finishStop, buyItem, bankCoins, equipItem, toggleProtection, useRation, discardItem, recoverStoredItem, deliverParcel, cacheKey, useAbility, settleMove, saveBoard, continueAfterLoss } from './branchAdventure';
 import type { ItemId, StopKind } from './branchAdventure';
 import { playerName, publicBoardEnabled, setPlayerName, submitPublicScore, topPublicScores, lastPublicPostError, latestPublicSubmission } from './publicBoard';
 import type { PublicScore } from './publicBoard';
@@ -565,16 +565,19 @@ function App() {
     if (next.id !== game.id) recorded.current = '';
     setGame(next); setShowPreview(false); setNow(Date.now());
   };
-  const adventureAction = (action: ExpeditionAction, value?: string) => {
+  const adventureAction = (action: ExpeditionAction, value?: string, replace:ItemId[]=[]) => {
     if (!branchWorld) return;
     let world = branchWorld;
-    if (action === 'reward') world = claimReward(world, value ?? 'coins');
+    if (action === 'reward') world = claimReward(world, value ?? 'coins',replace);
     else if (action === 'choose') world = chooseStop(world, value as StopKind);
     else if (action === 'start') world = startEncounter(world);
-    else if (action === 'leave' || action === 'gift' || action === 'coins') world = finishStop(world, action);
-    else if (action === 'buy') world = buyItem(world, value as ItemId);
+    else if (action === 'leave' || action === 'gift' || action === 'coins') world = finishStop(world, action,replace);
+    else if (action === 'buy') world = buyItem(world, value as ItemId,replace);
     else if (action === 'deposit' || action === 'withdraw') world = bankCoins(world, action);
-    else if (action === 'equip') world = equipItem(world, value as ItemId);
+    else if (action === 'equip') world = equipItem(world, value?.split('|')[0] as ItemId,value?.split('|')[1] as ItemId);
+    else if(action==='discard'&&value) world=discardItem(world,value.replace('reserve:','') as ItemId,value.startsWith('reserve:'));
+    else if(action==='recover'&&value) world=recoverStoredItem(world,value as ItemId);
+    else if(action==='deliver') world=deliverParcel(world);
     else if (action === 'protect') world = toggleProtection(world);
     else if (action === 'ration') world = useRation(world);
     else if (action === 'ability') {
@@ -626,7 +629,7 @@ function App() {
       if (branchWorld.expeditions?.reward) {notify('Choose your reward on the map first.');setMapOpen(true);return;}
       if (!inExpedition(branchWorld)) return;
       if (!stopFor(branchWorld)?.board) { notify('Choose a route stop and enter its minefield first.'); return; }
-      if (game.cells[index]?.revealed && rulesFor(branchWorld).noChord) { notify('This boss phase seals chording.'); return; }
+      if (game.cells[index]?.revealed && rulesFor(branchWorld).noChord) { notify('This encounter seals chording.'); return; }
     }
     if (timeLimit !== null && game.startedAt !== null && Date.now() >= game.startedAt + timeLimit * 1000) { setGame({ ...game, status: 'lost', finishedAt: game.startedAt + timeLimit * 1000 }); feel('lose'); return; }
     if (handleScan(index)) return;
@@ -684,7 +687,7 @@ function App() {
     if (game.mode === 'zen' && branchWorld && inExpedition(branchWorld)) {
       if (!stopFor(branchWorld)?.board) return;
       const rules = rulesFor(branchWorld);
-      if (rules.noFlags) { notify('This boss phase seals flags.'); return; }
+      if (rules.noFlags) { notify('This encounter seals flags.'); return; }
       if (rules.halfFlags && !game.cells[index].flagged && flags >= Math.floor(game.mines / 2)) { notify('This boss phase permits only half the mine count in flags.'); return; }
     }
     if (flagsLocked) { notify('No flags today — this daily is pure deduction.'); return; }
@@ -844,7 +847,7 @@ function App() {
                       const isFresh = !!revealFx && Object.prototype.hasOwnProperty.call(revealFx.wave, index) && !showPreview;
                       const delay = isFresh ? Math.min(wave ?? 0, 12) * 34 : 0;
                       const campClue = game.mode==='zen'&&branchWorld&&!cell.revealed&&!cell.flagged&&stopFor(branchWorld)?.campClues?.includes(index);
-                      const safeCache = game.mode==='zen' && branchWorld && !cell.revealed && !cell.flagged && stopFor(branchWorld)?.caches?.includes(index) && !branchWorld.expeditions?.paid.includes(`${branchWorld.current}:${routeFor(branchWorld)?.cursor}:cache:${stopFor(branchWorld)!.caches!.indexOf(index)}`);
+                      const safeCache = game.mode==='zen' && branchWorld && !cell.revealed && !cell.flagged && stopFor(branchWorld)?.caches?.includes(index) && !branchWorld.expeditions?.paid.includes(cacheKey(branchWorld,stopFor(branchWorld)!.caches!.indexOf(index)));
                       const expanding = isFresh && revealFx!.opened.length > 2;
                       return <button key={index} className={`tile ${cell.revealed ? 'revealed' : 'covered'} ${cell.flagged ? 'flagged' : ''} ${cell.exploded ? 'exploded' : ''} ${exposedMine ? 'mine-visible' : ''} ${wrongFlag ? 'wrong-flag' : ''} ${cell.hidden ? 'fogged' : ''} ${cell.scanned !== null && !cell.revealed ? 'scanned' : ''} ${tideFx && tideFx.moved.includes(index) ? 'tide-moved' : ''} ${isFresh ? (expanding ? 'tile-expanded' : 'tile-popped') : ''} number-${cell.hidden ? 0 : cell.adjacent}`} style={isFresh ? { animationDelay: `${delay}ms`, '--wave': wave ?? 0 } as CSSProperties : undefined} aria-label={`Row ${Math.floor(index / game.cols) + 1}, column ${index % game.cols + 1}: ${campClue ? `camp-supplied clue, ${cell.adjacent} adjacent mines` : safeCache ? 'safe crystal cache, open for coins and a safe burst' : cell.flagged ? 'flagged' : exposedMine ? 'mine' : cell.hidden ? 'open, number lost to the mist' : cell.revealed ? `${cell.adjacent || (game.mode === 'riptide' ? '0 adjacent mines' : 'empty')}${cell.adjacent ? ' adjacent mines' : ''}` : cell.scanned !== null ? cell.scanned === -1 ? 'scanned, unknown' : `scanned, ${cell.scanned} adjacent mines` : 'covered'}`} onClick={() => { if (longPressed.current) { longPressed.current = false; return; } handleReveal(index); }} onContextMenu={e => { e.preventDefault(); handleFlag(index); }} onPointerDown={e => { if (e.pointerType !== 'mouse' && !isFinished) { longPressed.current = false; longPress.current = setTimeout(() => { handleFlag(index); longPressed.current = true; }, 420); } }} onPointerUp={() => { if (longPress.current) clearTimeout(longPress.current); }} onPointerCancel={() => { if (longPress.current) clearTimeout(longPress.current); }} onPointerLeave={() => { if (longPress.current) clearTimeout(longPress.current); }} onKeyDown={e => { if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey) { e.stopPropagation(); handleFlag(index); } }} disabled={isFinished}>{campClue ? <span className="camp-clue" title="Camp supply, not an activated ability">{cell.adjacent}</span> : safeCache ? <span className="branch-crystal" title="Safe crystal cache — open to burst nearby safe tiles">◆</span> : cell.flagged ? <span className="flag-marker"><Flag size={15} fill="currentColor" /></span> : exposedMine ? <span className="mine-marker"><BrandMark /></span> : cell.revealed && cell.hidden ? <span className="fog-marker"><Moon size={13} /></span> : cell.revealed && cell.adjacent > 0 ? <span className="number-marker">{cell.adjacent}</span> : !cell.revealed && cell.scanned !== null ? <span className="scan-marker"><ScanSearch size={11} />{cell.scanned === -1 ? '?' : cell.scanned}</span> : wrongFlag ? <X size={17} /> : null}{isFresh && expanding && <span className="tile-ripple" aria-hidden="true" />}</button>;
                     })}

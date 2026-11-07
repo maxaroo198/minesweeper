@@ -14,9 +14,9 @@ try {
   await p.locator('.mode-card-zen').click();
   await p.getByRole('button',{name:'Minefield · stop 1 · available',exact:true}).click();
   await p.getByRole('button',{name:'Enter minefield',exact:true}).click();
-  await p.getByRole('button',{name:/Inventory ·/}).click();
-  await p.getByRole('checkbox',{name:/Use a Return Totem/}).uncheck();
-  await p.getByRole('button',{name:'Close inventory',exact:true}).click();
+  await p.getByRole('button',{name:/Backpack ·/}).click();
+  await p.getByRole('checkbox',{name:/Automatically use Return Totems/}).uncheck();
+  await p.getByRole('button',{name:'Close backpack',exact:true}).click();
   await p.locator('.tile').nth(40).click();
   const mine = await p.evaluate(() => JSON.parse(localStorage.getItem('minefield-zen-v1')).expeditions.routes['0'].stops[0].board.cells.findIndex(c=>c.mine));
   await p.locator('.tile').nth(mine).click();

@@ -3,8 +3,8 @@ import type {BranchWorld} from './branch';
 import type {BoardState} from './game';
 import BranchExpeditionPanel from './BranchExpeditionPanel';
 import type {ExpeditionAction} from './BranchExpeditionPanel';
-import {BOSSES,routeFor,variantFor} from './branchAdventure';
-import type {StopKind} from './branchAdventure';
+import {BOSSES,routeFor,variantFor,eventFor} from './branchAdventure';
+import type {ItemId,StopKind} from './branchAdventure';
 
 /** Original inline vector icons: no external fonts, art downloads or image dependencies. */
 export function RouteIcon({kind,size=32}:{kind:StopKind|'limb';size?:number}) {
@@ -18,8 +18,8 @@ export function RouteIcon({kind,size=32}:{kind:StopKind|'limb';size?:number}) {
     {kind==='limb'&&<><path d="M11 34V16c0-8 13-3 13-12M11 24c0-10 20-2 20-13"/><circle cx="11" cy="34" r="3"/><circle cx="24" cy="4" r="3"/><circle cx="31" cy="10" r="3"/></>}
   </svg>;
 }
-const LABEL:Record<StopKind,string>={board:'Minefield',danger:'Danger route',event:'Trailkeeper',shop:'Trading post',bank:'Bank shelter',boss:'Boss gate'};
-interface Props {world:BranchWorld;game:BoardState;act:(action:ExpeditionAction,value?:string)=>void;onClose:()=>void;onTree:()=>void;onContinue:()=>void}
+const LABEL:Record<StopKind,string>={board:'Minefield',danger:'Danger route',event:'Trail event',shop:'Trading post',bank:'Bank shelter',boss:'Boss gate'};
+interface Props {world:BranchWorld;game:BoardState;act:(action:ExpeditionAction,value?:string,replace?:ItemId[])=>void;onClose:()=>void;onTree:()=>void;onContinue:()=>void}
 export default function BranchRouteMap({world,game,act,onClose,onTree,onContinue}:Props) {
   const route=routeFor(world),pending=world.expeditions?.pendingLoss;
   const viewport=useRef<HTMLDivElement>(null),close=useRef<HTMLButtonElement>(null),dialog=useRef<HTMLDivElement>(null);
@@ -56,7 +56,7 @@ export default function BranchRouteMap({world,game,act,onClose,onTree,onContinue
             <g transform="translate(-16,-16)"><RouteIcon kind={n.kind}/></g>
             {n.done&&n.chosen&&<g transform="translate(24,-25)"><circle r="9" fill="#d9c894"/><path d="m-4 0 3 3 5-6" stroke="#15221d" strokeWidth="2" fill="none"/></g>}
             {n.available&&<circle r="43" className="atlas-active-ring"/>}
-            <text y="62" textAnchor="middle" className="atlas-node-label">{LABEL[n.kind]}</text>{(n.kind==='board'||n.kind==='danger')&&<text y="79" textAnchor="middle" className="atlas-variant-label">{({crystal:'Crystal seams',surveyed:'Survey camp',bounty:'Bounty field',narrow:'Long crossing'})[route!.stops[n.index].variant??variantFor({...world,expeditions:{...world.expeditions!,routes:{...world.expeditions!.routes,[world.current]:{...route!,cursor:n.index}}}},n.kind)]}</text>}
+            <text y="62" textAnchor="middle" className="atlas-node-label">{n.kind==='event'?eventFor(route!.stops[n.index].event,world).name:LABEL[n.kind]}</text>{(n.kind==='board'||n.kind==='danger')&&<text y="79" textAnchor="middle" className="atlas-variant-label">{({crystal:'Crystal seams',surveyed:'Survey camp',bounty:'Bounty field',narrow:'Long crossing'})[route!.stops[n.index].variant??variantFor({...world,expeditions:{...world.expeditions!,routes:{...world.expeditions!.routes,[world.current]:{...route!,cursor:n.index}}}},n.kind)]}</text>}
           </g>;
         })}
         {!route&&<g transform={`translate(${width/2},180)`}><g transform="translate(-26,-40)"><RouteIcon kind="limb" size={52}/></g><text textAnchor="middle" y="40" className="atlas-empty">An uncharted limb</text><text textAnchor="middle" y="64" className="atlas-empty-sub">Open the whole tree to find your next limb.</text></g>}

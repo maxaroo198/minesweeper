@@ -30,9 +30,9 @@ try {
  await p.keyboard.press('Enter');
  await p.getByRole('button',{name:'Enter minefield',exact:true}).click();
  assert.equal(await p.getByRole('dialog',{name:'Branch route map',exact:true}).count(),0,'starting encounter returns to board');
- await p.getByRole('button',{name:/Inventory ·/}).click();
- await p.getByRole('checkbox',{name:/Use a Return Totem/}).uncheck();
- await p.getByRole('button',{name:'Close inventory',exact:true}).click();
+ await p.getByRole('button',{name:/Backpack ·/}).click();
+ await p.getByRole('checkbox',{name:/Automatically use Return Totems/}).uncheck();
+ await p.getByRole('button',{name:'Close backpack',exact:true}).click();
  await p.locator('.tile').nth(40).click();
  let w=await world();const r=w.expeditions.routes['0.0'];
  await p.locator('.tile').nth(r.stops[0].board.cells.findIndex(c=>c.mine)).click();

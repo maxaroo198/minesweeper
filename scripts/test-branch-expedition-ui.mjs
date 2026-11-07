@@ -28,7 +28,7 @@ try {
  assert.equal(await p.locator('.atlas-node').count(),7);
  await p.getByRole('button',{name:'Minefield · stop 1 · available',exact:true}).click();
  await p.getByRole('button',{name:'Enter minefield',exact:true}).click();
- await p.getByRole('button',{name:/Inventory ·/}).click();await p.getByRole('checkbox',{name:/Use a Return Totem/}).uncheck();await p.getByRole('button',{name:'Close inventory',exact:true}).click();
+ await p.getByRole('button',{name:/Backpack ·/}).click();await p.getByRole('checkbox',{name:/Automatically use Return Totems/}).uncheck();await p.getByRole('button',{name:'Close backpack',exact:true}).click();
  await clear();let w=await world();assert.ok(w.expeditions.coins>=20);assert.equal(w.areas['0'].children.length,0);
  await advance();w=await world();assert.ok(w.expeditions.passive.includes('magnet'),'relic auto-equips into a free slot');
  await p.getByRole('button',{name:'Trading post · stop 2 · available',exact:true}).click();
@@ -36,9 +36,9 @@ try {
  await shop.getByRole('button',{name:'Buy · 30 coins',exact:true}).click();
  assert.equal((await world()).expeditions.surveyCharges,2);
  await p.getByRole('button',{name:'Close map',exact:true}).click();
- await p.getByRole('button',{name:/Inventory ·/}).click();
+ await p.getByRole('button',{name:/Backpack ·/}).click();
  await p.locator('.expedition-inventory article').filter({has:p.getByRole('heading',{name:'Survey Lantern',exact:true})}).getByRole('button',{name:'Equip',exact:true}).click();
- await p.getByRole('button',{name:'Close inventory',exact:true}).click();await p.getByRole('button',{name:'Open branch map',exact:true}).click();
+ await p.getByRole('button',{name:'Close backpack',exact:true}).click();await p.getByRole('button',{name:'Open branch map',exact:true}).click();
  await p.getByRole('button',{name:'Leave trading post',exact:true}).click();
  await p.getByRole('button',{name:'Danger route · stop 3 · available',exact:true}).click();await p.getByRole('button',{name:'Enter minefield',exact:true}).click();
  await p.locator('.tile').nth(40).click();await p.getByRole('button',{name:'Survey Lantern · 2 charges',exact:true}).click();
@@ -59,15 +59,23 @@ try {
  await p.reload({waitUntil:'networkidle'});await p.waitForTimeout(2700);await p.locator('.mode-card-zen').click();await p.locator('.result-card').waitFor();
  await p.getByRole('button',{name:'See the board',exact:true}).click();await p.locator('.expedition-hud').getByRole('button',{name:'Continue after the mine hit',exact:true}).click();
  assert.equal((await world()).expeditions.pendingLoss,undefined);
- await p.getByRole('button',{name:'Enter minefield',exact:true}).click();await clear();await advance();
- assert.equal((await world()).expeditions.coins,carried,'paid caches and clears do not farm money');
- await p.getByRole('button',{name:'Leave trading post',exact:true}).click();await p.getByRole('button',{name:'Enter minefield',exact:true}).click();await clear();await advance();
- await p.getByRole('button',{name:'Continue from shelter',exact:true}).click();await p.getByRole('button',{name:'Start announced phase 1',exact:true}).click();await clear();await advance();
- await p.getByRole('button',{name:'Start announced phase 2',exact:true}).click();await clear();await advance();
+ assert.notEqual((await world()).createdAt,w.createdAt,'root failure replaces the overall tree');
+ assert.equal((await world()).expeditions.bank,bank);
+ // Walk a freshly generated route rather than assuming the failed route is reused.
+ for(let step=0;step<24;step++){
+  await claim();const current=await world(),route=current.expeditions.routes[current.current];if(route.complete)break;
+  const stop=route.stops[route.cursor];
+  if(!stop.kind){const kind=['board','danger','shop','bank','event','boss'].find(k=>stop.options.includes(k));const label={board:'Minefield',danger:'Danger route',shop:'Trading post',bank:'Bank shelter',event:'Trail event',boss:'Boss gate'}[kind];await p.getByRole('button',{name:`${label} · stop ${route.cursor+1} · available`,exact:true}).click();continue;}
+  if(['board','danger','boss'].includes(stop.kind)){await p.getByRole('button',{name:stop.kind==='boss'?`Start announced phase ${stop.phase+1}`:'Enter minefield',exact:true}).click();await clear();}
+  else if(stop.kind==='shop')await p.getByRole('button',{name:'Leave trading post',exact:true}).click();
+  else if(stop.kind==='bank')await p.getByRole('button',{name:'Continue from shelter',exact:true}).click();
+  else throw new Error('Combat-preferred generator unexpectedly forced an event');
+ }
+ await claim();
  assert.ok((await world()).expeditions.routes['0'].complete);
  await p.getByRole('button',{name:'Grow the next limb →',exact:true}).click();
  w=await world();assert.equal(w.current,'0.0');assert.ok(w.expeditions.routes['0.0'],'new limbs automatically use the unified flow');assert.equal(w.expeditions.bank,bank);
- await p.getByRole('button',{name:'Close map',exact:true}).click();await p.setViewportSize({width:390,height:844});await p.getByRole('button',{name:/Inventory ·/}).click();
+ await p.getByRole('button',{name:'Close map',exact:true}).click();await p.setViewportSize({width:390,height:844});await p.getByRole('button',{name:/Backpack ·/}).click();
  assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
- console.log('Unified Branch UI passed: no opt-in/bypass, crystal clear, relic draft/auto-equip, shop, charged skill, banking, phased boss, saved loss, no-farm replay, automatic child route, mobile kit.');
+ console.log('Unified Branch UI passed: no opt-in/bypass, crystal clear, relic draft/auto-equip, shop, charged skill, banking, phased boss, saved loss, freshly generated root route, automatic child route, mobile kit.');
 }finally{await browser.close();}
