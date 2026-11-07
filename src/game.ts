@@ -52,6 +52,8 @@ export interface GameRecord {
   won: boolean;
   seconds: number;
   date: string;
+  /** Optional Classic challenge run; excluded from standard leaderboards. */
+  challenge?: boolean;
   /** Contract stars (0–3). */
   stars?: number;
   /** Custom board size, so a leaderboard row can show what was played. */
@@ -59,10 +61,10 @@ export interface GameRecord {
   custom?: CustomConfig;
 }
 export const DIFFICULTIES: Record<Difficulty, { label: string; rows: number; cols: number; mines: number }> = {
-  // Square boards, sized so density grows gently: 12%, 17%, 18%.
+  // Square boards, sized so density grows gently: 12%, 15%, 16%.
   easy: { label: 'Easy', rows: 9, cols: 9, mines: 10 },
-  medium: { label: 'Medium', rows: 12, cols: 12, mines: 24 },
-  hard: { label: 'Hard', rows: 20, cols: 20, mines: 70 },
+  medium: { label: 'Medium', rows: 11, cols: 11, mines: 18 },
+  hard: { label: 'Hard', rows: 16, cols: 16, mines: 42 },
   // Nightfall's extra rung: same 12 × 12 board, far less trustworthy.
   blackout: { label: 'Blackout', rows: 12, cols: 12, mines: 22 },
   // Custom borrows this shape until the player picks their own.
@@ -81,7 +83,7 @@ export const MODE_DIFFICULTIES: Record<Mode, Difficulty[]> = {
   scan: ['easy', 'medium', 'hard'],
 };
 /** Nightfall is always 12 × 12; the difficulty only changes how many mines are in it. */
-export const NIGHTFALL_MINES: Record<string, number> = { easy: 14, medium: 24, hard: 32, blackout: 22 };
+export const NIGHTFALL_MINES: Record<string, number> = { easy: 14, medium: 18, hard: 26, blackout: 22 };
 export const CUSTOM_LIMITS = { min: 5, max: 40, minMines: 1, maxDensity: 0.45 };
 export const MODE_NAMES: Record<Mode, string> = {
   classic: 'Classic', blitz: 'Blitz', zen: 'Branch', daily: 'Daily challenge',
@@ -153,7 +155,7 @@ export function plantBoard(state: BoardState, first: number): BoardState {
   const cells = state.cells.map(c => ({ ...c, mine: false, adjacent: 0 }));
   const safe = new Set([first, ...neighbors(first, rows, cols)]);
   const candidates = cells.map((_, i) => i).filter(i => !safe.has(i));
-  const random = state.mode === 'daily' ? seededRandom(`minefield-v1-${state.dailyDay ?? dayKey()}-${state.difficulty}`) : state.mode === 'contract' ? seededRandom(`contract-board-${state.id}-${state.difficulty}`) : Math.random;
+  const random = state.mode === 'daily' ? seededRandom(`minefield-v1-${state.dailyDay ?? dayKey()}-${state.difficulty}`) : (state.mode === 'contract' || (state.mode === 'classic' && state.objectives.length>0)) ? seededRandom(`contract-board-${state.id}-${state.difficulty}`) : Math.random;
   for (let i = candidates.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
     [candidates[i], candidates[j]] = [candidates[j], candidates[i]];

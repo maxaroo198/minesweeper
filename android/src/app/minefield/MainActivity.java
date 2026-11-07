@@ -32,7 +32,7 @@ import java.util.Map;
 
 public final class MainActivity extends Activity {
     private static final int LIGHT_BARS = Color.rgb(250, 251, 248);
-    private static final int DARK_BARS = Color.rgb(20, 22, 15);
+    private static final int DARK_BARS = Color.rgb(25, 27, 31);
     private static final String ASSET_HOST = "appassets.androidplatform.net";
     private static final String START_URL = "https://" + ASSET_HOST + "/assets/index.html";
 
@@ -85,7 +85,7 @@ public final class MainActivity extends Activity {
             settings.setUseWideViewPort(true);
             settings.setLoadWithOverviewMode(true);
             String baseUa = settings.getUserAgentString();
-            settings.setUserAgentString((baseUa != null ? baseUa : "") + " MinefieldAndroid/1.4.0");
+            settings.setUserAgentString((baseUa != null ? baseUa : "") + " MinefieldAndroid/1.5.0");
 
             webView.addJavascriptInterface(new AndroidBridge(), "MinefieldAndroid");
             webView.setWebViewClient(new LocalAssetWebViewClient());

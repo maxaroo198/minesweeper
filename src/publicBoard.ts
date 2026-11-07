@@ -85,6 +85,7 @@ export async function submitPublicScore(record: GameRecord): Promise<boolean> {
   try {
     const database = firestore();
     if (!database) throw new Error('Firebase is not configured in this build. The win is still saved locally.');
+    if(record.challenge)throw new Error('Optional Classic challenge runs stay in local history, not the standard leaderboard.');
     if (!record.won || !['classic', 'blitz'].includes(record.mode) || !record.id || !Number.isFinite(record.seconds)) throw new Error('Only completed Classic and Blitz wins can be submitted.');
     const score: PublicScore = {
       name: playerName().trim() || 'Anonymous sweeper', mode: record.mode,

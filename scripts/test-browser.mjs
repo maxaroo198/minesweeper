@@ -39,10 +39,10 @@ await page.getByRole('button', { name: 'Keep playing', exact: true }).click();
 assert.equal(await page.locator('.tile').count(), 81);
 await page.getByRole('button', { name: 'Medium', exact: true }).click();
 await page.getByRole('button', { name: 'Start fresh', exact: true }).click();
-assert.equal(await page.locator('.tile').count(), 144);
+assert.equal(await page.locator('.tile').count(), 121);
 await page.getByRole('button', { name: 'Hard', exact: true }).click();
-assert.equal(await page.locator('.tile').count(), 400);
-assert.equal(await page.locator('.board-dimensions').innerText().then(t => t.includes('20 × 20')), true, 'hard is a 20 x 20 square');
+assert.equal(await page.locator('.tile').count(), 256);
+assert.equal(await page.locator('.board-dimensions').innerText().then(t => t.includes('16 × 16')), true, 'hard is a 16 x 16 square');
 await page.locator('.mode-card-zen').click();
 await page.getByRole('button',{name:'Minefield · stop 1 · available',exact:true}).click();
 await page.getByRole('button',{name:'Enter minefield',exact:true}).click();
@@ -69,7 +69,7 @@ const daily = await page.evaluate(() => ({
 }));
 assert.ok(daily.selected === 'Medium', 'the daily starts on a locked size');
 assert.deepEqual(daily.enabled, ['Medium'], 'the daily only offers its locked sizes');
-assert.equal(daily.tiles, daily.selected === 'Medium' ? 144 : 400, 'the daily board matches its locked size');
+assert.equal(daily.tiles, daily.selected === 'Medium' ? 121 : 256, 'the daily board matches its locked size');
 assert.ok(await page.locator('.daily-hub-lock').innerText().then(t => /locked to medium/i.test(t)), 'the hub says which sizes are locked');
 
 // Win an easy classic board — that is what feeds the records and the local board.
@@ -112,14 +112,14 @@ assert.equal(await page.locator('.app.high-contrast').count(), 1);
 await page.getByRole('button', { name: 'Just right', exact: false }).click();
 await page.locator('.nav-item').filter({ hasText: 'How to play' }).click();
 await page.getByRole('button', { name: 'Find your mode', exact: true }).click();
-assert.equal(await page.locator('.mode-guide-card').count(), 9);
+assert.equal(await page.locator('.mode-guide-card').count(), 8);
 
 // Every board is a square grid that fits without scrolling inside the board box.
 const layoutPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 layoutPage.on('pageerror', e => errors.push(e.message));
 await layoutPage.goto(BASE, { waitUntil: 'networkidle' });
 await layoutPage.waitForTimeout(400);
-for (const [label, count, size] of [['Easy', 81, 9], ['Medium', 144, 12], ['Hard', 400, 20]]) {
+for (const [label, count, size] of [['Easy', 81, 9], ['Medium', 121, 11], ['Hard', 256, 16]]) {
   await layoutPage.locator('.difficulty-tabs button', { hasText: label }).first().click();
   await layoutPage.waitForTimeout(120);
   await layoutPage.evaluate(() => { const d = document.querySelector('[role="dialog"]'); if (d) [...d.querySelectorAll('button')].find(b => b.textContent.includes('Start fresh'))?.click(); });
@@ -161,7 +161,7 @@ const flagStyles = await layoutPage.evaluate(() => [...document.querySelectorAll
 }));
 assert.ok(flagStyles.length > 5, 'several flags planted');
 assert.equal(new Set(flagStyles).size, 1, 'every flag is the same colour, mine or not');
-assert.deepEqual([...new Set(flagStyles.map(s => s.split('|')[0]))], ['rgb(233, 120, 72)'], 'flags are the brand orange');
+assert.deepEqual([...new Set(flagStyles.map(s => s.split('|')[0]))], ['rgb(255, 136, 93)'], 'flags are the brand orange');
 
 // Blitz reaches 15 seconds.
 await layoutPage.locator('.mode-card-blitz').click();
@@ -178,7 +178,7 @@ assert.ok((await layoutPage.locator('.board-stat').first().innerText()).includes
 await layoutPage.hover('.nav-flyout');
 await layoutPage.waitForTimeout(250);
 assert.equal(await layoutPage.locator('.nav-flyout-panel').evaluate(el => getComputedStyle(el).visibility), 'visible', 'mode flyout opens on hover');
-assert.equal(await layoutPage.locator('.nav-flyout-item').count(), 9, 'flyout lists eight modes plus the daily');
+assert.equal(await layoutPage.locator('.nav-flyout-item').count(), 8, 'flyout lists all eight modes including Daily');
 assert.ok(await layoutPage.locator('.nav-flyout-item.daily').innerText().then(t => t.includes('Daily challenge')), 'daily sits under the modes in the flyout');
 // ---- The five new modes ----
 const fresh = async (target) => {
@@ -210,9 +210,12 @@ assert.ok((await layoutPage.locator('.resize-button').innerText()).includes('16 
 assert.deepEqual(await layoutPage.evaluate(() => JSON.parse(localStorage.getItem('minefield-custom'))), { rows: 10, cols: 16, mines: 30 }, 'the size is remembered for next time');
 
 // Contract: three objectives on a card, each one a star.
-await layoutPage.locator('.mode-card-contract').click();
+await layoutPage.locator('.mode-card-classic').click();
+await fresh(layoutPage);
+await layoutPage.getByRole('checkbox',{name:'Optional challenges',exact:true}).check();
 await layoutPage.waitForTimeout(200);
 await fresh(layoutPage);
+await layoutPage.locator('.classic-challenge-details > summary').click();
 assert.equal(await layoutPage.locator('.contract-panel li').count(), 3, 'a contract deals three objectives');
 assert.equal(await layoutPage.locator('.contract-chip').count(), 1, 'the header counts what is kept so far');
 await layoutPage.getByRole('button', { name: 'Enter focus mode', exact: true }).click();
@@ -315,11 +318,10 @@ const luminance = (selector, prop = 'background-color') => darkPage.evaluate(([s
   const [r, g, b] = value.match(/[\d.]+/g).map(Number);
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 }, [selector, prop]);
-assert.equal(await darkPage.evaluate(() => document.documentElement.dataset.theme), 'light');
-await darkPage.locator('.theme-button').click();
+assert.equal(await darkPage.evaluate(() => document.documentElement.dataset.theme), 'dark');
 assert.equal(await darkPage.evaluate(() => document.documentElement.dataset.theme), 'dark');
 await darkPage.waitForTimeout(300); // let tile background transitions settle
-assert.equal(await darkPage.evaluate(() => document.querySelector('meta[name="theme-color"]').getAttribute('content')), '#14160f');
+assert.equal(await darkPage.evaluate(() => document.querySelector('meta[name="theme-color"]').getAttribute('content')), '#191b1f');
 assert.equal(await darkPage.evaluate(() => window.__bars.at(-1)), true, 'Android app is told to use dark system bars');
 assert.ok(await luminance('.app') < 0.2, 'dark page background');
 assert.ok(await luminance('.game-panel') < 0.2, 'dark panel background');
@@ -359,12 +361,11 @@ assert.equal(await phone.locator('.help-step').count(), 3);
 await phone.reload({ waitUntil: 'networkidle' });
 assert.equal(await phone.locator('.tile').count(), 81);
 assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no horizontal page overflow on mobile');
-await phone.locator('.theme-button').tap();
 assert.equal(await phone.evaluate(() => document.documentElement.dataset.theme), 'dark');
 await phone.locator('.tile').nth(40).tap();
 assert.ok(await phone.evaluate(() => getComputedStyle(document.querySelector('.game-panel')).backgroundColor.match(/[\d.]+/g).slice(0, 3).every(v => Number(v) < 60)), 'mobile dark panel');
 await phone.screenshot({ path: '.screenshots/mobile-dark.png', fullPage: false });
 await phone.locator('.theme-button').tap();
 assert.deepEqual(errors, [], 'no browser runtime errors');
-console.log('Browser tests passed: desktop, mobile, flags, sizes, daily lock, name prompt, all nine modes (Nightfall fog, Custom sizing, Riptide tide, Contract objectives, Scan charges), preferences, guide, and native installer links.');
+console.log('Browser tests passed: desktop, mobile, flags, sizes, daily lock, name prompt, all eight modes (Nightfall fog, Custom sizing, Riptide tide, optional Classic objectives, Scan charges), preferences, guide, and native installer links.');
 await browser.close();

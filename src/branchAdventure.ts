@@ -7,17 +7,17 @@ export type StopKind = 'board' | 'danger' | 'event' | 'shop' | 'bank' | 'boss';
 export type ItemId = 'pathfinder' | 'survey' | 'totem' | 'ration' | 'purse' | 'boots' | 'charm' | 'pouch-upgrade' | 'blast' | 'magnet' | 'surveyor';
 export interface Item { id: ItemId; name: string; kind: 'active' | 'passive' | 'consumable' | 'upgrade'; price: number; description: string }
 export const ITEMS: Item[] = [
-  {id:'blast',name:'Seam Breaker',kind:'active',price:45,description:'Safely open the unflagged safe tiles in a 3×3 patch. Recharges after 3 first-clear boards.'},
-  {id:'magnet',name:'Treasure Magnet',kind:'passive',price:35,description:'Double the coins from crystal caches. Combines with a Crystal Dynamo.'},
-  {id:'surveyor',name:'Crystal Dynamo',kind:'passive',price:40,description:'Each new crystal cache grants 1 Survey charge, even while Lantern is unequipped. Charges persist.'},
-  { id:'pathfinder',name:'Pathfinder',kind:'active',price:35,description:'Reveal three safe covered squares (and their cascades). Recharges after 2 first-clear boards; Trail Boots reduce that to 1.' },
-  { id:'survey',name:'Survey Lantern',kind:'active',price:20,description:'Mark five covered safe squares with their exact clues. Each purchase adds 2 charges. Does not reveal squares.' },
-  { id:'totem',name:'Return Totem',kind:'consumable',price:35,description:'With protection enabled, absorbs one mine hit, marks that mine, and preserves this board and your money.' },
-  { id:'ration',name:'Trail Ration',kind:'consumable',price:12,description:'Use from inventory to remove 1 board from both rechargeable abilities.' },
-  { id:'purse',name:'Lucky Purse',kind:'passive',price:40,description:'While equipped, gain 25% extra coins from first-clear boards.' },
-  { id:'boots',name:'Trail Boots',kind:'passive',price:45,description:'While equipped when Pathfinder is used, it recharges after 1 first-clear board instead of 2.' },
-  { id:'charm',name:'Trader Charm',kind:'passive',price:40,description:'While equipped, shop purchases cost 20% less.' },
-  { id:'pouch-upgrade',name:'Reward Pouch Upgrade',kind:'upgrade',price:50,description:'Permanently add 10% to first-clear coin rewards per level, up to 3 levels.' },
+  {id:'blast',name:'Seam Breaker',kind:'active',price:80,description:'Safely open the unflagged safe tiles in a 3×3 patch. Recharges after 3 first-clear boards.'},
+  {id:'magnet',name:'Treasure Magnet',kind:'passive',price:60,description:'Double the coins from crystal caches. Combines with a Crystal Dynamo.'},
+  {id:'surveyor',name:'Crystal Dynamo',kind:'passive',price:70,description:'Each new crystal cache grants 1 Survey charge, even while Lantern is unequipped. Charges persist.'},
+  { id:'pathfinder',name:'Pathfinder',kind:'active',price:60,description:'Reveal three safe covered squares (and their cascades). Recharges after 2 first-clear boards; Trail Boots reduce that to 1.' },
+  { id:'survey',name:'Survey Lantern',kind:'active',price:30,description:'Mark five covered safe squares with their exact clues. Each purchase adds 2 charges. Does not reveal squares.' },
+  { id:'totem',name:'Return Totem',kind:'consumable',price:60,description:'With protection enabled, absorbs one mine hit, marks that mine, and preserves this board and your money.' },
+  { id:'ration',name:'Trail Ration',kind:'consumable',price:20,description:'Use from inventory to remove 1 board from both rechargeable abilities.' },
+  { id:'purse',name:'Lucky Purse',kind:'passive',price:70,description:'While equipped, gain 25% extra coins from first-clear boards.' },
+  { id:'boots',name:'Trail Boots',kind:'passive',price:75,description:'While equipped when Pathfinder is used, it recharges after 1 first-clear board instead of 2.' },
+  { id:'charm',name:'Trader Charm',kind:'passive',price:70,description:'While equipped, shop purchases cost 20% less.' },
+  { id:'pouch-upgrade',name:'Reward Pouch Upgrade',kind:'upgrade',price:85,description:'Permanently add 10% to first-clear coin rewards per level, up to 3 levels.' },
 ];
 export const ITEM = Object.fromEntries(ITEMS.map(i=>[i.id,i])) as Record<ItemId,Item>;
 export const BOSSES = [
@@ -26,7 +26,7 @@ export const BOSSES = [
   {id:'locksmith',name:'The Copper Locksmith',intro:'Chording is sealed. From phase two, you may keep only half the mine count in flags at once.'},
 ] as const;
 export type BoardVariant = 'crystal'|'surveyed'|'bounty'|'narrow';
-export interface RouteStop { options: StopKind[]; kind: StopKind | null; phase: number; board?: BoardState; bought: string[]; variant?:BoardVariant; caches?:number[]; moves?:number; event?:'trailkeeper'|'shrine'|'chest' }
+export interface RouteStop { options: StopKind[]; kind: StopKind | null; phase: number; board?: BoardState; bought: string[]; variant?:BoardVariant; caches?:number[]; campClues?:number[]; moves?:number; event?:'trailkeeper'|'shrine'|'chest' }
 export interface BoardTrophy { rows:number; cols:number; mines:number[]; flags:number[]; hidden:number[]; id:string; startedAt:number|null; finishedAt:number|null }
 export interface AdventureRoute { area: string; depth: number; cursor: number; stops: RouteStop[]; attempt: number; complete: boolean; boss: number; trophy?:BoardTrophy }
 export interface DroppedPouch { id: string; area: string; amount: number; recovered: boolean; checkedAttempt: number }
@@ -85,7 +85,7 @@ export function variantFor(world:BranchWorld,kind?:StopKind):BoardVariant {
 }
 export function encounterDescription(world:BranchWorld,kind?:StopKind) {
   const variant=stopFor(world)?.variant??variantFor(world,kind);
-  return ({crystal:'Crystal seams · marked caches are safe. Opening a new cache bursts nearby safe tiles and grants coins. Magnet doubles cache coins; Dynamo grants Lantern charges.',surveyed:'Survey camp · five safe clues are supplied after your opening. Use the head start to build your loadout.',bounty:'Bounty field · clear in 24 reveal actions for +12 coins, plus +8 if at least three mines are correctly flagged at the finish. Bonuses are optional.',narrow:'Long crossing · a rectangular field changes the geometry. Clear it in 24 reveal actions for +12 coins; there is no timer.'})[variant];
+  return ({crystal:'Crystal seams · marked caches are safe. Opening a new cache bursts nearby safe tiles and grants coins. Magnet doubles cache coins; Dynamo grants Lantern charges.',surveyed:'Survey camp · one-time camp supplies mark up to five safe clues after your opening. These are camp clues, not a Lantern activation.',bounty:'Bounty field · clear in 24 reveal actions for +12 coins, plus +8 if at least three mines are correctly flagged at the finish. Bonuses are optional.',narrow:'Long crossing · a rectangular field changes the geometry. Clear it in 24 reveal actions for +12 coins; there is no timer.'})[variant];
 }
 export function claimReward(input:BranchWorld,choice:string):BranchWorld {
   const w=clone(input),s=w.expeditions,reward=s?.reward;if(!s||!reward)return w;
@@ -149,7 +149,7 @@ export function chooseStop(input: BranchWorld, kind: StopKind): BranchWorld {
 export function startEncounter(input: BranchWorld): BranchWorld {
   const world=clone(input),route=routeFor(world),stop=stopFor(world);
   if(!route || !stop || stop.board || !['board','danger','boss'].includes(stop.kind??'') || (world.expeditions?.pendingLoss || world.expeditions?.reward)) return world;
-  stop.variant=stop.kind==='boss'?undefined:variantFor(world);stop.moves=0;stop.caches=undefined;
+  stop.variant=stop.kind==='boss'?undefined:variantFor(world);stop.moves=0;stop.caches=undefined;stop.campClues=undefined;
   world.expeditions!.notice=stop.kind==='boss'?phaseDescription(world):encounterDescription(world);
   const size=9+Math.min(11,Math.floor(route.depth/2));
   const density=Math.min(.26,.12+route.depth*.005)+(stop.kind==='danger'?.04:0)+(stop.kind==='boss'?Math.min(.04,stop.phase*.01):0);
@@ -222,9 +222,9 @@ export function settleMove(input:BranchWorld,previous:BoardState,board:BoardStat
   let cacheNotice='',cacheCoins=0,cacheCount=0,cacheCharges=0;
   if(board.status!=='lost' && stop.kind!=='boss') {
     const variant=stop.variant;
-    if(variant==='surveyed' && previous.status==='ready') {
+    if(variant==='surveyed' && previous.status==='ready' && !s.paid.includes(`${route.area}:${route.cursor}:camp`)) {
       const safe=board.cells.flatMap((c,i)=>!c.mine&&!c.revealed&&!c.flagged?[i]:[]).slice(0,5);
-      board={...board,cells:board.cells.map((c,i)=>safe.includes(i)?{...c,scanned:c.adjacent}:c)};
+      stop.campClues=safe;s.paid.push(`${route.area}:${route.cursor}:camp`);
     }
     if(variant==='crystal') {
       if(!stop.caches) {
@@ -305,7 +305,10 @@ export function settleMove(input:BranchWorld,previous:BoardState,board:BoardStat
 export function saveBoard(input:BranchWorld,board:BoardState):BranchWorld {const w=clone(input),stop=stopFor(w);if(stop?.board?.id===board.id && !w.expeditions?.pendingLoss)stop.board=board;return w;}
 export function continueAfterLoss(input:BranchWorld,random=Math.random):BranchWorld {
   const world=clone(input),s=world.expeditions;if(!s?.pendingLoss)return world;
-  const area=s.pendingLoss.returnTo;s.pendingLoss=undefined;
+  const area=s.pendingLoss.returnTo;
+  // Clues bought by an active tool do not silently reappear after a mine hit.
+  for(const route of Object.values(s.routes))for(const stop of route.stops)if(stop.board?.id===s.pendingLoss.board.id){stop.board={...stop.board,cells:stop.board.cells.map(c=>({...c,scanned:null}))};stop.campClues=undefined;}
+  s.pendingLoss=undefined;
   if(world.areas[area]?.state!=='locked')world.current=area;
   return unifyBranch(enterExpedition(world,world.current,random));
 }

@@ -91,7 +91,7 @@ try {
   shop=a.buyItem(shop,'survey');assert.equal(shop.expeditions.surveyCharges,2);
   shop=a.buyItem(shop,'purse');shop=a.buyItem(shop,'boots');shop=a.buyItem(shop,'charm');
   for(const id of ['purse','boots','charm'])shop=a.equipItem(shop,id);
-  assert.equal(shop.expeditions.passive.length,3);assert.equal(a.priceFor(shop,'totem'),28);
+  assert.equal(shop.expeditions.passive.length,3);assert.equal(a.priceFor(shop,'totem'),48);
   for(let n=0;n<4;n++)shop=a.buyItem(shop,'pouch-upgrade');
   assert.equal(shop.expeditions.inventory['pouch-upgrade'],3);
   const coins=shop.expeditions.coins;shop=a.buyItem(shop,'purse');assert.equal(shop.expeditions.coins,coins);

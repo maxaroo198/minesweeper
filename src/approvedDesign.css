@@ -1,0 +1,65 @@
+/* Approved modern Minesweeper design: familiar shell, restrained dark palette. */
+[data-theme="dark"]{--orange:#ff885d;--orange-dark:#d36b43;--orange-tint:#ff885d14;--line:#34383f;--ink:#f0efed;--muted:#a1a6af;--sf149:#191b1f;--sf143:#191b1f;--sf161:#1d2024;--sf164:#1c1f23;--sf165:#1c1f23;--sf166:#1d2024;--sf173:#22262c}
+[data-theme="dark"] .app,[data-theme="dark"] .main-shell{background:#191b1f;color:#f0efed}
+[data-theme="dark"] .sidebar{background:#1d2024;border-color:#30343a}
+[data-theme="dark"] .topbar{background:#1c1f23;border-color:#30343a}
+[data-theme="dark"] .game-panel,[data-theme="dark"] .leaderboard-panel,[data-theme="dark"] .history-panel,[data-theme="dark"] .guide-panel,[data-theme="dark"] .stat-card,[data-theme="dark"] .modal{background:#22262c;border-color:#393f48}
+[data-theme="dark"] .mode-bar .mode-card{background:#23272d;border-color:#373d46;color:#bbc0c8}
+[data-theme="dark"] .mode-bar .mode-card svg{color:#a7aeb9}
+[data-theme="dark"] .mode-bar .mode-card.selected{background:#ff885d10;border-color:#b66e50;color:#ffb497}
+[data-theme="dark"] .mode-bar .mode-card.selected svg{color:#ff996e}
+[data-theme="dark"] .mode-icon{background:#2b3038;border-color:#404753;color:#ffa37d}
+[data-theme="dark"] .nav-item.active{background:#ff885d12;color:#ffb092}
+[data-theme="dark"] .nav-item:hover{background:#292d33}
+[data-theme="dark"] .difficulty-tabs{background:#1b1f25;border-color:#363d47}
+[data-theme="dark"] .difficulty-tabs button.selected{background:#363e49;color:#f4f4f3}
+[data-theme="dark"] .secondary-button,[data-theme="dark"] .download-button,[data-theme="dark"] .resize-button{background:#292f37;border-color:#444d59;color:#d8dce2}
+[data-theme="dark"] .secondary-button:hover{background:#343c47}
+[data-theme="dark"] .mine-board{background:#191e25;border-color:#3e4958;box-shadow:0 2px 7px #0002}
+[data-theme="dark"] .tile.covered{background:#354151;border-color:#485464;box-shadow:inset 0 1px #ffffff06}
+[data-theme="dark"] .tile.covered:hover:not(:disabled){background:#485a70;border-color:#6b8099;box-shadow:none}
+[data-theme="dark"] .tile.revealed{background:#242b35;border-color:#303947}
+[data-theme="dark"] .tile.flagged{background:#3c3530;border-color:#655044}
+[data-theme="dark"] .number-1{color:#92bcf5}[data-theme="dark"] .number-2{color:#91c7a4}[data-theme="dark"] .number-3{color:#ef9c91}
+[data-theme="dark"] .tile.exploded{background:#b8543a;border-color:#d37255;color:#fff6ef}
+[data-theme="dark"] .expedition-hud{background:#1c2128;border-color:#383f49}
+.game-panel,.guide-panel,.leaderboard-panel,.history-panel{border-radius:12px}
+.mode-bar{gap:7px;margin-bottom:18px}.mode-bar .mode-card{border-radius:8px;padding:11px 14px;transition:background .16s,border-color .16s}
+.page-heading h1{font-size:32px;letter-spacing:-1.1px}.page-heading p{line-height:1.7}
+.game-panel-head .mode-icon{border-radius:10px}.difficulty-tabs{padding:4px;border-radius:8px}.difficulty-tabs button{border-radius:5px;padding:7px 13px}
+.mine-board{border-radius:8px}.tile{border-radius:3px}.board-stat b{letter-spacing:1px}.reset-button{border-radius:10px}
+.primary-button,.secondary-button,.download-button{border-radius:7px}
+.classic-challenges-control{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:18px 22px 0;padding-bottom:12px;border-bottom:1px solid var(--line);font-size:11px}
+.classic-challenges-control label{display:flex;align-items:center;gap:7px;cursor:pointer}.classic-challenges-control input{accent-color:var(--orange)}.classic-challenges-control>span{font-size:10px;color:var(--muted)}
+.classic-challenge-details{margin:12px 22px 0;font-size:11px}.classic-challenge-details>summary{cursor:pointer;color:var(--orange);padding:8px 0}.classic-challenge-details .contract-panel{margin:6px 0 0}.classic-challenge-details .contract-head h3{font-size:15px}
+.expedition-abilities{margin:16px 22px 0!important;border:1px solid #b7a99a;border-left:3px solid var(--orange);border-radius:9px;padding:13px;background:var(--sf173);display:block!important}
+.ability-bar-heading{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:10px;margin-bottom:10px}.ability-bar-heading b{font-family:var(--mono);font-size:9px;letter-spacing:.8px}.ability-bar-heading span{font-size:10px;color:var(--muted)}
+.ability-buttons{display:flex;gap:12px;flex-wrap:wrap}.branch-active-tool{display:flex;align-items:center;gap:12px;flex:1;min-width:160px;text-align:left;border:1px solid #bf916d;border-radius:7px;padding:12px 15px;background:var(--orange-tint)}.branch-active-tool strong{display:block;font-size:12px;font-weight:600}.branch-active-tool small{display:block;font-size:10px;margin-top:6px;color:var(--muted)}.active-tool-icon{font-size:24px;color:var(--orange)}.branch-active-tool:disabled{opacity:.48}.branch-active-tool:hover:not(:disabled){border-color:var(--orange)}
+[data-theme="dark"] .expedition-abilities{background:#282d34;border-color:#4f4a45;border-left-color:#e48d66}
+[data-theme="dark"] .branch-active-tool{background:#323237;border-color:#675247}[data-theme="dark"] .branch-active-tool strong{color:#ffc09e}[data-theme="dark"] .branch-active-tool small{color:#b4afad}
+.focus-mode .expedition-abilities{position:sticky;bottom:12px;z-index:8;box-shadow:0 8px 30px #0005}
+.camp-clue{font:600 13px var(--mono);padding:2px 5px;border:1px dashed #839baf;border-radius:3px;color:#a9c5df}
+.route-map-modal{background:#22262c;border-color:#48505d;border-radius:12px;color:#eeece9}.route-map-header{background:#282d34;border-color:#414751}.route-map-header h2{color:#f0efed}.route-map-header p,.route-map-kicker{color:#a5aebc}.route-map-kicker{letter-spacing:1.8px}.route-map-tabs,.route-map-footer{border-color:#3c4551}.route-map-canvas{background:#1c222b;border-color:#404c5b;border-radius:8px}.route-map-tabs>span{color:#ffad87;border-color:#ff956b}.atlas-node.available{color:#ffb087}.atlas-node.available .atlas-hex{fill:#3a3531;stroke:#dca480}.atlas-node.completed .atlas-hex{fill:#2d3a3a;stroke:#88a5a5}.route-encounter-sheet{background:#22262c;border-color:#414a57;animation:encounter-fade .22s ease-out}
+.expedition-map-content{color:#d4d8de}.expedition-map-content p{color:#aeb7c4}.expedition-map-content h4,.expedition-map-content .expedition-boss>b{color:#eee5dd}.expedition-map-content .expedition-shop article,.expedition-map-content .expedition-boss{background:#292f37;border-color:#455160;border-radius:8px}.expedition-map-content .secondary-button{background:#303843;border-color:#536172;color:#e5e8ec}.expedition-map-content .primary-button{background:#f68b5d;border-color:#f68b5d;color:#211c19}.expedition-map-content .expedition-notice{background:#1c232b;color:#d9d0c7;border-color:#c49270}.branch-preview{background:#262d36;border-color:#4f5b6b}.branch-reward{background:#2a2e34;border-color:#8e7460}.branch-reward h3{color:#ffc7a3}.branch-reward .eyebrow{color:#bfb4aa}
+.route-map-modal.encounter-focused{width:900px}.encounter-focused .route-map-canvas,.encounter-focused .atlas-legend,.encounter-focused .route-map-toolbar{display:none}.encounter-back{margin:16px 24px}.encounter-focused .route-encounter-sheet{border-top:0}.encounter-focused .expedition-stop-title h4{font-size:17px}.encounter-focused .expedition-stop{margin:0}
+.expedition-map-content .expedition-shop{gap:12px}.expedition-map-content .expedition-shop h4{font-size:14px}.route-return-game,.route-return-banner button{background:#f68b5d;color:#211c19;border-radius:7px}
+/* Existing saved feedback preferences still control these effects. Never hide earned clues. */
+.tile.tile-popped,.tile.tile-expanded{animation:approved-clear .34s ease-out both}
+@keyframes approved-clear{0%{transform:scale(.96);box-shadow:inset 0 0 0 1px #ffb58288}60%{box-shadow:inset 0 0 0 1px #ffb58233}100%{transform:none;box-shadow:inset 0 0 0 0 transparent}}
+.game-panel{animation:encounter-fade .2s ease-out}@keyframes encounter-fade{from{opacity:0}to{opacity:1}}
+@media(max-width:650px){.mode-bar{gap:6px}.mode-bar .mode-card{border-radius:7px;padding:10px 9px;font-size:10px}.page-heading h1{font-size:28px}.game-panel{border-radius:10px}.classic-challenges-control,.classic-challenge-details{margin-left:16px;margin-right:16px}.expedition-abilities{margin:12px 14px 0!important;padding:11px;border-left-width:2px}.ability-buttons{gap:9px}.branch-active-tool{min-width:110px;padding:11px;gap:7px}.branch-active-tool strong{font-size:11px}.branch-active-tool small{font-size:9px}.active-tool-icon{font-size:20px}.focus-mode .expedition-abilities{bottom:8px}.encounter-back{margin:12px 16px}.expedition-map-content .expedition-shop{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.tile.tile-popped,.tile.tile-expanded,.route-encounter-sheet,.game-panel{animation:none!important}}
+.reduce-motion .tile,.reduce-motion .route-encounter-sheet,.reduce-motion .game-panel{animation:none!important}
+/* Retain the accessibility contrast preference over the decorative palette. */
+[data-theme="dark"] .high-contrast .tile.covered{background:#485565;border-color:#7d91aa}[data-theme="dark"] .high-contrast .tile.revealed{background:#101721;border-color:#728096}
+
+.board-area,.route-map-canvas{animation:encounter-fade .24s ease-out}
+@media(prefers-reduced-motion:reduce){.board-area,.route-map-canvas{animation:none!important}}
+.reduce-motion .board-area,.reduce-motion .route-map-canvas{animation:none!important}
+
+.heading-note{display:none}
+[data-theme="dark"] .board-stat b{color:#f0eeeb}[data-theme="dark"] .board-stat:last-child svg{color:#ff956b}
+@media(max-width:650px){.mode-bar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:visible;width:100%}.mode-bar .mode-card{min-width:0;width:auto;white-space:normal;min-height:47px;justify-content:center;gap:5px;padding:8px 5px;flex-direction:row}.mode-bar .mode-card span{line-height:1.3}.mode-bar .mode-card svg{width:14px;height:14px}}
+
+[data-theme="dark"] .sidebar-promo,[data-theme="dark"] .progress-strip{background:#252a31;border-color:#393f48}
+[data-theme="dark"] .progress-icon{background:#ff885d15;color:#ff9d76}

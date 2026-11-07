@@ -45,7 +45,7 @@ try {
   if (serverExited) throw new Error(`Preview exited unexpectedly (code ${serverExitCode})`);
   console.log(`Preview ready: ${url}`);
 
-  for (const script of ['scripts/test-browser.mjs', 'scripts/test-persistence.mjs', 'scripts/test-round6.mjs', 'scripts/test-round7.mjs', 'scripts/test-branch-expedition-ui.mjs', 'scripts/test-branch-map.mjs']) {
+  for (const script of ['scripts/test-browser.mjs', 'scripts/test-persistence.mjs', 'scripts/test-round6.mjs', 'scripts/test-round7.mjs', 'scripts/test-branch-expedition-ui.mjs', 'scripts/test-branch-map.mjs', 'scripts/test-approved-design.mjs']) {
     const child = spawn(process.execPath, [script], {
       stdio: 'inherit', env: { ...process.env, TEST_PORT: port },
     });

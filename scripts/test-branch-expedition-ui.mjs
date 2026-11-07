@@ -10,7 +10,7 @@ try {
  const clear=async()=>{
   await p.locator('.tile').nth(40).click();let w=await world(),r=w.expeditions.routes[w.current],b=r.stops[r.cursor]?.board;
   if(b)for(const i of b.cells.flatMap((c,i)=>!c.mine?[i]:[]))if(await p.locator('.tile').nth(i).isEnabled())await p.locator('.tile').nth(i).click();
-  await p.locator('.result-card').waitFor();
+  await p.locator('.route-map-modal').waitFor();
  };
  let mobileLootChecked=false;
  const claim=async()=>{
@@ -21,7 +21,7 @@ try {
    await p.setViewportSize({width:1440,height:1100});
   }
  };
- const advance=async()=>{await p.locator('.result-card > .primary-button').click();await claim();};
+ const advance=async()=>{await claim();};
  await p.locator('.mode-card-zen').click();
  assert.ok(await p.getByRole('dialog',{name:'Branch route map',exact:true}).isVisible(),'Branch is the route, not opt-in');
  assert.equal(await p.getByRole('button',{name:'Begin expedition in this limb',exact:true}).count(),0);
@@ -33,7 +33,7 @@ try {
  await advance();w=await world();assert.ok(w.expeditions.passive.includes('magnet'),'relic auto-equips into a free slot');
  await p.getByRole('button',{name:'Trading post · stop 2 · available',exact:true}).click();
  const shop=p.locator('.expedition-shop article').filter({has:p.getByRole('heading',{name:'Survey Lantern',exact:true})});
- await shop.getByRole('button',{name:'Buy · 20 coins',exact:true}).click();
+ await shop.getByRole('button',{name:'Buy · 30 coins',exact:true}).click();
  assert.equal((await world()).expeditions.surveyCharges,2);
  await p.getByRole('button',{name:'Close map',exact:true}).click();
  await p.getByRole('button',{name:/Inventory ·/}).click();
@@ -45,7 +45,7 @@ try {
  assert.ok(await p.locator('.tile.scanned').count()>0);
  w=await world();let r=w.expeditions.routes[w.current],b=r.stops[r.cursor].board;
  for(const i of b.cells.flatMap((c,i)=>!c.mine?[i]:[]))if(await p.locator('.tile').nth(i).isEnabled())await p.locator('.tile').nth(i).click();
- await p.locator('.result-card').waitFor();await advance();
+ await p.locator('.route-map-modal').waitFor();await advance();
  await p.getByRole('button',{name:'Bank shelter · stop 4 · available',exact:true}).click();
  await p.getByRole('button',{name:'Bank all carried coins',exact:true}).click();const bank=(await world()).expeditions.bank;assert.ok(bank>0);
  await p.getByRole('button',{name:'Continue from shelter',exact:true}).click();await p.getByRole('button',{name:'Boss gate · stop 5 · available',exact:true}).click();

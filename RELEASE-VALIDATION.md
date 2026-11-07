@@ -1,3 +1,28 @@
+# Approved real-app design — v1.5.0
+
+TypeScript, production build, 240 randomized engine games, Branch economy/unification tests, public-score
+and audio service mocks, browser/mobile regressions and simulated shell restart persistence are run for
+this release. New design coverage checks default dark theme, all eight mode buttons fitting mobile,
+optional Classic objective controls, 11×11/16×16 standard sizes, desktop/mobile focus-mode tool visibility,
+explicit charged Survey use, and no scan reapplication after protected Continue or reload. Pure tests also
+cover unprotected retry and the separation of camp metadata from active scanned cells. Service mocks
+reject challenge-mode public submissions without database writes. Classic objectives remain local-only.
+
+Existing visual-map keyboard/zoom/travel and See board → Continue → open sibling regression remains.
+Unified UI tests now expect the requested automatic route/loot opening after a clear, not the old extra
+result button. Loss acknowledgement tests are retained. Prices and difficulty assertions were updated
+to the new requested values; Nightfall's explicit 12×12 constraint is retained.
+
+Embedded source download and release version/tag consistency checks are run after refreshing the source
+archive. The version gate uses placeholder environment variables in the sandbox, not live Firebase keys.
+No Firestore rules, indexes or database-side changes. New native binaries, actual upgrade/lifecycle and
+audible hardware testing, and live Firebase posting are not validated here. Keep the existing signing key,
+app IDs and saved data; do not uninstall or clear data.
+
+Scope: real approved design plus core fixes; no new item/boss roster. 11 item types and 3 bosses remain.
+
+## Historical validations
+
 # Unified Branch (v1.4.0)
 
 Automated coverage exercises automatic/idempotent migration, preservation of old grid mines/reveals/flags, pre-opening flags, safe crystal chains with both cache passives, one-time loot and auto-equip, optional bounty payouts, supplied clues, rectangular grids, stronger abilities, saved varied events and anti-farming. The original engine economy/failure suite remains, with a neutral fixture for its original fixed-payout assertions.

@@ -23,7 +23,7 @@ import { sense, testAudio, unlockAudio, readSoundVolume, setSoundVolume } from '
 import type { Sense } from './sensory';
 import { layoutWorld, loadWorld, newWorld, openAreaIds, saveWorld } from './branch';
 import type { BranchWorld } from './branch';
-import BranchExpeditionPanel from './BranchExpeditionPanel';
+import BranchExpeditionPanel, {BranchAbilityBar} from './BranchExpeditionPanel';
 import BranchRouteMap, { RouteIcon } from './BranchRouteMap';
 import type { ExpeditionAction } from './BranchExpeditionPanel';
 import { unifyBranch, claimReward, enterExpedition, expeditionBoard, routeFor, stopFor, inExpedition, rulesFor, chooseStop, startEncounter, finishStop, buyItem, bankCoins, equipItem, toggleProtection, useRation, useAbility, settleMove, saveBoard, continueAfterLoss } from './branchAdventure';
@@ -43,7 +43,7 @@ function readCustom(): CustomConfig {
   try { return clampCustom(JSON.parse(localStorage.getItem('minefield-custom') || '{}')); } catch { return clampCustom({}); }
 }
 type Theme = 'light' | 'dark';
-const THEME_COLOR: Record<Theme, string> = { light: '#fafbf8', dark: '#14160f' };
+const THEME_COLOR: Record<Theme, string> = { light: '#fafbf8', dark: '#191b1f' };
 const ANDROID_BRIDGE = 'MinefieldAndroid';
 const MODES: { id: Mode; description: string; tag: string; icon: typeof Grid2X2 }[] = [
   { id: 'classic', description: 'The original. At your own pace.', tag: 'THE ORIGINAL', icon: Grid2X2 },
@@ -53,7 +53,6 @@ const MODES: { id: Mode; description: string; tag: string; icon: typeof Grid2X2 
   { id: 'nightfall', description: 'The numbers go missing as you play. Trust your memory.', tag: 'FADING CLUES', icon: Moon },
   { id: 'custom', description: 'Pick the width, the height and the mines. Any board you like.', tag: 'YOUR RULES', icon: Ruler },
   { id: 'riptide', description: 'Every 8 seconds the tide shifts every row and column.', tag: 'SHIFTING BOARD', icon: Waves },
-  { id: 'contract', description: 'Three objectives per board. Every one you keep is a star.', tag: 'OBJECTIVES', icon: ClipboardCheck },
   { id: 'scan', description: 'Six charges to read a patch of board. Flag true to earn more.', tag: 'DETECTIVE WORK', icon: ScanSearch },
 ];
 /** The tag that sits beside the mode name in the board header. */
@@ -63,7 +62,7 @@ const MODE_TAG: Record<Mode, string> = {
 };
 /** Short line under the mode name in the sidebar flyout. */
 const FLYOUT_HINT: Record<Mode, string> = {
-  classic: '9 × 9 · 12 × 12 · 20 × 20', blitz: '15s – 5 min', zen: 'Grow a tree, no clock', daily: 'One shared board a day',
+  classic: '9 × 9 · 11 × 11 · 16 × 16', blitz: '15s – 5 min', zen: 'Grow a tree, no clock', daily: 'One shared board a day',
   nightfall: '12 × 12, numbers fade', custom: 'Any size you like', riptide: 'Every line shifts every 8 seconds', contract: 'Harder contracts, three stars', scan: 'Six charges, uncertain clues',
 };
 const MODE_BLURB: Record<Mode, string> = {
@@ -79,7 +78,7 @@ const MODE_BLURB: Record<Mode, string> = {
 };
 /** The paragraph each mode gets in "Find your mode". */
 const GUIDE_COPY: Record<Mode, string> = {
-  classic: 'The game you know, with three ways to challenge yourself. Easy: 9 × 9, 10 mines. Medium: 12 × 12, 24 mines. Hard: 20 × 20, 70 mines.',
+  classic: 'The game you know, with three ways to challenge yourself. Easy: 9 × 9, 10 mines. Medium: 11 × 11, 18 mines. Hard: 16 × 16, 42 mines. Turn on optional challenges for objectives and bonus goals, separate from standard leaderboards.',
   blitz: 'One timer, any length from 15 seconds to five minutes. Clear the board before it runs out. Easy is a good place to warm up; Hard is a real test of speed and strategy.',
   zen: 'One saved, endless adventure tree. Every open limb leads through the route map: minefields, danger paths, shops, events, bank shelters and a phased boss. Complete the boss to grow the next limbs. Crystal caches burst safe seams; relic choices and equipment shape your build. Inventory is always available. A totem protects a mine hit; otherwise you drop 10–100% of carried coins. Banked coins stay safe.',
   daily: 'The same seeded puzzle for every player, updated at midnight UTC. Always Medium, with no Hard variant. Come back tomorrow for something new.',
@@ -247,7 +246,7 @@ function useBoardFit(ref: RefObject<HTMLDivElement | null>, rows: number, cols: 
       // Reserve the row below the grid: controls, the little status line, padding.
       const panel = el.closest('.game-panel');
       const reserve = panel
-        ? (panel.querySelector('.game-controls')?.clientHeight ?? 44) + (panel.querySelector('.board-message')?.clientHeight ?? 48) + 18
+        ? (panel.querySelector('.game-controls')?.clientHeight ?? 44) + (panel.querySelector('.board-message')?.clientHeight ?? 48) + (panel.querySelector('.expedition-abilities')?.clientHeight ?? 0) + 30
         : 110;
       const height = Math.min(Math.max(window.innerHeight - top - reserve, 240), 1000);
       const byWidth = (width - (cols - 1) * 3 - 10) / cols;
@@ -300,6 +299,9 @@ function DailyHub({ idx, dateLabel, twist, countdown, finished, streak, best, so
 function App() {
   const [view, setView] = useState<View>('play');
   const [game, setGame] = useState<BoardState>(() => previewBoard());
+  const [classicChallenges,setClassicChallenges]=useState(()=>{try{return localStorage.getItem('minefield-classic-challenges')==='true';}catch{return false;}});
+  useEffect(()=>{try{localStorage.setItem('minefield-classic-challenges',String(classicChallenges));}catch{}},[classicChallenges]);
+  const hasChallenges=(game.mode==='classic'||game.mode==='contract')&&game.objectives.length>0;
   const [showPreview, setShowPreview] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [flagMode, setFlagMode] = useState(false);
@@ -322,7 +324,7 @@ function App() {
   const [publicQueue, setPublicQueue] = useState<GameRecord[]>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('minefield-pending-public-v1') || 'null');
-      return (Array.isArray(saved) ? saved : saved ? [saved] : []).filter(r => r?.won && ['classic', 'blitz'].includes(r.mode));
+      return (Array.isArray(saved) ? saved : saved ? [saved] : []).filter(r => r?.won && !r.challenge && ['classic', 'blitz'].includes(r.mode));
     } catch { return []; }
   });
   const pendingPublic = publicQueue[0] ?? null;
@@ -353,8 +355,8 @@ function App() {
     try {
       const saved = localStorage.getItem('minefield-theme');
       if (saved === 'light' || saved === 'dark') return saved;
-      return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    } catch { return 'light'; }
+      return 'dark';
+    } catch { return 'dark'; }
   });
   const [reducedMotion, setReducedMotion] = useState(() => { try { return localStorage.getItem('minefield-motion') === 'true'; } catch { return false; } });
   const [highContrast, setHighContrast] = useState(() => { try { return localStorage.getItem('minefield-contrast') === 'true'; } catch { return false; } });
@@ -373,9 +375,9 @@ function App() {
   const progress = Math.round(revealed / (game.cells.length - game.mines) * 100);
   const previewCells = useMemo(() => previewBoard().cells, []);
   const displayCells = showPreview ? previewCells : game.cells;
-  const tileSize = useBoardFit(boardRef, game.rows, game.cols, [view, focusMode, showPreview, game.mode]);
+  const tileSize = useBoardFit(boardRef, game.rows, game.cols, [view, focusMode, showPreview, game.mode, game.id]);
   const wins = records.filter(r => r.won);
-  const best = wins.filter(r => r.mode === 'classic' && r.difficulty === 'easy').reduce((min, r) => Math.min(min, r.seconds), Infinity);
+  const best = wins.filter(r => !r.challenge && r.mode === 'classic' && r.difficulty === 'easy').reduce((min, r) => Math.min(min, r.seconds), Infinity);
   const winRate = records.length ? Math.round(wins.length / records.length * 100) : 0;
   const todayKey = dayKey();
   const dailyDate = new Date(`${dayKey()}T12:00:00`);
@@ -458,17 +460,19 @@ function App() {
     if (!isFinished || recorded.current === game.id) return;
     recorded.current = game.id;
     const record: GameRecord = {
-      id: game.mode === 'contract' || game.mode === 'zen' ? `${game.id}-${game.startedAt}` : game.id, mode: game.mode, difficulty: game.difficulty, won: game.status === 'won', seconds: elapsed, date: new Date().toISOString(),
+      id: hasChallenges || game.mode === 'zen' ? `${game.id}-${game.startedAt}` : game.id, mode: game.mode, difficulty: game.difficulty, won: game.status === 'won', seconds: elapsed, date: new Date().toISOString(),
       ...(game.mode === 'daily' ? { dailyDay: game.dailyDay ?? todayKey } : {}),
-      ...(game.mode === 'contract' ? { stars: contractStars(game.objectives, game, elapsed) } : {}),
+      ...(hasChallenges ? { challenge:true, stars: contractStars(game.objectives, game, elapsed) } : {}),
       ...(game.mode === 'custom' && game.custom ? { custom: game.custom } : {}),
     };
     setRecords(previous => previous.some(r => r.id === record.id) ? previous : [record, ...previous].slice(0, 200));
     // Classic and Blitz wins always ask for a leaderboard name.
-    if (record.won && (record.mode === 'classic' || record.mode === 'blitz')) setPendingPublic(record);
+    if (record.won && !record.challenge && (record.mode === 'classic' || record.mode === 'blitz')) setPendingPublic(record);
     setResultVisible(true);
   }, [isFinished, game.id, game.mode, game.difficulty, game.status, elapsed]);
 
+
+  useEffect(()=>{if(game.mode==='zen'&&game.status==='won'){setResultVisible(false);setTreeMapOpen(false);setMapOpen(true);}},[game.id,game.status,game.mode]);
 
   // Keep the latest board reachable from timers without re-subscribing them.
   useEffect(() => { gameRef.current = game; }, [game]);
@@ -516,9 +520,9 @@ function App() {
   /** Build the board a mode/difficulty plays on, twists and dealt objectives included. */
   const boardFor = useCallback((mode: Mode, difficulty: Difficulty, custom?: CustomConfig) => {
     const board = mode === 'daily' ? dailyBoard('medium') : freshGame(mode, difficulty, custom);
-    if (mode === 'contract') return { ...board, objectives: dealObjectives(board.id) };
+    if (mode === 'contract' || (mode === 'classic'&&classicChallenges)) return { ...board, objectives: dealObjectives(board.id) };
     return board;
-  }, []);
+  }, [classicChallenges]);
   const startGame = (mode: Mode, difficulty: Difficulty, custom?: CustomConfig) => {
     if (mode === 'zen') {
       const world = unifyBranch(newWorld());
@@ -715,8 +719,8 @@ function App() {
     const rows = game.rows, cols = game.cols;
     const headline = game.mode === 'daily'
       ? `Minefield Daily #${dailyIdx} · ${rows}×${cols} · ${twist.name}`
-      : game.mode === 'contract'
-      ? `Minefield Contract · ${rows}×${cols} · ${starLabel(contractStars(game.objectives, game, elapsed))}`
+      : hasChallenges
+      ? `Minefield Classic challenges · ${rows}×${cols} · ${starLabel(contractStars(game.objectives, game, elapsed))}`
       : game.mode === 'custom'
       ? `Minefield Custom · ${cols}×${rows} · ${game.mines} mines`
       : `Minefield ${MODE_NAMES[game.mode]} · ${DIFFICULTIES[game.difficulty].label}`;
@@ -745,7 +749,7 @@ function App() {
   const leaderRungs = MODE_DIFFICULTIES[leaderMode];
   useEffect(() => { if (!leaderRungs.includes(leaderDifficulty)) setLeaderDifficulty(leaderRungs[0]); }, [leaderMode]);
   const leaderboardRows = useMemo(() => records
-    .filter(r => r.mode === leaderMode && (leaderRungs.length === 1 || r.difficulty === leaderDifficulty) && r.won)
+    .filter(r => !r.challenge && r.mode === leaderMode && (leaderRungs.length === 1 || r.difficulty === leaderDifficulty) && r.won)
     .sort((a, b) => (leaderMode === 'contract' ? (b.stars ?? 0) - (a.stars ?? 0) || a.seconds - b.seconds : a.seconds - b.seconds))
     .slice(0, 20), [records, leaderMode, leaderDifficulty]);
   useEffect(() => {
@@ -760,7 +764,7 @@ function App() {
     : game.mode === 'daily' ? `Today’s twist: ${twist.name.toLowerCase()}. ${twist.blurb}`
     : MODE_BLURB[game.mode];
   // Contract objectives are rated live, so the panel ticks as you play.
-  const objectives = useMemo(() => game.mode === 'contract' ? rateObjectives(game.objectives, game, elapsed) : [], [game, elapsed]);
+  const objectives = useMemo(() => hasChallenges ? rateObjectives(game.objectives, game, elapsed) : [], [game, elapsed]);
   const objectivesDone = objectives.filter(o => o.done).length;
   const fogNow = game.mode === 'nightfall' ? fogChance(game, now) : 0;
 
@@ -809,25 +813,26 @@ function App() {
 
       <main className={`main-content ${focusMode ? 'focus-mode' : ''}`}>
         {(view === 'play' || view === 'daily') && <>
-          <section className="page-heading"><div><div className="eyebrow"><span className="tiny-spark">✳</span>{view === 'daily' ? 'A FRESH CHALLENGE, EVERY SINGLE DAY' : 'MINESWEEPER, WITH A LITTLE MORE SOUL'}</div><h1>{view === 'daily' ? 'A new day. A new little win.' : 'Make your next move'}<span className="heading-dot">.</span></h1><p>{view === 'daily' ? 'The same board for every curious mind. Make today’s yours.' : <><span className="desktop-copy">Clear the board. Find your flow. A small escape for a curious mind.</span><span className="mobile-copy">A little logic. A lot of possibility.</span></>}</p></div><div className="heading-note"><div className="note-doodle"><Sparkles size={25} strokeWidth={1.3} /></div><div>No rush. No noise.<br /><b>Just one good move.</b></div></div></section>
+          <section className="page-heading"><div><div className="eyebrow"><span className="tiny-spark">✳</span>{view === 'daily' ? 'A FRESH CHALLENGE, EVERY SINGLE DAY' : 'MINESWEEPER'}</div><h1>{view === 'daily' ? 'A new day. A new little win.' : 'Make your next move'}<span className="heading-dot">.</span></h1><p>{view === 'daily' ? 'The same board for every curious mind. Make today’s yours.' : <><span className="desktop-copy">Choose a mode and clear the board.</span><span className="mobile-copy">Choose a mode and clear the board.</span></>}</p></div><div className="heading-note"><div className="note-doodle"><Sparkles size={25} strokeWidth={1.3} /></div><div>No rush. No noise.<br /><b>Just one good move.</b></div></div></section>
 
 
           <nav className="mode-bar" aria-label="Game modes">{MODES.map(mode => <button key={mode.id} className={`mode-card mode-card-${mode.id} ${game.mode === mode.id ? 'selected' : ''}`} onClick={() => pickMode(mode.id)} aria-pressed={game.mode === mode.id} title={mode.description}><ModeIcon mode={mode.id} size={16} /><span>{MODE_NAMES[mode.id]}</span></button>)}</nav>
           <div className="play-layout">
             <section className="game-panel" aria-label={`${MODE_NAMES[game.mode]} Minesweeper game`}>
-              {game.mode === 'contract' && !showPreview && <section className="contract-panel" aria-label="Contract objectives"><div className="contract-head"><div><div className="eyebrow">CONTRACT BRIEF</div><h3>Three ways to earn a star.</h3></div><span className={`contract-score ${objectivesDone === 3 ? 'full' : ''}`}>{starLabel(contractStars(game.objectives, game, elapsed))}</span></div><p className="contract-code">Code: {game.id} · Replay uses the same difficulty and first click.</p><ul>{objectives.map(o => <li key={o.id} className={o.done ? 'done' : ''}><span className="contract-check">{o.done ? <Check size={12} strokeWidth={3} /> : null}</span><span><b>{o.label}</b><i>{o.blurb}</i></span></li>)}</ul>{game.status === 'won' && <p className="contract-footer">{objectivesDone} of 3 kept — {objectivesDone === 3 ? 'a perfect contract.' : 'stars are what the board ranks on.'}</p>}<div className="contract-extras"><h4>Optional bonus badges</h4>{bonusObjectives(game, elapsed).map(o => <p key={o.id}>{o.done ? '✓' : '◇'} {o.label} — {o.blurb}</p>)}<p>Rescue reveals one safe square, but deducts one final star.</p><button className="secondary-button" disabled={game.status !== 'playing' || !!game.rescues} onClick={() => { const i = game.cells.findIndex(c => !c.mine && !c.revealed && !c.flagged); if (i < 0) return; const result = reveal({ ...game, rescues: 1 }, i); setGame(result.state); setNow(Date.now()); }}>Use rescue {game.rescues ? '(used)' : '(−1 star)'}</button><button className="secondary-button" onClick={() => { const code = window.prompt('Contract code to replay (same difficulty + first click reproduces board):', game.id)?.trim(); if (!code) return; if (code.length > 100) { notify('Code must be at most 100 characters.'); return; } if (game.status === 'playing' && !window.confirm('Leave this board and replay the contract?')) return; const board = freshGame('contract', game.difficulty); recorded.current = ''; setRevealFx(null); setGame({ ...board, id: code, objectives: dealObjectives(code) }); setShowPreview(false); setResultVisible(false); setNow(Date.now()); }}>Replay / enter code</button>{!!game.rescues && <p>Rescue used: final rating has a one-star deduction.</p>}</div></section>}
+              {game.mode==='classic'&&<div className="classic-challenges-control"><label><input type="checkbox" checked={classicChallenges} onChange={e=>{const enabled=e.target.checked;if(game.status==='playing'&&!window.confirm('Start a fresh Classic board with this challenge setting?'))return;setClassicChallenges(enabled);const board=freshGame('classic',game.difficulty);setGame({...board,objectives:enabled?dealObjectives(board.id):[]});recorded.current='';setShowPreview(false);setResultVisible(false);setRevealFx(null);setNow(Date.now());}}/>Optional challenges</label><span>{hasChallenges?'Local challenge history only · no leaderboard':'Contract objectives, now inside Classic'}</span></div>}
+              {hasChallenges && !showPreview && <details className="classic-challenge-details"><summary>Objectives and optional bonuses</summary><section className="contract-panel" aria-label="Contract objectives"><div className="contract-head"><div><div className="eyebrow">CLASSIC CHALLENGES</div><h3>Optional objectives</h3></div><span className={`contract-score ${objectivesDone === 3 ? 'full' : ''}`}>{starLabel(contractStars(game.objectives, game, elapsed))}</span></div><p className="contract-code">Code: {game.id} · Replay uses the same difficulty and first click.</p><ul>{objectives.map(o => <li key={o.id} className={o.done ? 'done' : ''}><span className="contract-check">{o.done ? <Check size={12} strokeWidth={3} /> : null}</span><span><b>{o.label}</b><i>{o.blurb}</i></span></li>)}</ul>{game.status === 'won' && <p className="contract-footer">{objectivesDone} of 3 kept — {objectivesDone === 3 ? 'a perfect contract.' : 'this run is saved to local history.'}</p>}<div className="contract-extras"><h4>Optional bonus badges</h4>{bonusObjectives(game, elapsed).map(o => <p key={o.id}>{o.done ? '✓' : '◇'} {o.label} — {o.blurb}</p>)}<p>Rescue reveals one safe square, but deducts one final star.</p><button className="secondary-button" disabled={game.status !== 'playing' || !!game.rescues} onClick={() => { const i = game.cells.findIndex(c => !c.mine && !c.revealed && !c.flagged); if (i < 0) return; const result = reveal({ ...game, rescues: 1 }, i); setGame(result.state); setNow(Date.now()); }}>Use rescue {game.rescues ? '(used)' : '(−1 star)'}</button><button className="secondary-button" onClick={() => { const code = window.prompt('Challenge code to replay (same difficulty + first click reproduces board):', game.id)?.trim(); if (!code) return; if (code.length > 100) { notify('Code must be at most 100 characters.'); return; } if (game.status === 'playing' && !window.confirm('Leave this board and replay these challenges?')) return; const board = freshGame('classic', game.difficulty); recorded.current = ''; setRevealFx(null); setGame({ ...board, id: code, objectives: dealObjectives(code) }); setShowPreview(false); setResultVisible(false); setNow(Date.now()); }}>Replay / enter code</button>{!!game.rescues && <p>Rescue used: final rating has a one-star deduction.</p>}</div></section></details>}
               {game.mode === 'zen' && branchWorld && <BranchExpeditionPanel world={branchWorld} game={game} act={adventureAction} openMap={()=>{setTreeMapOpen(false);setMapOpen(true);}} onContinue={continueAdventure} />}
-              <div className="game-panel-head"><div className="game-title"><div className={`mode-icon mode-${game.mode}`}><ModeIcon mode={game.mode} size={20} /></div><div><h2>{MODE_NAMES[game.mode]}<span className={`game-mode-tag ${game.mode === 'blitz' ? 'purple' : ''} ${game.mode === 'nightfall' || game.mode === 'riptide' || game.mode === 'contract' || game.mode === 'scan' || game.mode === 'custom' ? 'mint' : ''}`}>{game.mode === 'daily' ? 'DAILY #' + dailyIdx + (twist.id === 'standard' ? '' : ' · ' + twist.name.toUpperCase()) : MODE_TAG[game.mode]}</span></h2><p>{pageDescription}</p></div></div><div style={{ display: 'flex', gap: 6 }}>{game.mode === 'zen' && <button className="icon-button" onClick={() => {setTreeMapOpen(false);setMapOpen(true);}} aria-label="Open branch map" title="Branch map — zoom out"><GitBranch size={17} /></button>}<button className="icon-button" onClick={() => setFocusMode(!focusMode)} aria-label={focusMode ? 'Exit focus mode' : 'Enter focus mode'} title={focusMode ? 'Exit focus mode' : 'Focus mode'}>{focusMode ? <Minimize2 size={17} /> : <Expand size={17} />}</button></div></div>
+              <div className="game-panel-head"><div className="game-title"><div className={`mode-icon mode-${game.mode}`}><ModeIcon mode={game.mode} size={20} /></div><div><h2>{MODE_NAMES[game.mode]}<span className={`game-mode-tag ${game.mode === 'blitz' ? 'purple' : ''} ${game.mode === 'nightfall' || game.mode === 'riptide' || hasChallenges || game.mode === 'scan' || game.mode === 'custom' ? 'mint' : ''}`}>{game.mode === 'daily' ? 'DAILY #' + dailyIdx + (twist.id === 'standard' ? '' : ' · ' + twist.name.toUpperCase()) : MODE_TAG[game.mode]}</span></h2><p>{pageDescription}</p></div></div><div style={{ display: 'flex', gap: 6 }}>{game.mode === 'zen' && <button className="icon-button" onClick={() => {setTreeMapOpen(false);setMapOpen(true);}} aria-label="Open branch map" title="Branch map — zoom out"><GitBranch size={17} /></button>}<button className="icon-button" onClick={() => setFocusMode(!focusMode)} aria-label={focusMode ? 'Exit focus mode' : 'Enter focus mode'} title={focusMode ? 'Exit focus mode' : 'Focus mode'}>{focusMode ? <Minimize2 size={17} /> : <Expand size={17} />}</button></div></div>
               <div className="difficulty-row">
                 {game.mode === 'custom' ? <button className="resize-button" onClick={() => { setCustomDraft(customConfig); setModal('custom'); }}><Ruler size={14} />{game.cols} × {game.rows}<span>· {game.mines} mines · change size</span></button>
                   : <div className="difficulty-tabs" role="group" aria-label="Difficulty">{MODE_DIFFICULTIES[game.mode].map(diff => <button key={diff} className={`${game.difficulty === diff ? 'selected' : ''} ${diff === 'blackout' ? 'blackout-tab' : ''}`} aria-pressed={game.difficulty === diff} disabled={game.mode === 'daily' && !dailyAllowed.includes(diff)} title={game.mode === 'daily' && !dailyAllowed.includes(diff) ? `Today’s daily is locked to ${dailyAllowed.map(d => DIFFICULTIES[d].label).join(' / ')}` : diff === 'blackout' ? 'Blackout: a 1 in 3 chance a number goes missing, and it only gets worse' : undefined} onClick={() => { if (diff !== game.difficulty) requestGame(game.mode, diff); }}><span className={`difficulty-dot dot-${diff}`} />{DIFFICULTIES[diff].label}</button>)}</div>}
                 <span className="board-dimensions">{game.cols} × {game.rows}<span> · </span>{game.mines} mines</span>
                 {game.mode === 'nightfall' && <span className={`fog-chip ${game.status === 'playing' ? 'live' : ''}`} title="Chance a freshly opened number goes missing. It climbs 5% every two seconds."><Moon size={12} />{Math.round(fogNow * 100)}% hiding</span>}
                 {game.mode === 'riptide' && <span className={`tide-chip ${game.status === 'playing' ? 'live' : ''}`} title="Every eight seconds the tide shifts every row and column."><Waves size={12} />{game.status === 'playing' ? `Tide in ${tideLeft}s` : 'Tide waits'}</span>}
-                {game.mode === 'contract' && <span className={`contract-chip ${objectivesDone === 3 ? 'full' : ''}`} title="Objectives kept this board"><ClipboardCheck size={12} />{objectivesDone}/3 kept</span>}
+                {hasChallenges && <span className={`contract-chip ${objectivesDone === 3 ? 'full' : ''}`} title="Objectives kept this board"><ClipboardCheck size={12} />{objectivesDone}/3 kept</span>}
                 {game.mode === 'scan' && <span className="scan-chip" title="Scan charges left — flag a real mine to earn one back"><ScanSearch size={12} />{game.charges} charges</span>}
               </div>
-              <div className="board-area">
+              <div className="board-area" key={game.id}>
                 <div className="board-toolbar"><div className="board-stat"><span>{timeLimit !== null ? 'TIME LEFT' : 'YOUR TIME'}</span><div className={runningOut ? 'timer-urgent' : ''}><Clock3 size={16} /><b>{game.mode === 'zen' ? <InfinityIcon size={26} /> : formatTime(timeLimit !== null ? Math.max(0, timeLeft ?? 0) : elapsed)}</b>{game.mode === 'blitz' && game.status !== 'lost' && <select className="blitz-time" aria-label="Blitz time limit" value={blitzSeconds} onChange={e => { const next = parseInt(e.target.value, 10); setBlitzSeconds(next); if (game.status !== 'ready') notify(`Blitz limit set to ${blitzLabel(next)}. Your next game starts fresh.`); }}>{BLITZ_OPTIONS.map(t => <option key={t} value={t}>{blitzLabel(t)}</option>)}</select>}</div></div><button className={`reset-button ${game.status === 'lost' ? 'lost' : ''}`} title="New game (N)" onClick={() => requestGame()} aria-label="Start a new game"><RotateCcw size={18} /></button><div className="board-stat mines-stat"><span>MINES LEFT</span><div><Flag size={15} /><b>{String(game.mines - flags).padStart(3, '0')}</b></div></div></div>
                 <div className={`board-scroll ${game.cols > 16 ? 'wide-board' : ''}`} ref={boardRef}>
                   <div className={`mine-board ${game.status === 'playing' ? 'playing' : ''} ${isFinished ? 'is-finished' : ''} ${game.cols > 9 ? 'dense-board' : ''} ${revealFx ? 'has-reveal-fx' : ''} ${revealFx && revealFx.opened.length > 2 ? 'has-expansion-fx' : ''}`} style={{ '--columns': game.cols, '--tile-size': `${tileSize}px` } as CSSProperties} role="group" aria-label={`${game.rows} by ${game.cols} minefield. Click to reveal. Right-click or long press to flag.`}>
@@ -838,16 +843,18 @@ function App() {
                       const wave = revealFx?.wave[index];
                       const isFresh = !!revealFx && Object.prototype.hasOwnProperty.call(revealFx.wave, index) && !showPreview;
                       const delay = isFresh ? Math.min(wave ?? 0, 12) * 34 : 0;
+                      const campClue = game.mode==='zen'&&branchWorld&&!cell.revealed&&!cell.flagged&&stopFor(branchWorld)?.campClues?.includes(index);
                       const safeCache = game.mode==='zen' && branchWorld && !cell.revealed && !cell.flagged && stopFor(branchWorld)?.caches?.includes(index) && !branchWorld.expeditions?.paid.includes(`${branchWorld.current}:${routeFor(branchWorld)?.cursor}:cache:${stopFor(branchWorld)!.caches!.indexOf(index)}`);
                       const expanding = isFresh && revealFx!.opened.length > 2;
-                      return <button key={index} className={`tile ${cell.revealed ? 'revealed' : 'covered'} ${cell.flagged ? 'flagged' : ''} ${cell.exploded ? 'exploded' : ''} ${exposedMine ? 'mine-visible' : ''} ${wrongFlag ? 'wrong-flag' : ''} ${cell.hidden ? 'fogged' : ''} ${cell.scanned !== null && !cell.revealed ? 'scanned' : ''} ${tideFx && tideFx.moved.includes(index) ? 'tide-moved' : ''} ${isFresh ? (expanding ? 'tile-expanded' : 'tile-popped') : ''} number-${cell.hidden ? 0 : cell.adjacent}`} style={isFresh ? { animationDelay: `${delay}ms`, '--wave': wave ?? 0 } as CSSProperties : undefined} aria-label={`Row ${Math.floor(index / game.cols) + 1}, column ${index % game.cols + 1}: ${safeCache ? 'safe crystal cache, open for coins and a safe burst' : cell.flagged ? 'flagged' : exposedMine ? 'mine' : cell.hidden ? 'open, number lost to the mist' : cell.revealed ? `${cell.adjacent || (game.mode === 'riptide' ? '0 adjacent mines' : 'empty')}${cell.adjacent ? ' adjacent mines' : ''}` : cell.scanned !== null ? cell.scanned === -1 ? 'scanned, unknown' : `scanned, ${cell.scanned} adjacent mines` : 'covered'}`} onClick={() => { if (longPressed.current) { longPressed.current = false; return; } handleReveal(index); }} onContextMenu={e => { e.preventDefault(); handleFlag(index); }} onPointerDown={e => { if (e.pointerType !== 'mouse' && !isFinished) { longPressed.current = false; longPress.current = setTimeout(() => { handleFlag(index); longPressed.current = true; }, 420); } }} onPointerUp={() => { if (longPress.current) clearTimeout(longPress.current); }} onPointerCancel={() => { if (longPress.current) clearTimeout(longPress.current); }} onPointerLeave={() => { if (longPress.current) clearTimeout(longPress.current); }} onKeyDown={e => { if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey) { e.stopPropagation(); handleFlag(index); } }} disabled={isFinished}>{safeCache ? <span className="branch-crystal" title="Safe crystal cache — open to burst nearby safe tiles">◆</span> : cell.flagged ? <span className="flag-marker"><Flag size={15} fill="currentColor" /></span> : exposedMine ? <span className="mine-marker"><BrandMark /></span> : cell.revealed && cell.hidden ? <span className="fog-marker"><Moon size={13} /></span> : cell.revealed && cell.adjacent > 0 ? <span className="number-marker">{cell.adjacent}</span> : !cell.revealed && cell.scanned !== null ? <span className="scan-marker"><ScanSearch size={11} />{cell.scanned === -1 ? '?' : cell.scanned}</span> : wrongFlag ? <X size={17} /> : null}{isFresh && expanding && <span className="tile-ripple" aria-hidden="true" />}</button>;
+                      return <button key={index} className={`tile ${cell.revealed ? 'revealed' : 'covered'} ${cell.flagged ? 'flagged' : ''} ${cell.exploded ? 'exploded' : ''} ${exposedMine ? 'mine-visible' : ''} ${wrongFlag ? 'wrong-flag' : ''} ${cell.hidden ? 'fogged' : ''} ${cell.scanned !== null && !cell.revealed ? 'scanned' : ''} ${tideFx && tideFx.moved.includes(index) ? 'tide-moved' : ''} ${isFresh ? (expanding ? 'tile-expanded' : 'tile-popped') : ''} number-${cell.hidden ? 0 : cell.adjacent}`} style={isFresh ? { animationDelay: `${delay}ms`, '--wave': wave ?? 0 } as CSSProperties : undefined} aria-label={`Row ${Math.floor(index / game.cols) + 1}, column ${index % game.cols + 1}: ${campClue ? `camp-supplied clue, ${cell.adjacent} adjacent mines` : safeCache ? 'safe crystal cache, open for coins and a safe burst' : cell.flagged ? 'flagged' : exposedMine ? 'mine' : cell.hidden ? 'open, number lost to the mist' : cell.revealed ? `${cell.adjacent || (game.mode === 'riptide' ? '0 adjacent mines' : 'empty')}${cell.adjacent ? ' adjacent mines' : ''}` : cell.scanned !== null ? cell.scanned === -1 ? 'scanned, unknown' : `scanned, ${cell.scanned} adjacent mines` : 'covered'}`} onClick={() => { if (longPressed.current) { longPressed.current = false; return; } handleReveal(index); }} onContextMenu={e => { e.preventDefault(); handleFlag(index); }} onPointerDown={e => { if (e.pointerType !== 'mouse' && !isFinished) { longPressed.current = false; longPress.current = setTimeout(() => { handleFlag(index); longPressed.current = true; }, 420); } }} onPointerUp={() => { if (longPress.current) clearTimeout(longPress.current); }} onPointerCancel={() => { if (longPress.current) clearTimeout(longPress.current); }} onPointerLeave={() => { if (longPress.current) clearTimeout(longPress.current); }} onKeyDown={e => { if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey) { e.stopPropagation(); handleFlag(index); } }} disabled={isFinished}>{campClue ? <span className="camp-clue" title="Camp supply, not an activated ability">{cell.adjacent}</span> : safeCache ? <span className="branch-crystal" title="Safe crystal cache — open to burst nearby safe tiles">◆</span> : cell.flagged ? <span className="flag-marker"><Flag size={15} fill="currentColor" /></span> : exposedMine ? <span className="mine-marker"><BrandMark /></span> : cell.revealed && cell.hidden ? <span className="fog-marker"><Moon size={13} /></span> : cell.revealed && cell.adjacent > 0 ? <span className="number-marker">{cell.adjacent}</span> : !cell.revealed && cell.scanned !== null ? <span className="scan-marker"><ScanSearch size={11} />{cell.scanned === -1 ? '?' : cell.scanned}</span> : wrongFlag ? <X size={17} /> : null}{isFresh && expanding && <span className="tile-ripple" aria-hidden="true" />}</button>;
                     })}
                   </div>
                 </div>
 
-                {isFinished && resultVisible && <div className={`result-overlay ${game.status === 'won' ? 'won' : ''}`}><div className="result-card"><div className="result-icon">{game.status === 'won' ? <Trophy size={30} /> : <BrandMark />}</div><div className="eyebrow">{game.status === 'won' ? 'A LITTLE WIN. A BIG FEELING.' : timeLimit !== null && elapsed >= timeLimit ? 'TIME’S UP, NOT GAME OVER' : 'THERE’S ALWAYS ANOTHER SQUARE'}</div><h3>{game.status === 'won' ? 'Beautifully swept.' : 'A mine. Not the end.'}</h3><p>{game.status === 'won' ? `You cleared all ${totalSafe} safe squares. Nicely done.` : game.mode === 'daily' ? 'Today’s board is still out there until midnight. One more go?' : game.mode === 'zen' ? branchWorld?.expeditions?.pendingLoss ? branchWorld.expeditions.notice : 'You hit the marked mine. Your progress is saved; continue when you are ready to return to an open branch.' : 'Take a breath. Your next great game is one click away.'}</p>{game.mode === 'daily' && <div className="daily-result-tag"><span className={`daily-twist-chip twist-${twist.id}`}>{twist.name}</span><span>Daily #{dailyIdx}</span>{game.status === 'won' && <span><Flame size={11} />{dailyStreak} day streak</span>}</div>}<div className="result-stats"><span><Clock3 size={15} />{formatTime(elapsed)}</span><span><Target size={15} />{progress}% cleared</span>{game.mode === 'contract' && <span className="result-stars">{starLabel(contractStars(game.objectives, game, elapsed))}</span>}{game.mode === 'scan' && <span>{game.scans} scans used</span>}</div><button className="primary-button" onClick={() => { if (game.mode === 'zen' && game.id.startsWith('exp:') && branchWorld) { continueAdventure(); } else if (game.mode === 'zen' && game.status === 'lost' && branchReturn) { jumpToArea(branchReturn); } else if (game.mode === 'zen' && game.status === 'won' && branchWorld) { const next = openAreaIds(branchWorld)[0]; if (next) jumpToArea(next); else setMapOpen(true); } else startGame(game.mode, game.difficulty); }}><RotateCcw size={16} />{game.mode === 'zen' && game.id.startsWith('exp:') ? branchWorld?.expeditions?.pendingLoss ? 'Continue after the mine hit' : branchWorld?.expeditions?.reward ? 'Choose your reward' : routeFor(branchWorld)?.complete ? 'Grow the next limb' : 'Continue expedition' : game.mode === 'zen' && game.status === 'lost' ? 'Continue at the earlier branch' : game.mode === 'zen' && game.status === 'won' ? 'Continue the branch' : game.status === 'won' ? 'One more good game' : 'Let’s try again'}</button><div className="result-secondary"><button onClick={() => setResultVisible(false)}>See the board</button><span>·</span><button onClick={shareResult}>{game.mode === 'daily' ? 'Share your grid' : 'Share result'} <ArrowUpRight size={13} /></button></div>{game.status === 'won' && publicQueue.some(r => r.id === game.id) && <div className="public-post"><label htmlFor="win-name">What name should go on your leaderboard?</label><div className="public-post-row"><input id="win-name" value={nameDraft} maxLength={24} disabled={postingPublic} onChange={e => setNameDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void postPendingScore(game.id); }} /><button className="primary-button" disabled={postingPublic} onClick={() => void postPendingScore(game.id)}>{postingPublic ? 'Posting…' : publicBoardEnabled() ? 'Post / retry' : 'Save name'}</button><button className="secondary-button" disabled={postingPublic} onClick={() => { setPlayerName(nameDraft); setPublicQueue(previous => previous.filter(r => r.id !== game.id)); setPostError(''); }}>Skip</button></div>{postError && <p role="alert">{postError}</p>}</div>}</div></div>}
+                {isFinished && resultVisible && <div className={`result-overlay ${game.status === 'won' ? 'won' : ''}`}><div className="result-card"><div className="result-icon">{game.status === 'won' ? <Trophy size={30} /> : <BrandMark />}</div><div className="eyebrow">{game.status === 'won' ? 'A LITTLE WIN. A BIG FEELING.' : timeLimit !== null && elapsed >= timeLimit ? 'TIME’S UP, NOT GAME OVER' : 'THERE’S ALWAYS ANOTHER SQUARE'}</div><h3>{game.status === 'won' ? 'Beautifully swept.' : 'A mine. Not the end.'}</h3><p>{game.status === 'won' ? `You cleared all ${totalSafe} safe squares. Nicely done.` : game.mode === 'daily' ? 'Today’s board is still out there until midnight. One more go?' : game.mode === 'zen' ? branchWorld?.expeditions?.pendingLoss ? branchWorld.expeditions.notice : 'You hit the marked mine. Your progress is saved; continue when you are ready to return to an open branch.' : 'Take a breath. Your next great game is one click away.'}</p>{game.mode === 'daily' && <div className="daily-result-tag"><span className={`daily-twist-chip twist-${twist.id}`}>{twist.name}</span><span>Daily #{dailyIdx}</span>{game.status === 'won' && <span><Flame size={11} />{dailyStreak} day streak</span>}</div>}<div className="result-stats"><span><Clock3 size={15} />{formatTime(elapsed)}</span><span><Target size={15} />{progress}% cleared</span>{hasChallenges && <span className="result-stars">{starLabel(contractStars(game.objectives, game, elapsed))}</span>}{game.mode === 'scan' && <span>{game.scans} scans used</span>}</div><button className="primary-button" onClick={() => { if (game.mode === 'zen' && game.id.startsWith('exp:') && branchWorld) { continueAdventure(); } else if (game.mode === 'zen' && game.status === 'lost' && branchReturn) { jumpToArea(branchReturn); } else if (game.mode === 'zen' && game.status === 'won' && branchWorld) { const next = openAreaIds(branchWorld)[0]; if (next) jumpToArea(next); else setMapOpen(true); } else startGame(game.mode, game.difficulty); }}><RotateCcw size={16} />{game.mode === 'zen' && game.id.startsWith('exp:') ? branchWorld?.expeditions?.pendingLoss ? 'Continue after the mine hit' : branchWorld?.expeditions?.reward ? 'Choose your reward' : routeFor(branchWorld)?.complete ? 'Grow the next limb' : 'Continue expedition' : game.mode === 'zen' && game.status === 'lost' ? 'Continue at the earlier branch' : game.mode === 'zen' && game.status === 'won' ? 'Continue the branch' : game.status === 'won' ? 'One more good game' : 'Let’s try again'}</button><div className="result-secondary"><button onClick={() => setResultVisible(false)}>See the board</button><span>·</span><button onClick={shareResult}>{game.mode === 'daily' ? 'Share your grid' : 'Share result'} <ArrowUpRight size={13} /></button></div>{game.status === 'won' && publicQueue.some(r => r.id === game.id) && <div className="public-post"><label htmlFor="win-name">What name should go on your leaderboard?</label><div className="public-post-row"><input id="win-name" value={nameDraft} maxLength={24} disabled={postingPublic} onChange={e => setNameDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void postPendingScore(game.id); }} /><button className="primary-button" disabled={postingPublic} onClick={() => void postPendingScore(game.id)}>{postingPublic ? 'Posting…' : publicBoardEnabled() ? 'Post / retry' : 'Save name'}</button><button className="secondary-button" disabled={postingPublic} onClick={() => { setPlayerName(nameDraft); setPublicQueue(previous => previous.filter(r => r.id !== game.id)); setPostError(''); }}>Skip</button></div>{postError && <p role="alert">{postError}</p>}</div>}</div></div>}
                 {timeLimit !== null && game.status === 'playing' && <div className="blitz-progress"><span style={{ width: `${Math.max(0, Math.min(1, (timeLeft ?? 0) / timeLimit)) * 100}%` }} /></div>}
               </div>
+              {game.mode==='zen'&&branchWorld&&<BranchAbilityBar world={branchWorld} game={game} act={adventureAction}/> }
               <div className="game-controls">{game.mode === 'scan' && <button className={`scan-toggle ${scanArmed ? 'enabled' : ''}`} disabled={game.charges === 0 || isFinished} aria-pressed={scanArmed} onClick={() => setScanArmed(a => !a)}><ScanSearch size={15} /><span>{scanArmed ? 'Pick a square' : 'Scan'}</span><b>{game.charges}</b></button>}{flagsLocked ? <span className="flag-toggle locked" title="Today’s twist removes flags"><Flag size={15} /><span>No flags today</span></span> : <button className={`flag-toggle ${flagMode ? 'enabled' : ''}`} onClick={() => setFlagMode(!flagMode)} aria-pressed={flagMode}><Flag size={15} fill={flagMode ? 'currentColor' : 'none'} /><span>Flag mode</span><span className="toggle-track"><i /></span></button>}<span className="board-tip"><MousePointer2 size={13} /><span>{flagsLocked ? 'Every square is a guess worth making' : 'Right-click to flag'}</span></span><button className="new-game-text" onClick={() => requestGame()}><RotateCcw size={14} />New game</button></div>
               <div className={`board-message ${isFinished ? 'finished' : ''}`}>{isFinished ? <><Check size={13} />{game.status === 'won' ? 'A little victory, saved to your stats.' : 'Every game is a chance to get a little better.'}</> : <><ShieldCheck size={14} />{game.status === 'ready' ? 'Your first move is always safe. Go on, pick a square.' : flagMode ? 'Flag mode is on. Tap a square to mark a possible mine.' : `${game.cells.filter(c => c.revealed && !c.mine).length} safe squares found. You’ve got this.`}</>}</div>
             </section>

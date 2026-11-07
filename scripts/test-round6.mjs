@@ -9,7 +9,7 @@ try {
   await p.addInitScript(() => { Math.random = () => .5; });
   await p.goto(BASE, { waitUntil: 'networkidle' });
   await p.waitForTimeout(2700);
-  assert.equal(await p.locator('.mode-bar .mode-card').count(), 9);
+  assert.equal(await p.locator('.mode-bar .mode-card').count(), 8);
   assert.equal(await p.locator('.mode-column .mode-card').count(), 0);
   await p.locator('.mode-card-zen').click();
   await p.getByRole('button',{name:'Minefield · stop 1 · available',exact:true}).click();

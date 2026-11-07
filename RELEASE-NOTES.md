@@ -1,3 +1,14 @@
+## v1.5.0 — Approved dark UI, Classic challenges and explicit tools
+
+- Ships the approved modern/familiar Minesweeper style across the real app. Retains sidebar, orange flags and compact mode bar; all eight mode buttons fit mobile screens. Dark is the default when no theme is saved; existing preferences remain valid.
+- Moves Contract's optional objectives, bonus badges, rescue and seeded code replay into Classic. Challenge runs retain stars in local history and are excluded from standard local/public leaderboards. Old Contract records remain readable.
+- Medium becomes 11×11/18 and Hard 16×16/42 in standard difficulty modes. Daily follows Medium only. Nightfall stays 12×12 as previously required, with Medium 18 and Hard 26 mines. Custom choices and existing Branch board snapshots are not resized.
+- Adds a readable clear pulse/cascade respecting reduced motion. Branch nodes fade into focused shop/event/encounter views; clears reopen the route or loot UI automatically. Visible mine hits and explicit Continue remain unchanged.
+- Moves active tools into a prominent board-side dock, sticky in focus mode. Separates one-time camp supplies from Lantern scan rendering. Protected and unprotected mine-hit Continue/restarts do not silently restore active scans or spend charges.
+- Raises all 11 shop prices; no reset of wallet, bank, inventory, tree or dropped money. Seam Breaker 80, Magnet 60, Dynamo 70, Pathfinder 60, Lantern 30, Totem 60, Ration 20, Purse 70, Boots 75, Charm 70, Pouch Upgrade 85 (before discounts).
+- v1.5.0 / Android code 10; same signing and app identifiers. No Firestore rules, indexes or database-side changes. Native workflow and real-device checks still required.
+- Scope: approved design/core fixes, not the larger item/boss expansion. Still 11 item types and 3 phased bosses; 50+ boss roster not complete.
+
 ## v1.4.0 — One Branch, builds and livelier minefields
 
 - Unifies ordinary Branch and expeditions into one map → encounter → loot → next path flow. Removes opt-in/Begin and the legacy plain-board bypass. All open limbs use routes automatically; unfinished legacy grids retain mines, reveals, flags, IDs and descendants.

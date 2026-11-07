@@ -21,7 +21,7 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
 
 ## A little logic. A lot of possibility.
 
-- **Classic:** Perfect squares — Easy (9 × 9, 10 mines), Medium (12 × 12, 24 mines), and Hard (20 × 20, 70 mines).
+- **Classic:** Perfect squares — Easy (9 × 9, 10 mines), Medium (11 × 11, 18 mines), and Hard (16 × 16, 42 mines). Optional challenges add objectives without replacing normal Classic.
 - **Blitz:** A race against the clock, from 15 seconds to 5 minutes, on all three board sizes.
 - **Branch:** One saved adventure tree: visual route → encounter → loot → next path. Crystal caches,
   optional minefield bounties, equipment combinations, events and phased bosses; no separate opt-in mode.
@@ -36,10 +36,9 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
   size is remembered; results remain in your local statistics, not a leaderboard.
 - **Riptide:** Every eight seconds the tide shifts every row and column, dragging the mines with
   it and rewriting the numbers on squares you have already opened. Correctly flagged mines stay anchored; numbered clues remain visible, while zero labels are blank.
-- **Contract:** Three compatible objectives from a twenty-four-objective pool, plus two optional bonus
-  badges, a one-use safe-tile rescue that costs a final star, and replayable contract codes. Use the
-  same code, difficulty and first click to reproduce a board. Objectives stay visible in focus mode.
-  Contract results retain their stars in local statistics; there is no Contract leaderboard.
+- **Classic challenges (formerly Contract):** Optional objectives from the existing pool, bonus badges,
+  one-use rescue and seeded code replay. Toggle them inside Classic; these runs stay in local history,
+  separate from normal Classic leaderboards. Old Contract history remains readable.
 - **Scan:** Start with six charges. Known safe clues cost two; unknowns cost one. Mines
   always return ?, safe tiles have a 40% unknown chance, and the final charge always returns ?.
   A scan cannot be rerolled. Flagging each real mine earns one charge only once.
@@ -55,6 +54,27 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
 - No accounts, advertising, or analytics. Public Classic/Blitz scores optionally use Firebase.
 - Leaderboards exist only for Classic and Blitz. Failed submissions remain in a device-local retry queue; the public board shows the latest confirmed submission separately from the fastest 20.
 
+## Approved dark redesign — v1.5.0
+
+The approved familiar layout is now in the real app: charcoal panels, orange accents, compact counters,
+crisp tiles, all eight modes visible on mobile, and the existing sidebar/navigation. New installs default
+ to dark; an existing explicit light/dark preference is respected. The theme button and saved preferences remain.
+
+Medium is **11×11 / 18 mines** and Hard **16×16 / 42 mines** across the standard difficulty modes.
+Daily is Medium-only. Nightfall retains its specifically requested **12×12** shape, with easier Medium
+(18 mines) and Hard (26 mines); fog timing/caps are unchanged. Custom sizes and saved Branch encounters
+are not resized. Existing records and scores are retained, not erased.
+
+Classic has optional challenges instead of a separate Contract button. Clear feedback now uses a crisp
+staggered pulse; reduce-motion preferences still disable it. Branch nodes open focused encounter screens
+with fades; completed minefields open route/loot UI automatically. Losses still require explicit Continue.
+The active-tool dock stays beside the board in focus mode. Camp clues are labeled separately from active
+Lantern scans, paid camp supplies do not reappear on retries, and active scans clear on mine-hit Continue
+without consuming another charge. All shop item prices have increased; existing wallets/items are retained.
+
+This release implements the approved design and these core changes, **not the larger content expansion**.
+The roster remains **11 item types and 3 bosses**. No new Firestore rules, indexes or database-side changes.
+
 ## Unified Branch (v1.4.0)
 
 Enter **Branch** to open its visual route map. Choose an encounter, play its minefield or make its decision, claim any milestone loot, then choose the next path. Finish the phased boss to grow harder limbs. The existing Branch map button reopens the same map; **Whole tree** lets you revisit open limbs. There is no separate “Begin adventure” switch or plain-board bypass.
@@ -65,7 +85,7 @@ Ordinary minefields now include **Crystal seams** (safe cache bursts), **Survey 
 
 Unprotected failure drops **10–100% of carried coins**, never banked coins. Pouches retain the same once-per-attempt **10%** recovery chance in their original limb. You see the mine hit before explicitly continuing; that Continue remains available after **See the board** and after restarting. First-clear rewards and caches cannot be farmed on retries.
 
-**Classic is unchanged.** There are **3 phased bosses and 11 item types**; the previously discussed 50+ boss roster is still unfinished. See **BRANCH-EXPEDITIONS.md** for mechanics and limits. **No Firestore rules, indexes, or database-side changes are required.** All Branch data stays in the existing local save; do not uninstall or clear app data to update.
+**Classic now offers optional challenges and smaller difficulties.** There are **3 phased bosses and 11 item types**; the previously discussed 50+ boss roster is still unfinished. See **BRANCH-EXPEDITIONS.md** for mechanics and limits. **No Firestore rules, indexes, or database-side changes are required.** All Branch data stays in the existing local save; do not uninstall or clear app data to update.
 
 ## Web
 
@@ -94,7 +114,7 @@ node scripts/test-engine.mjs
 node scripts/test-browser.mjs
 ```
 
-The browser checks expect the Vite server at `http://127.0.0.1:4173` and Playwright Chromium. They cover safe openings, complete wins, flagging, all nine modes (Nightfall fog adjacency and escalation, Custom sizing, the Riptide countdown, Contract objectives, Scan charges), the daily lock, the leaderboard name prompt, Blitz timeout, local statistics, mobile controls, preferences, and APK downloading.
+The browser checks expect the Vite server at `http://127.0.0.1:4173` and Playwright Chromium. They cover safe openings, complete wins, flagging, all eight modes (Nightfall fog adjacency and escalation, Custom sizing, the Riptide countdown, optional Classic objectives, Scan charges), the daily lock, the leaderboard name prompt, Blitz timeout, local statistics, mobile controls, preferences, and APK downloading.
 
 ## Keyboard controls
 

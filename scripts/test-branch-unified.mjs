@@ -38,7 +38,7 @@ try{
   let v=start(a.unifyBranch(b.newWorld())),s=a.stopFor(v);s.variant=variant;
   // Narrow's dimensions are set at creation; verify generation across several real routes below.
   let x=s.board,n=g.reveal(x,40).state;const r=a.settleMove(v,x,n);v=r.world;x=r.board;
-  if(variant==='surveyed')assert.ok(x.cells.some(c=>c.scanned!==null&&!c.mine));
+  if(variant==='surveyed'){assert.ok(a.stopFor(v).campClues.length>0);assert.ok(x.cells.every(c=>c.scanned===null),'camp clues are distinct from active Lantern scans');};
   if(variant==='bounty')assert.equal(a.stopFor(v).moves,1);
  }
  let rectangular=false;
@@ -61,6 +61,16 @@ try{
  const count=x.cells.filter(c=>c.revealed).length;out=a.useAbility(skill,x,'pathfinder');assert.ok(out.board.cells.filter(c=>c.revealed).length>=count+Math.min(3,x.cells.filter(c=>!c.mine&&!c.revealed&&!c.flagged).length));
  let kit=out.world;kit.expeditions.inventory.blast=1;kit=a.equipItem(kit,'blast');
  if(out.board.status==='playing'){const burst=a.useAbility(kit,out.board,'blast');assert.ok(burst.board.cells.filter(c=>c.exploded).length===0);assert.ok((burst.world.expeditions.blastCooldown??0)>0||burst.board.status==='won');}
+ // Regression: active Survey clues never reapply on a protected or unprotected retry.
+ for(const protectedRun of [true,false]){
+  let v=start(a.unifyBranch(b.newWorld()));a.stopFor(v).variant=undefined;v.expeditions.autoTotem=protectedRun;v.expeditions.inventory.survey=1;v.expeditions.surveyCharges=3;v=a.equipItem(v,'survey');
+  let x=a.expeditionBoard(v),r=a.settleMove(v,x,g.reveal(x,40).state);v=r.world;x=r.board;
+  r=a.useAbility(v,x,'survey');v=r.world;x=r.board;assert.equal(v.expeditions.surveyCharges,2);assert.ok(x.cells.some(c=>c.scanned!==null));
+  const mine=x.cells.findIndex(c=>c.mine);r=a.settleMove(v,x,g.reveal(x,mine).state,()=>.5);v=r.world;
+  v=a.continueAfterLoss(JSON.parse(JSON.stringify(v)),()=>.5);if(!protectedRun)v=a.startEncounter(v);
+  x=a.expeditionBoard(v);assert.ok(x);assert.equal(v.expeditions.surveyCharges,2);assert.equal(x.cells.filter(c=>c.scanned!==null).length,0,'no free or restored active scans after Continue');
+  const saved=JSON.parse(JSON.stringify(v));assert.equal(a.expeditionBoard(a.unifyBranch(saved)).cells.filter(c=>c.scanned!==null).length,0,'reload also cannot reapply a tool');
+ }
  // Event outcomes are saved once, and bank money never enters an event gamble.
  for(const event of ['shrine','chest']){
   let ev=a.unifyBranch(b.newWorld());ev.expeditions.coins=20;ev.expeditions.bank=100;let r=a.routeFor(ev);r.cursor=1;r.stops[1].kind='event';r.stops[1].event=event;

@@ -98,10 +98,10 @@ assert.equal(new Set([0, 1, 2, 3].map(d => dailyTwist(d).id)).size, 4, 'four day
 assert.equal(dailyTwist(0).id, dailyTwist(DAILY_TWISTS.length).id, 'the twist cycle repeats on schedule');
 assert.ok(DAILY_TWISTS.some(t => t.noFlags) && DAILY_TWISTS.some(t => t.seconds), 'twists include a flag-free day and a timed day');
 /* --- Board shapes: the new sizes, Nightfall's lock, and Custom clamps --- */
-assert.deepEqual([DIFFICULTIES.easy.rows, DIFFICULTIES.medium.rows, DIFFICULTIES.hard.rows], [9, 12, 20], 'medium is 12 × 12 and hard is 20 × 20');
-assert.equal(DIFFICULTIES.medium.cols, 12);
-assert.equal(DIFFICULTIES.hard.cols, 20);
-assert.deepEqual([DIFFICULTIES.easy.mines, DIFFICULTIES.medium.mines, DIFFICULTIES.hard.mines], [10, 24, 70], 'mine counts keep the density gentle');
+assert.deepEqual([DIFFICULTIES.easy.rows, DIFFICULTIES.medium.rows, DIFFICULTIES.hard.rows], [9, 11, 16], 'medium is 11 × 11 and hard is 16 × 16');
+assert.equal(DIFFICULTIES.medium.cols, 11);
+assert.equal(DIFFICULTIES.hard.cols, 16);
+assert.deepEqual([DIFFICULTIES.easy.mines, DIFFICULTIES.medium.mines, DIFFICULTIES.hard.mines], [10, 18, 42], 'mine counts keep the density gentle');
 for (const rung of MODE_DIFFICULTIES.nightfall) {
   const board = freshGame('nightfall', rung);
   assert.equal(board.rows, 12, 'Nightfall is locked to 12 × 12');

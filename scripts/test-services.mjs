@@ -46,6 +46,9 @@ try {
   assert.equal(await pub.submitPublicScore(record), true);
   assert.equal(await pub.submitPublicScore(record), true);
   assert.equal(writes, 1, 'retry never duplicates an acknowledged score');
+  console.warn=()=>{};
+  try{assert.equal(await pub.submitPublicScore({...record,id:'classic-challenge',mode:'classic',challenge:true}),false,'challenge boards cannot enter standard public scores');}finally{console.warn=warn;}
+  assert.equal(writes,1,'challenge rejection does not write to Firebase');
   assert.equal(pub.latestPublicSubmission('blitz').seconds, 15);
   writeFail=true;
   console.warn=()=>{};

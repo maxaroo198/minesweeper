@@ -1,3 +1,24 @@
+# v1.5.0 interface and active-tool update
+
+Selecting a node opens a focused encounter screen with a fade. Use Route overview to inspect the map again.
+Starting a minefield fades back to the grid. Clearing it opens the route/loot UI directly; a mine hit still
+shows the result and requires explicit Continue. The map remains visual, with Whole tree travel intact.
+
+Active abilities live in the prominent dock beside the board, including focus mode. They are not toggles
+or automatic start-of-board effects. Survey camp clues now have a separate dashed marker and are saved
+as camp metadata, not `scanned` cells. A camp supplies its clues only once per stop; no retry farming.
+On a mine-hit Continue, the affected board's active scans are cleared. Charges remain spent; there is
+no automatic new activation. Other unfinished limbs' boards are not altered by this cleanup.
+
+All shop prices increased: Breaker 80, Magnet 60, Dynamo 70, Pathfinder 60, Lantern 30, Totem 60, Ration 20,
+Purse 70, Boots 75, Charm 70, Pouch Upgrade 85. Trader Charm's 20% discount still applies. Existing items,
+carried coins, bank, drops, rewards and tree IDs are unchanged.
+
+This is the approved design/core-fix release, not the larger content expansion. Still 11 item types and
+3 phased bosses. No Firestore rules, indexes, new account or database migration.
+
+## Previous unified mechanics (still apply except where superseded above)
+
 # Unified Branch — v1.4.0
 
 ## One mode and preserved progress
@@ -39,7 +60,7 @@ All use the same safe-opening protection and require every safe tile to be revea
 
 ## Remaining agreed scope
 
-The full roster of at least 50 announced boss twists remains unfinished. This update adds real minefield variants, equipment combinations and events but does not claim they are additional bosses. Further content and balancing remain possible. Classic is unchanged in this update.
+The full roster of at least 50 announced boss twists remains unfinished. This update adds real minefield variants, equipment combinations and events but does not claim they are additional bosses. Further content and balancing remain possible. Classic now has optional challenges and smaller standard difficulties; Branch board generation still grows independently with depth.
 
 ## Validation and limits
 
