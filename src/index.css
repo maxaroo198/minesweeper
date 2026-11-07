@@ -1504,3 +1504,19 @@ color-scheme:dark;
 .installer-link span { flex:1; display:flex; flex-direction:column; gap:4px; }
 .installer-link small { font-size:10px; font-weight:400; opacity:.75; }
 .installer-list a { overflow-wrap:anywhere; }
+
+/* Compact modes, stable tile feedback and readable public-board errors. */
+.mode-bar{display:flex;gap:6px;overflow-x:auto;padding:8px 0 14px;margin-bottom:8px;scrollbar-width:thin}
+.mode-bar .mode-card{display:flex;align-items:center;gap:7px;flex:0 0 auto;width:auto;min-height:0;margin:0;padding:10px 12px;border-radius:8px;font-size:11px;transform:none;white-space:nowrap}
+.mode-bar .mode-card svg{color:var(--orange);flex-shrink:0}
+.mode-bar .mode-card.selected{border-color:var(--orange);background:var(--orange-tint)}
+.play-layout{grid-template-columns:minmax(0,1fr)}
+.play-layout:has(.mode-column){grid-template-columns:minmax(0,1fr) 280px}
+.public-error{margin:20px;padding:16px;border:1px solid var(--orange);border-radius:8px;font-size:12px}
+.public-error p{overflow-wrap:anywhere;margin:10px 0;line-height:1.6}
+.mine-board .tile.tide-moved{animation:tide-clue .7s ease-out}
+@keyframes tide-clue{0%{box-shadow:inset 0 0 0 2px var(--orange)}100%{box-shadow:inset 0 0 0 0 transparent}}
+.has-expansion-fx .tile.revealed,.has-expansion-fx .tile.covered{will-change:auto}
+.tile.tile-popped,.tile.tile-expanded{animation:none}
+.tile.tile-popped .number-marker,.tile.tile-expanded .number-marker{animation:none;opacity:1;transform:none}
+@media(max-width:900px){.play-layout:has(.mode-column){grid-template-columns:minmax(0,1fr)}.mode-bar .mode-card{padding:9px 10px;font-size:10px}}

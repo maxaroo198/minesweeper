@@ -45,17 +45,18 @@ export function driftBoard(state: BoardState, rng: () => number = Math.random): 
   const row = -1, col = -1;
   let changed = false;
   for (let r = 0; r < state.rows; r++) {
-    const indexes = cells.flatMap((c, i) => !c.revealed && Math.floor(i / state.cols) === r ? [i] : []);
+    const indexes = cells.flatMap((c, i) => !(c.flagged && c.mine) && !c.revealed && Math.floor(i / state.cols) === r ? [i] : []);
     if (rng() < 0.5) indexes.reverse();
     changed = cycleLine(cells, indexes) || changed;
   }
   for (let c = 0; c < state.cols; c++) {
-    const indexes = cells.flatMap((cell, i) => !cell.revealed && i % state.cols === c ? [i] : []);
+    const indexes = cells.flatMap((cell, i) => !(cell.flagged && cell.mine) && !cell.revealed && i % state.cols === c ? [i] : []);
     if (rng() < 0.5) indexes.reverse();
     changed = cycleLine(cells, indexes) || changed;
   }
   if (!changed) return { state, row, col, changed: false, moved: [] };
   recount(cells, state.rows, state.cols);
+  cells.forEach(c => { c.hidden = false; c.scanned = null; });
   const moved = cells.flatMap((c, i) => c.mine !== state.cells[i].mine || c.adjacent !== state.cells[i].adjacent ? [i] : []);
   return { state: { ...state, cells }, row, col, changed, moved };
 }

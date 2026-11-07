@@ -35,6 +35,7 @@ let noiseBuffer: AudioBuffer | null = null;
 
 function audio(): AudioContext | null {
   try {
+    if (ctx?.state === 'closed') { ctx = null; master = null; noiseBuffer = null; }
     if (!ctx) {
       const Context = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!Context) return null;
@@ -43,7 +44,7 @@ function audio(): AudioContext | null {
       master.gain.value = 0.42;
       master.connect(ctx.destination);
     }
-    if (ctx.state === 'suspended') void ctx.resume();
+    if (ctx.state !== 'running') void ctx.resume().catch(() => {});
     return ctx;
   } catch {
     return null;
@@ -120,9 +121,8 @@ function noiseHit(context: AudioContext, volume: number, duration: number, cutof
   source.stop(context.currentTime + delay + duration + 0.02);
 }
 
-function playSound(sense: Sense) {
-  const context = audio();
-  if (!context || !master) return;
+function synthSound(sense: Sense, context: AudioContext) {
+  if (!master) return;
   switch (sense) {
     case 'tap':
       // A soft, rounded "tock".
@@ -217,4 +217,22 @@ export function supportsVibrate() {
 
 export function hapticAvailable(options: SensoryOptions) {
   return options.haptics && (!!bridge()?.haptic || supportsVibrate());
+}
+
+function playSound(kind: Sense) {
+  const context = audio();
+  if (!context) return;
+  if (context.state === 'running') { synthSound(kind, context); return; }
+  void context.resume().then(() => { if (context.state === 'running') synthSound(kind, context); }).catch(() => {});
+}
+
+export async function testAudio(): Promise<string> {
+  const context = audio();
+  if (!context) return 'Web Audio is unavailable in this app runtime.';
+  try {
+    await context.resume();
+    if (context.state !== 'running') return `Audio is ${context.state}. Try another click or reopen the app.`;
+    synthSound('win', context);
+    return 'Audio engine running. If silent, check the app’s output in your system mixer. On CachyOS, check GStreamer good plugins and the PulseAudio/PipeWire sink.';
+  } catch (error) { return `Could not start audio: ${String(error)}`; }
 }

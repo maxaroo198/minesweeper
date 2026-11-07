@@ -1,3 +1,19 @@
+# Round 6 — balance, compact modes and reliability (v1.2.0)
+
+- Nightfall/Blackout: +5 percentage points every 2 seconds; caps 70% and 100%.
+- Scan: six starting charges, 40% safe-tile uncertainty, mines always unknown, known=2 / unknown=1, final charge always unknown. No rescans, negative charges or repeat flag rewards.
+- Riptide: anchor correctly flagged mines and display zero clues on open tiles. All rows/columns still shift every 8 seconds; mine count and open-tile safety preserved.
+- Contract: 24 objectives, shorter time targets, harder combined goals, compatibility checks.
+- Horizontal game-mode bar replaces the large cards column; daily details stay available.
+- Branch: keep exploded mine/lost board until Continue; root failures reopen a playable root. Preserve existing trees.
+- Daily streak dates migrate into independent persistent storage so other games cannot evict them. Previously discarded history cannot be recovered.
+- Blitz public board: exact merged top 20 across per-difficulty indexed queries, visible errors/Retry and post-completion refresh. Existing Classic index reused; no rule/schema changes. Live project still needs user verification.
+- Audio: recreate closed contexts, resume before tones, repeat gesture unlock and Test sound. Bundle AppImage media framework; explicit Debian runtime dependencies. Actual CachyOS sound remains to be verified in a rebuilt AppImage.
+- Reduce timer-driven renders, coalesce resize measurements, remove tile-number movement and clear tide feedback after it plays.
+- Native versions aligned at 1.2.0; Android versionCode 5. Keep existing signing key and package identities.
+
+Nested Branch expeditions, shops, inventory/abilities, procedural events and 50+ phased boss twists remain the next project phase, not implemented here.
+
 # Round 5 — native release pipeline
 
 - GitHub Actions matrix: Android APK, Windows NSIS, Linux AppImage and Debian packages; verify tests, all-platform release gate, stable asset names and checksums.

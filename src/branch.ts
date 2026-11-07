@@ -135,8 +135,9 @@ export function failArea(world: BranchWorld, id: string): { world: BranchWorld; 
     // Walk up to the nearest ancestor and re-open it ("redo the area before").
     let cursor: BranchArea | undefined = area.parent ? world.areas[area.parent] : undefined;
     while (cursor && cursor.state === 'locked') cursor = cursor.parent ? world.areas[cursor.parent] : undefined;
+    if (!cursor && area.parent === null) cursor = world.areas[id];
     if (cursor) {
-      world.areas[cursor.id] = { ...cursor, state: 'open' };
+      world.areas[cursor.id] = { ...cursor, state: 'open', mines: null, revealed: [], flagged: [] };
       fallback = cursor.id;
       openIds.push(cursor.id);
     }

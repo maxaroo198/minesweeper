@@ -134,3 +134,16 @@ For a competitive launch, add authenticated submissions, rate limiting and
 server-side validation; App Check is an additional abuse barrier, not score
 verification. Monitor Firestore usage and current free-tier quotas. Do not
 assume public access can never incur costs if billing is enabled.
+
+## Round 6: Blitz public scores
+
+Blitz now queries each difficulty separately, using the same per-difficulty
+composite index as Classic, then merges the exact fastest 20 across difficulties.
+No new rules or document fields are required. If Classic's per-difficulty query
+already works, its index also supports Blitz. The separate `mode + seconds` index
+is no longer needed by this loader (leaving it in place is harmless).
+
+The board now displays query failures and a Retry button instead of disguising
+them as an empty board. If Firebase requests an index, follow its generated link,
+wait for Enabled, and retry. Posting completion triggers a refresh. This update
+was tested with mocked Firebase queries, not against your live database.

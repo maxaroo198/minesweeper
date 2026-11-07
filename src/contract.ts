@@ -7,7 +7,7 @@
 import { seededRandom } from './game';
 import type { BoardState, Difficulty, ObjectiveId } from './game';
 
-export const OBJECTIVE_POOL: ObjectiveId[] = ['speed', 'flagless', 'chordless', 'accuracy', 'corners', 'allflags', 'minimalist', 'chorder', 'sprint', 'patient', 'unassisted', 'efficient'];
+export const OBJECTIVE_POOL: ObjectiveId[] = ['speed', 'flagless', 'chordless', 'accuracy', 'corners', 'allflags', 'minimalist', 'chorder', 'sprint', 'patient', 'unassisted', 'efficient', 'expert-speed', 'clean-sprint', 'no-tools-speed', 'precise-chords', 'flag-discipline', 'half-flags', 'economical', 'no-chord-sprint', 'safe-border', 'marked-corners', 'perfect-tech', 'chord-sprint'];
 
 export interface Objective {
   id: ObjectiveId;
@@ -18,10 +18,10 @@ export interface Objective {
 
 /** How long "quickly" means on each board. */
 export function speedLimit(difficulty: Difficulty): number {
-  if (difficulty === 'hard') return 240;
-  if (difficulty === 'medium') return 120;
-  if (difficulty === 'easy') return 60;
-  return 120;
+  if (difficulty === 'hard') return 200;
+  if (difficulty === 'medium') return 100;
+  if (difficulty === 'easy') return 45;
+  return 100;
 }
 
 function clock(seconds: number) {
@@ -39,10 +39,14 @@ export function dealObjectives(seed: string): ObjectiveId[] {
   // Never deal mutually exclusive flag/chord conditions together.
   const chosen: ObjectiveId[] = [];
   for (const id of pool) {
-    if ((id === 'allflags' && chosen.some(x => x === 'flagless' || x === 'minimalist')) ||
-        ((id === 'flagless' || id === 'minimalist') && chosen.includes('allflags')) ||
-        (id === 'chorder' && chosen.includes('chordless')) ||
-        (id === 'chordless' && chosen.includes('chorder'))) continue;
+    const requiresFlags = ['allflags', 'flag-discipline', 'safe-border', 'corners', 'marked-corners'];
+    const limitsFlags = ['flagless', 'minimalist', 'half-flags', 'perfect-tech'];
+    const needsChords = ['chorder', 'precise-chords', 'chord-sprint'];
+    const forbidsChords = ['chordless', 'no-chord-sprint', 'perfect-tech', 'flagless'];
+    if ((requiresFlags.includes(id) && chosen.some(x => limitsFlags.includes(x))) ||
+        (limitsFlags.includes(id) && chosen.some(x => requiresFlags.includes(x))) ||
+        (needsChords.includes(id) && chosen.some(x => forbidsChords.includes(x))) ||
+        (forbidsChords.includes(id) && chosen.some(x => needsChords.includes(x)))) continue;
     chosen.push(id);
     if (chosen.length === 3) break;
   }
@@ -80,6 +84,30 @@ export function rateObjectives(ids: ObjectiveId[], state: BoardState, seconds: n
         return { id, label: 'Self sufficient', blurb: 'Clear the board without using your rescue.', done: won && !state.rescues };
       case 'efficient':
         return { id, label: 'Efficient explorer', blurb: `Win in at most ${Math.ceil(state.rows * state.cols * 0.6)} reveal actions.`, done: won && (state.reveals ?? 0) <= Math.ceil(state.rows * state.cols * 0.6) };
+      case 'expert-speed':
+        return { id, label: `Expert clear under ${clock(Math.floor(limit / 2))}`, blurb: 'Half the normal deadline.', done: won && seconds < limit / 2 };
+      case 'clean-sprint':
+        return { id, label: 'Clean sprint', blurb: `Under ${clock(Math.floor(limit * .75))}, with no wrong flags.`, done: won && seconds < limit * .75 && !state.mistakes && wrongFlags === 0 };
+      case 'no-tools-speed':
+        return { id, label: 'Unaided rush', blurb: `Under ${clock(limit)} without rescue.`, done: won && seconds < limit && !state.rescues };
+      case 'precise-chords':
+        return { id, label: 'Six clean chords', blurb: 'Win with at least six chords and no wrong flags.', done: won && state.chords >= 6 && !state.mistakes && wrongFlags === 0 };
+      case 'flag-discipline':
+        return { id, label: 'One marker per mine', blurb: 'Flag every mine, with exactly one placement per mine and no mistakes.', done: won && state.flagsPlaced === state.mines && !state.mistakes && state.cells.every(c => !c.mine || c.flagged) };
+      case 'half-flags':
+        return { id, label: 'Half a toolkit', blurb: `At most ${Math.floor(state.mines / 2)} total flag placements; no rescue.`, done: won && state.flagsPlaced <= Math.floor(state.mines / 2) && !state.rescues };
+      case 'economical':
+        return { id, label: 'Master explorer', blurb: `At most ${Math.ceil(state.cells.length * .35)} reveal actions, without rescue.`, done: won && (state.reveals ?? 0) <= Math.ceil(state.cells.length * .35) && !state.rescues };
+      case 'no-chord-sprint':
+        return { id, label: 'Manual speedrun', blurb: `Win under ${clock(limit)} without any chords.`, done: won && seconds < limit && state.chords === 0 };
+      case 'safe-border':
+        return { id, label: 'Secure the perimeter', blurb: 'Reveal every safe border tile and flag every border mine.', done: won && state.cells.every((c, i) => !(i < state.cols || i >= (state.rows - 1) * state.cols || i % state.cols === 0 || i % state.cols === state.cols - 1) || (c.mine ? c.flagged : c.revealed)) };
+      case 'marked-corners':
+        return { id, label: 'Fast corner patrol', blurb: `Secure all four corners under ${clock(Math.floor(limit * .75))}.`, done: won && cornersOpen && seconds < limit * .75 };
+      case 'perfect-tech':
+        return { id, label: 'Pure deduction', blurb: `No flags, chords or rescue; finish under ${clock(Math.floor(limit * 1.5))}.`, done: won && !state.flagsPlaced && !state.chords && !state.rescues && seconds < limit * 1.5 };
+      case 'chord-sprint':
+        return { id, label: 'Chain sprint', blurb: `At least three chords, under ${clock(Math.floor(limit * .75))}, no rescue.`, done: won && state.chords >= 3 && seconds < limit * .75 && !state.rescues };
       case 'corners':
       default:
         return { id, label: 'Secure all four corners', blurb: 'Reveal safe corners and flag any mined corners.', done: won ? cornersOpen : cornersOpen };

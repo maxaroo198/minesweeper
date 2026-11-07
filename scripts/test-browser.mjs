@@ -228,12 +228,14 @@ await layoutPage.getByRole('button', { name: 'Exit focus mode', exact: true }).c
 await layoutPage.locator('.mode-card-scan').click();
 await layoutPage.waitForTimeout(200);
 await fresh(layoutPage);
-assert.ok((await layoutPage.locator('.scan-toggle').innerText()).includes('3'), 'scan mode starts with three charges');
+assert.ok((await layoutPage.locator('.scan-toggle').innerText()).includes('6'), 'scan mode starts with six charges');
 await layoutPage.locator('.scan-toggle').click();
 await layoutPage.locator('.tile.covered').first().click();
 await layoutPage.waitForTimeout(200);
 assert.equal(await layoutPage.locator('.tile.scanned').count(), 1, 'a spent charge marks the square it read');
-assert.ok((await layoutPage.locator('.scan-toggle b').innerText()) === '2', 'and one charge is gone');
+const scanLeft = Number(await layoutPage.locator('.scan-toggle b').innerText());
+assert.ok(scanLeft === 4 || scanLeft === 5, 'a known clue costs two, an unknown costs one');
+assert.equal((await layoutPage.locator('.tile.scanned').innerText()).includes('?'), scanLeft === 5);
 
 // Nightfall: 12 × 12 with Blackout sitting beside the usual three sizes.
 await layoutPage.locator('.mode-card-nightfall').click();

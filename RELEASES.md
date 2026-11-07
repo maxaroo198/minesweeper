@@ -10,7 +10,7 @@ website, or separately installed Linux profiles.
 
 `.github/workflows/installers.yml` builds on GitHub's Windows and Linux runners:
 
-- `minefield-android.apk`: Android 8+; package `app.minefield`, version 1.1.0/code 4.
+- `minefield-android.apk`: Android 8+; package `app.minefield`, version 1.2.0/code 5.
 - `minefield-windows-x64-setup.exe`: x64 NSIS installer, Tauri 2 / WebView2.
 - `minefield-linux-x86_64.AppImage`: x86_64 AppImage, may need FUSE.
 - `minefield-linux-amd64.deb`: Debian/Ubuntu-compatible package.
@@ -104,15 +104,15 @@ play, sound and Android haptics, plus a Classic/Blitz public score while online.
 
 If a job fails, open the red step and share the error (not signing secrets).
 
-## 5. Publish v1.1.0 after testing
+## 5. Publish v1.2.0 after testing
 
 From your local project (fish compatible):
 
 ```fish
 cd ~/minefield-patched
 git push origin main
-git tag v1.1.0
-git push origin v1.1.0
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
 The tag starts a fresh build. After **all** builds pass, the release job publishes
@@ -137,3 +137,21 @@ Desktop: Rust stable, platform prerequisites from Tauri 2, `npm ci`, then
 `npm run desktop:icon` and `npm run desktop:build -- --bundles deb,appimage` on Linux,
 or `npm run desktop:build -- --bundles nsis` on Windows. Build on the native OS.
 The icons are generated from the checked-in SVG. No Flatpak is built in this round.
+
+## CachyOS / Arch AppImage sound checks
+
+Use a freshly built v1.2.0 AppImage, not the previously downloaded binary.
+Preferences → Test sound enables sound and starts the audio engine. If the engine
+reports running but remains silent, check the app output in the system volume
+mixer. For diagnostics (no package changes), run:
+
+```fish
+gst-inspect-1.0 autoaudiosink
+gst-inspect-1.0 pulsesink
+wpctl status
+```
+
+Share missing-plugin or output-device errors, not signing credentials. The
+AppImage now requests Tauri's GStreamer media bundling; this is not a claim that
+every CachyOS audio configuration has been tested. Do not disable audio/security
+sandboxing as a workaround. Windows and Android use different audio stacks.

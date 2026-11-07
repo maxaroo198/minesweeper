@@ -14,6 +14,7 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, query, where, orderBy, limit, getDocs, type Firestore } from 'firebase/firestore';
 import type { Difficulty, GameRecord, Mode } from './game';
+import { MODE_DIFFICULTIES } from './game';
 
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
@@ -85,11 +86,17 @@ export async function submitPublicScore(record: GameRecord): Promise<boolean> {
 export async function topPublicScores(mode: Mode, difficulty: Difficulty, count = 20, allDifficulties = false): Promise<PublicScore[]> {
   const database = firestore();
   if (!database) return [];
+  if (allDifficulties) {
+    // Reuse the per-difficulty index already needed by Classic, then merge
+    // each difficulty's top N. Their union contains the global top N.
+    const groups = await Promise.all(MODE_DIFFICULTIES[mode].map(d => topPublicScores(mode, d, count, false)));
+    return groups.flat().sort((a, b) => a.seconds - b.seconds || a.date.localeCompare(b.date)).slice(0, count);
+  }
   try {
     const q = query(
       collection(database, 'scores'),
       where('mode', '==', mode),
-      ...(allDifficulties ? [] : [where('difficulty', '==', difficulty)]),
+      where('difficulty', '==', difficulty),
       orderBy('seconds', 'asc'),
       limit(count),
     );
@@ -97,6 +104,6 @@ export async function topPublicScores(mode: Mode, difficulty: Difficulty, count 
     return snapshot.docs.map(d => ({ ...(d.data() as PublicScore) }));
   } catch (error) {
     console.warn('Public leaderboard: scores could not be loaded. Check Firestore rules and indexes.', error);
-    return [];
+    throw error;
   }
 }

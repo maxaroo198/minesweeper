@@ -1,3 +1,9 @@
+# Round 6 validation notes
+
+TypeScript, production web build, randomized engine suite, mocked Firebase/audio tests, browser interaction tests, restart-persistence tests and Round 6 regression tests are run for this update. Regressions cover compact mode navigation, visible Branch death, playable root fallback, Scan costs/no-reroll and daily streaks without rolling history.
+
+Firebase tests use mocks; they do not verify the maintainer's live scores/rules/index status. Audio tests verify scheduling after context resume, not audible speaker output. AppImage media configuration is validated against Tauri's schema but the new native packages still need GitHub builds and real-device testing. Version 1.2.0 has not been published by the assistant.
+
 # Round 5 validation
 
 Validated in the sandbox, before handoff:

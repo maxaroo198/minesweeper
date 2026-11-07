@@ -2,7 +2,7 @@ export type Difficulty = 'easy' | 'medium' | 'hard' | 'blackout' | 'custom';
 export type Mode = 'classic' | 'blitz' | 'zen' | 'daily' | 'nightfall' | 'custom' | 'riptide' | 'contract' | 'scan';
 export type Status = 'ready' | 'playing' | 'won' | 'lost';
 /** Contract objective ids. Labels and rules live in contract.ts. */
-export type ObjectiveId = 'speed' | 'flagless' | 'chordless' | 'accuracy' | 'corners' | 'allflags' | 'minimalist' | 'chorder' | 'sprint' | 'patient' | 'unassisted' | 'efficient';
+export type ObjectiveId = 'speed' | 'flagless' | 'chordless' | 'accuracy' | 'corners' | 'allflags' | 'minimalist' | 'chorder' | 'sprint' | 'patient' | 'unassisted' | 'efficient' | 'expert-speed' | 'clean-sprint' | 'no-tools-speed' | 'precise-chords' | 'flag-discipline' | 'half-flags' | 'economical' | 'no-chord-sprint' | 'safe-border' | 'marked-corners' | 'perfect-tech' | 'chord-sprint';
 
 export interface Cell {
   mine: boolean;
@@ -14,6 +14,7 @@ export interface Cell {
   hidden: boolean;
   /** The honest count a Scan charge paid for, or null. */
   scanned: number | null;
+  chargeEarned?: boolean;
 }
 export interface CustomConfig { rows: number; cols: number; mines: number }
 export interface BoardState {
@@ -41,6 +42,7 @@ export interface BoardState {
   rescues?: number;
   reveals?: number;
   /** The size picked in Custom mode, kept so a restart rebuilds the same board. */
+  dailyDay?: string;
   custom?: CustomConfig;
 }
 export interface GameRecord {
@@ -53,6 +55,7 @@ export interface GameRecord {
   /** Contract stars (0–3). */
   stars?: number;
   /** Custom board size, so a leaderboard row can show what was played. */
+  dailyDay?: string;
   custom?: CustomConfig;
 }
 export const DIFFICULTIES: Record<Difficulty, { label: string; rows: number; cols: number; mines: number }> = {
@@ -141,7 +144,7 @@ export function freshGame(mode: Mode, difficulty: Difficulty, custom?: CustomCon
     cells: Array.from({ length: config.rows * config.cols }, () => ({ mine: false, adjacent: 0, revealed: false, flagged: false, exploded: false, hidden: false, scanned: null })),
     rows: config.rows, cols: config.cols, mines: config.mines, status: 'ready', startedAt: null, finishedAt: null, mode, difficulty,
     id: typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
-    chords: 0, flagsPlaced: 0, charges: mode === 'scan' ? 3 : 0, scans: 0, objectives: [],
+    chords: 0, flagsPlaced: 0, charges: mode === 'scan' ? 6 : 0, scans: 0, objectives: [],
     custom: mode === 'custom' ? { rows: config.rows, cols: config.cols, mines: config.mines } : undefined,
   };
 }
@@ -150,7 +153,7 @@ export function plantBoard(state: BoardState, first: number): BoardState {
   const cells = state.cells.map(c => ({ ...c, mine: false, adjacent: 0 }));
   const safe = new Set([first, ...neighbors(first, rows, cols)]);
   const candidates = cells.map((_, i) => i).filter(i => !safe.has(i));
-  const random = state.mode === 'daily' ? seededRandom(`minefield-v1-${dayKey()}-${state.difficulty}`) : state.mode === 'contract' ? seededRandom(`contract-board-${state.id}-${state.difficulty}`) : Math.random;
+  const random = state.mode === 'daily' ? seededRandom(`minefield-v1-${state.dailyDay ?? dayKey()}-${state.difficulty}`) : state.mode === 'contract' ? seededRandom(`contract-board-${state.id}-${state.difficulty}`) : Math.random;
   for (let i = candidates.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
     [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
@@ -191,10 +194,10 @@ export function openCells(cells: Cell[], indexes: number[], rows: number, cols: 
 /* --- Nightfall: a board that forgets its own numbers --- */
 
 export interface FogRule { base: number; step: number; everySeconds: number; cap: number }
-/** Base chance is 1 in 10, then it climbs 5% every five seconds. Blackout starts at 1 in 3. */
+/** Base chance is 1 in 10, then it climbs 5% every two seconds. Blackout starts at 1 in 3. */
 export const FOG_RULES: Record<'nightfall' | 'blackout', FogRule> = {
-  nightfall: { base: 0.1, step: 0.05, everySeconds: 5, cap: 0.5 },
-  blackout: { base: 1 / 3, step: 0.05, everySeconds: 5, cap: 1 },
+  nightfall: { base: 0.1, step: 0.05, everySeconds: 2, cap: 0.7 },
+  blackout: { base: 1 / 3, step: 0.05, everySeconds: 2, cap: 1 },
 };
 /** How likely the mist is to take a number right now, given how long you have been playing. */
 export function fogChance(state: BoardState, now = Date.now()): number {
@@ -247,27 +250,27 @@ export function toggleFlag(state: BoardState, index: number): BoardState {
   const cell = state.cells[index];
   if (!cell.flagged && state.cells.filter(c => c.flagged).length >= state.mines) return state;
   // Flagging a real mine is how Scan mode earns another charge.
-  const earned = !cell.flagged && state.mode === 'scan' && cell.mine ? 1 : 0;
+  const earned = !cell.flagged && state.mode === 'scan' && cell.mine && !cell.chargeEarned ? 1 : 0;
   return {
     ...state,
     mistakes: (state.mistakes ?? 0) + (!cell.flagged && !cell.mine && state.status !== 'ready' ? 1 : 0),
     charges: state.charges + earned,
     flagsPlaced: cell.flagged ? state.flagsPlaced : state.flagsPlaced + 1,
-    cells: state.cells.map((c, i) => i === index ? { ...c, flagged: !c.flagged } : c),
+    cells: state.cells.map((c, i) => i === index ? { ...c, flagged: !c.flagged, chargeEarned: c.chargeEarned || earned > 0 } : c),
   };
 }
-/** Spend a Scan charge: the honest mine count of the eight squares around one tile. */
-export function scanPatch(state: BoardState, index: number): BoardState {
+/** A scan is permanent: -1 means unknown, so retrying cannot reroll it. */
+export function scanPatch(state: BoardState, index: number, rng: () => number = Math.random): BoardState {
   const cell = state.cells[index];
-  if (state.mode !== 'scan' || state.charges <= 0 || !cell || cell.revealed) return state;
-  let next = state;
+  if (state.mode !== 'scan' || state.charges <= 0 || state.status === 'won' || state.status === 'lost' || !cell || cell.revealed || cell.flagged || cell.scanned !== null) return state;
   const now = Date.now();
-  if (next.status === 'ready') next = { ...plantBoard(next, index), status: 'playing', startedAt: now };
+  const next = state.status === 'ready' ? { ...plantBoard(state, index), status: 'playing' as Status, startedAt: now } : state;
+  const target = next.cells[index];
+  const unknown = next.charges === 1 || target.mine || rng() < 0.4;
+  const cost = unknown ? 1 : 2;
   return {
-    ...next,
-    charges: next.charges - 1,
-    scans: next.scans + 1,
-    cells: next.cells.map((c, i) => i === index ? { ...c, scanned: c.adjacent } : c),
+    ...next, charges: Math.max(0, next.charges - cost), scans: next.scans + 1,
+    cells: next.cells.map((c, i) => i === index ? { ...c, scanned: unknown ? -1 : c.adjacent } : c),
   };
 }
 export function previewBoard(): BoardState {
@@ -327,7 +330,7 @@ export function dailyTwist(index = dailyNumber()): DailyTwist {
 /** A daily board, with today's twist already applied. */
 export function dailyBoard(difficulty: Difficulty, index = dailyNumber()): BoardState {
   const twist = dailyTwist(index);
-  const board = freshGame('daily', difficulty);
+  const board = { ...freshGame('daily', difficulty), dailyDay: dayKey() };
   if (twist.mineScale) {
     // Keep at least one safe ring around the opening move plantable.
     board.mines = Math.min(Math.round(board.mines * twist.mineScale), board.cells.length - 9);

@@ -134,7 +134,8 @@ assert.equal(applyFog(fogBoard.cells, fogBoard.cells.map((c, i) => (!c.mine && c
 const fogClock = (seconds, difficulty = 'medium') => fogChance({ ...fogBoard, mode: 'nightfall', difficulty, startedAt: Date.now() - seconds * 1000 });
 assert.ok(Math.abs(fogClock(0) - 0.1) < 1e-9, 'nightfall starts at one in ten');
 assert.ok(fogClock(5) > fogClock(0) && fogClock(10) > fogClock(5), 'the chance climbs every five seconds');
-assert.ok(fogClock(600) <= 0.5 + 1e-9, 'and stops at a coin flip');
+assert.equal(fogClock(24), .7, 'Nightfall reaches 70 percent after 24 seconds');
+assert.ok(fogClock(2) > fogClock(0), 'fog grows every two seconds');
 assert.ok(fogClock(0, 'blackout') > 0.32 && fogClock(0, 'blackout') < 0.34, 'Blackout starts at one in three');
 assert.equal(fogClock(100, 'blackout'), 1, 'Blackout reaches 100 percent');
 assert.ok(fogClock(40, 'blackout') > 2 / 3, 'Blackout passes the old cap');
@@ -170,25 +171,27 @@ assert.ok(revealedFog > 0, 'Blackout actually fogs numbers when playing');
   console.log('Riptide: 25 tides, mine count steady, nothing landed on an open square');
 }
 
-/* --- Scan: charges are spent, and earned back by a true flag --- */
+/* --- Scan costs, uncertainty and anti-reroll/flag-farming rules --- */
 {
-  let board = reveal(freshGame('scan', 'easy'), 40).state;
-  assert.equal(board.charges, 3, 'scan mode starts with three charges');
-  const covered = board.cells.findIndex(c => !c.revealed && !c.mine);
-  const scanned = scanPatch(board, covered);
-  assert.equal(scanned.charges, 2);
-  assert.equal(scanned.scans, 1);
-  assert.equal(scanned.cells[covered].scanned, board.cells[covered].adjacent, 'the scan tells the truth');
-  assert.equal(scanned.cells[covered].revealed, false, 'a scan does not open the square');
-  assert.equal(scanPatch(scanned, covered).cells[covered].scanned, board.cells[covered].adjacent);
-  const mine = scanned.cells.findIndex(c => c.mine && !c.revealed);
-  const flagged = toggleFlag(scanned, mine);
-  assert.equal(flagged.charges, 3, 'flagging a real mine earns a charge back');
-  const safe = flagged.cells.findIndex(c => !c.mine && !c.revealed && !c.flagged);
-  assert.equal(toggleFlag(flagged, safe).charges, 3, 'a wrong flag earns nothing');
-  assert.equal(scanPatch(flagged, flagged.cells.findIndex(c => c.revealed && !c.mine)).charges, 3, 'an open square cannot be scanned');
-  const notScan = { ...flagged, mode: 'classic' };
-  assert.equal(scanPatch(notScan, safe), notScan, 'scanning is Scan mode only');
+  const board = reveal(freshGame('scan', 'easy'), 40).state;
+  assert.equal(board.charges, 6);
+  const safe = board.cells.findIndex(c => !c.mine && !c.revealed);
+  const mine = board.cells.findIndex(c => c.mine);
+  const known = scanPatch(board, safe, () => .9);
+  assert.equal(known.charges, 4); assert.equal(known.cells[safe].scanned, board.cells[safe].adjacent);
+  const unknown = scanPatch(board, safe, () => .1);
+  assert.equal(unknown.charges, 5); assert.equal(unknown.cells[safe].scanned, -1);
+  assert.equal(scanPatch(unknown, safe, () => .9), unknown, 'unknown cannot be rerolled');
+  const mined = scanPatch(board, mine, () => .9);
+  assert.equal(mined.charges, 5); assert.equal(mined.cells[mine].scanned, -1);
+  const last = scanPatch({ ...board, charges: 1 }, safe, () => .9);
+  assert.equal(last.charges, 0); assert.equal(last.cells[safe].scanned, -1);
+  assert.equal(scanPatch(last, mine).charges, 0);
+  const flagged = toggleFlag(board, mine);
+  assert.equal(flagged.charges, 7);
+  assert.equal(toggleFlag(toggleFlag(flagged, mine), mine).charges, 7, 'repeat flags cannot farm charges');
+  assert.equal(scanPatch(flagged, mine), flagged, 'flagged squares cannot be scanned');
+  assert.equal(scanPatch({ ...board, status: 'won' }, safe).scans, board.scans);
 }
 
 /* --- Contract: three objectives, stars only on a win --- */
@@ -214,11 +217,15 @@ assert.ok(revealedFog > 0, 'Blackout actually fogs numbers when playing');
 
 
 // Expanded Contract invariants and deterministic replay.
-assert.equal(contract.OBJECTIVE_POOL.length, 12);
+assert.equal(contract.OBJECTIVE_POOL.length, 24);
 for (let n = 0; n < 200; n++) {
   const ids = dealObjectives(`variety-${n}`);
   assert.ok(!(ids.includes('allflags') && (ids.includes('flagless') || ids.includes('minimalist'))));
   assert.ok(!(ids.includes('chorder') && ids.includes('chordless')));
+  const flagGoals=['allflags','flag-discipline','safe-border','corners','marked-corners'];
+  const flagLimits=['flagless','minimalist','half-flags','perfect-tech'];
+  assert.ok(!(ids.some(x=>flagGoals.includes(x)) && ids.some(x=>flagLimits.includes(x))));
+  assert.ok(!(ids.some(x=>['chorder','precise-chords','chord-sprint'].includes(x)) && ids.some(x=>['chordless','no-chord-sprint','perfect-tech','flagless'].includes(x))));
   const b = { ...freshGame('contract', 'easy'), id: `variety-${n}`, objectives: ids };
   const bonus = contract.bonusObjectives(b, 0);
   assert.equal(bonus.length, 2);
@@ -235,3 +242,28 @@ for (let n = 0; n < 200; n++) {
 }
 console.log(`Daily twists: ${DAILY_TWISTS.map(t => t.name).join(' → ')}`);
 console.log(`Passed ${checks} randomized, full-game engine tests plus daily, flags, and safety checks.`);
+
+// Tides must not move a correctly flagged mine or conceal a revealed square.
+{
+  let b = reveal(freshGame('riptide', 'medium'), 40).state;
+  const i = b.cells.findIndex(c => c.mine);
+  b = toggleFlag(b, i);
+  for (let n = 0; n < 40; n++) {
+    const result = driftBoard(b, seededRandom(`anchor-${n}`));
+    assert.ok(result.state.cells[i].mine && result.state.cells[i].flagged);
+    assert.equal(result.state.cells.filter(c => c.mine).length, b.mines);
+    result.state.cells.forEach((c, index) => { if (b.cells[index].revealed) assert.ok(c.revealed && !c.mine && !c.hidden); });
+    b = result.state;
+  }
+}
+const daily = await load('dailyProgress');
+const oldWins = [{ mode: 'daily', won: true, date: '2026-11-05T12:00:00Z' }];
+const savedDays = daily.mergeDailyWins(['2026-11-04'], oldWins);
+assert.deepEqual(savedDays, ['2026-11-04', '2026-11-05']);
+assert.deepEqual(daily.mergeDailyWins(savedDays, []), savedDays, 'history eviction cannot erase daily dates');
+assert.equal(daily.streakFor(savedDays, '2026-11-06'), 2);
+assert.equal(daily.streakFor(savedDays, '2026-11-07'), 0);
+const branch = await load('branch');
+const failedRoot = branch.failArea(branch.newWorld(), '0');
+assert.equal(failedRoot.world.areas['0'].state, 'open', 'root failure leaves playable fallback');
+console.log('Expanded rules passed: Scan costs/unknowns, anchored tides, 24 contracts, persistent daily dates, Branch fallback.');
