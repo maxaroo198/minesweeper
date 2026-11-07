@@ -10,7 +10,7 @@ website, or separately installed Linux profiles.
 
 `.github/workflows/installers.yml` builds on GitHub's Windows and Linux runners:
 
-- `minefield-android.apk`: Android 8+; package `app.minefield`, version 1.3.0/code 7.
+- `minefield-android.apk`: Android 8+; package `app.minefield`, version 1.3.1/code 8.
 - `minefield-windows-x64-setup.exe`: x64 NSIS installer, Tauri 2 / WebView2.
 - `minefield-linux-x86_64.AppImage`: x86_64 AppImage, may need FUSE.
 - `minefield-linux-amd64.deb`: Debian/Ubuntu-compatible package.
@@ -104,15 +104,15 @@ play, sound and Android haptics, plus a Classic/Blitz public score while online.
 
 If a job fails, open the red step and share the error (not signing secrets).
 
-## 5. Publish v1.3.0 after testing
+## 5. Publish v1.3.1 after testing
 
 From your local project (fish compatible):
 
 ```fish
 cd ~/minefield-patched
 git push origin main
-git tag v1.3.0
-git push origin v1.3.0
+git tag v1.3.1
+git push origin v1.3.1
 ```
 
 The tag starts a fresh build. After **all** builds pass, the release job publishes
@@ -140,7 +140,7 @@ The icons are generated from the checked-in SVG. No Flatpak is built in this rou
 
 ## CachyOS / Arch AppImage sound checks
 
-Use a freshly built v1.3.0 AppImage, not the previously downloaded binary.
+Use a freshly built v1.3.1 AppImage, not the previously downloaded binary.
 Preferences → Test sound enables sound and starts the audio engine. If the engine
 reports running but remains silent, check the app output in the system volume
 mixer. For diagnostics (no package changes), run:

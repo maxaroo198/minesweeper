@@ -1,8 +1,16 @@
+# Visual map update — v1.3.1
+
+Use the existing **Branch map** icon beside the game heading. It now opens the illustrated **Limb route** atlas: original hexagonal icons for minefields, danger, events, shops, banks and bosses, with connected dashed paths. Only current reachable nodes can be selected; the saved choice and travelled path are highlighted. Scroll/swipe and zoom explore longer routes. The **Whole tree** view is available in the same map for travel between limbs. Route choices and encounter details are no longer a text route above the board.
+
+To begin in an unconverted open limb, open the map and choose **Begin expedition in this limb**. Inventory and equipped abilities remain available in the compact board HUD. Shops/events/bank/boss phase controls live in the selected-encounter section below the illustrated map. Entering combat closes the map and returns to the grid.
+
+After failure, Continue remains available in the HUD even after **See the board**, and the map exposes an explicit Continue action before travel. This fixes the video case where an open sibling was visible but travel was blocked by an unacknowledged pending loss. Continue does not apply the money penalty again or reroll recovery already checked for that attempt. Existing saves and all money/progress rules below are retained without migration.
+
 # Branch expeditions — first playable pass, v1.3.0
 
 ## Status and entry
 
-This is a playable foundation, not the complete agreed Branch expansion. Enter Branch and an open limb, then choose **Begin expedition in this limb**. Existing trees and old one-board limbs are not automatically converted. Converting an unfinished one-board limb asks for confirmation. Converting does not remove the area, its IDs, or any descendants.
+This is a playable foundation, not the complete agreed Branch expansion. Enter Branch and an open limb, open its map, then choose **Begin expedition in this limb**. Existing trees and old one-board limbs are not automatically converted. Converting an unfinished one-board limb asks for confirmation. Converting does not remove the area, its IDs, or any descendants.
 
 Finished encounters discard full cell snapshots; completed routes keep a compact boss-board trophy to reduce save growth. The current board, route, carried coins, bank, equipment, charges, cooldown, boss phases, dropped pouches and one-time reward ledger are saved inside the existing `minefield-zen-v1` world. No account, transfer, cloud sync, Firestore changes, or new storage origin is used. Legacy worlds without expedition data remain valid. Do not uninstall or clear app data to update.
 

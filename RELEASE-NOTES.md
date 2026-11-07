@@ -1,3 +1,12 @@
+## v1.3.1 — Visual Branch atlas and post-failure travel fix
+
+- Replaces the text route strip with an original illustrated node map, opened by the existing Branch map icon. Hexagonal custom vector icons, connected dashed paths, highlighted reachable nodes, saved choices and completed paths; future nodes cannot skip progression.
+- Shops, events, banking, boss announcements and route selection live in the map. The board keeps a compact wallet, inventory and ability HUD. Whole tree view remains available from the same map.
+- Fixes the Drive video’s failure flow: choosing See the board no longer hides the only Continue action. A persistent button remains above the board, and the map has its own explicit recovery action. After acknowledging the hit, the saved open sibling/fallback is playable.
+- Keyboard node selection, focus return, modal focus containment, zoom and mobile scroll support. Original inline vector art; no external assets or fonts required for icons.
+- Existing saved routes, tree IDs, inventory, bank, dropped pouches and reward ledgers are preserved. No Firestore rules, indexes or database changes required. The 50+ boss roster remains unfinished (3 implemented bosses retained).
+- v1.3.1 / Android code 8. Build new native packages; keep the same signing key, identifiers and app data.
+
 ## v1.3.0 — Branch expeditions, first playable pass
 
 - Optional saved mini-adventures inside open Branch limbs. Choose **Begin expedition in this limb**; existing trees and one-board limbs remain intact.

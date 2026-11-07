@@ -24,6 +24,7 @@ import type { Sense } from './sensory';
 import { boardFromArea, clearArea, failArea, layoutWorld, loadWorld, newWorld, openAreaIds, saveWorld, syncArea } from './branch';
 import type { BranchWorld } from './branch';
 import BranchExpeditionPanel from './BranchExpeditionPanel';
+import BranchRouteMap, { RouteIcon } from './BranchRouteMap';
 import type { ExpeditionAction } from './BranchExpeditionPanel';
 import { beginExpedition, enterExpedition, expeditionBoard, routeFor, stopFor, inExpedition, rulesFor, chooseStop, startEncounter, finishStop, buyItem, bankCoins, equipItem, toggleProtection, useRation, useAbility, settleMove, saveBoard, continueAfterLoss } from './branchAdventure';
 import type { ItemId, StopKind } from './branchAdventure';
@@ -131,7 +132,7 @@ function HelpContent({ compact = false }: { compact?: boolean }) {
     <div className="keyboard-guide"><span><kbd>N</kbd> New game</span><span><kbd>F</kbd> Flag mode</span><span><kbd>?</kbd> Help</span><span><MousePointer2 size={14} /> Long press to flag</span></div>
   </div>;
 }
-function BranchMap({ world, onJump, onClose }: { world: BranchWorld; onJump: (id: string) => void; onClose: () => void }) {
+function BranchTreeMap({ world, onJump, onClose, onRoute, onContinue }: { world: BranchWorld; onJump: (id: string) => void; onClose: () => void; onRoute:()=>void; onContinue:()=>void }) {
   const { nodes, edges, width, height } = useMemo(() => layoutWorld(world), [world]);
   const pos = useMemo(() => new Map(nodes.map(n => [n.area.id, n])), [nodes]);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -199,6 +200,8 @@ function BranchMap({ world, onJump, onClose }: { world: BranchWorld; onJump: (id
   return <div className="modal-backdrop" onClick={onClose}><div className="modal zen-map-modal" role="dialog" aria-modal="true" aria-label="Branch map" onClick={e => e.stopPropagation()}>
     <button className="icon-button modal-close" onClick={onClose} aria-label="Close map"><X size={19} /></button>
     <div className="eyebrow">BRANCH · YOUR TREE SO FAR</div>
+    <button className="secondary-button" onClick={onRoute}>← Current limb route</button>
+    {world.expeditions?.pendingLoss && <div className="tree-return-banner"><p>Travel is waiting for you to continue after the mine hit. Your saved open limbs are still available.</p><button className="primary-button" onClick={onContinue}>Continue after the mine hit</button></div>}
     <h2>Every clear grows the tree<span className="heading-dot">.</span></h2>
     <p className="modal-intro">Cleared squares are filled. Glowing tips are open to grow. Dim squares are still locked — clear the square before them to unlock the next limb. Drag to pan, scroll or pinch to zoom.</p>
     <div className="zen-map-viewport" ref={viewportRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endPointer} onPointerCancel={endPointer}>
@@ -211,10 +214,11 @@ function BranchMap({ world, onJump, onClose }: { world: BranchWorld; onJump: (id
         })}
         {nodes.map(n => {
           const x = n.x + 40, y = n.y + 40;
-          const clickable = n.area.state === 'open';
-          return <g key={n.area.id} className={`zen-node ${n.area.state} ${clickable ? 'clickable' : ''}`} onClick={() => clickable && onJump(n.area.id)} transform={`translate(${x},${y})`}>
-            <circle r={n.area.state === 'open' ? 15 : 13} className="zen-node-circle" />
-            {n.area.state === 'open' && <circle r={5.5} className="zen-node-tip" />}
+          const clickable = n.area.state === 'open' && !world.expeditions?.pendingLoss;
+          return <g key={n.area.id} role="button" aria-label={`Limb ${n.area.id} · ${n.area.state}`} tabIndex={clickable?0:-1} onKeyDown={e=>{if(clickable&&(e.key==='Enter'||e.key===' ')){e.preventDefault();onJump(n.area.id);}}} className={`zen-node ${n.area.state} ${clickable ? 'clickable' : ''}`} onClick={() => clickable && onJump(n.area.id)} transform={`translate(${x},${y})`}>
+            <path d="M0-24 21-12 21 12 0 24-21 12-21-12Z" className="zen-node-circle" />
+            <g transform="translate(-12,-12)"><RouteIcon kind="limb" size={24}/></g>
+
             {n.area.state === 'cleared' && <Check size={15} strokeWidth={2.5} className="zen-node-check" />}
             <title>{`Branch ${n.area.id} — ${n.area.state}`}</title>
           </g>;
@@ -312,6 +316,7 @@ function App() {
   const [toast, setToast] = useState('');
   const [branchWorld, setBranchWorld] = useState<BranchWorld | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
+  const [treeMapOpen, setTreeMapOpen] = useState(false);
   const [publicRows, setPublicRows] = useState<PublicScore[]>([]);
   const [nameDraft, setNameDraft] = useState(() => playerName());
   const [publicQueue, setPublicQueue] = useState<GameRecord[]>(() => {
@@ -575,11 +580,13 @@ function App() {
     }
     applyAdventureWorld(world);
     if (['begin','choose','start','leave','gift','coins'].includes(action)) setResultVisible(false);
+    if (action === 'start') setMapOpen(false);
   };
   const continueAdventure = () => {
     if (!branchWorld) return;
     if (branchWorld.expeditions?.pendingLoss) { applyAdventureWorld(continueAfterLoss(branchWorld)); setBranchReturn(null); }
     else if (routeFor(branchWorld)?.complete) { const next = openAreaIds(branchWorld)[0]; if (next) jumpToArea(next); }
+    else { setTreeMapOpen(false); setMapOpen(true); }
     setResultVisible(false);
   };
   const jumpToArea = (id: string) => {
@@ -817,8 +824,8 @@ function App() {
           <div className="play-layout">
             <section className="game-panel" aria-label={`${MODE_NAMES[game.mode]} Minesweeper game`}>
               {game.mode === 'contract' && !showPreview && <section className="contract-panel" aria-label="Contract objectives"><div className="contract-head"><div><div className="eyebrow">CONTRACT BRIEF</div><h3>Three ways to earn a star.</h3></div><span className={`contract-score ${objectivesDone === 3 ? 'full' : ''}`}>{starLabel(contractStars(game.objectives, game, elapsed))}</span></div><p className="contract-code">Code: {game.id} · Replay uses the same difficulty and first click.</p><ul>{objectives.map(o => <li key={o.id} className={o.done ? 'done' : ''}><span className="contract-check">{o.done ? <Check size={12} strokeWidth={3} /> : null}</span><span><b>{o.label}</b><i>{o.blurb}</i></span></li>)}</ul>{game.status === 'won' && <p className="contract-footer">{objectivesDone} of 3 kept — {objectivesDone === 3 ? 'a perfect contract.' : 'stars are what the board ranks on.'}</p>}<div className="contract-extras"><h4>Optional bonus badges</h4>{bonusObjectives(game, elapsed).map(o => <p key={o.id}>{o.done ? '✓' : '◇'} {o.label} — {o.blurb}</p>)}<p>Rescue reveals one safe square, but deducts one final star.</p><button className="secondary-button" disabled={game.status !== 'playing' || !!game.rescues} onClick={() => { const i = game.cells.findIndex(c => !c.mine && !c.revealed && !c.flagged); if (i < 0) return; const result = reveal({ ...game, rescues: 1 }, i); setGame(result.state); setNow(Date.now()); }}>Use rescue {game.rescues ? '(used)' : '(−1 star)'}</button><button className="secondary-button" onClick={() => { const code = window.prompt('Contract code to replay (same difficulty + first click reproduces board):', game.id)?.trim(); if (!code) return; if (code.length > 100) { notify('Code must be at most 100 characters.'); return; } if (game.status === 'playing' && !window.confirm('Leave this board and replay the contract?')) return; const board = freshGame('contract', game.difficulty); recorded.current = ''; setRevealFx(null); setGame({ ...board, id: code, objectives: dealObjectives(code) }); setShowPreview(false); setResultVisible(false); setNow(Date.now()); }}>Replay / enter code</button>{!!game.rescues && <p>Rescue used: final rating has a one-star deduction.</p>}</div></section>}
-              {game.mode === 'zen' && branchWorld && <BranchExpeditionPanel world={branchWorld} game={game} act={adventureAction} />}
-              <div className="game-panel-head"><div className="game-title"><div className={`mode-icon mode-${game.mode}`}><ModeIcon mode={game.mode} size={20} /></div><div><h2>{MODE_NAMES[game.mode]}<span className={`game-mode-tag ${game.mode === 'blitz' ? 'purple' : ''} ${game.mode === 'nightfall' || game.mode === 'riptide' || game.mode === 'contract' || game.mode === 'scan' || game.mode === 'custom' ? 'mint' : ''}`}>{game.mode === 'daily' ? 'DAILY #' + dailyIdx + (twist.id === 'standard' ? '' : ' · ' + twist.name.toUpperCase()) : MODE_TAG[game.mode]}</span></h2><p>{pageDescription}</p></div></div><div style={{ display: 'flex', gap: 6 }}>{game.mode === 'zen' && <button className="icon-button" onClick={() => setMapOpen(true)} aria-label="Open branch map" title="Branch map — zoom out"><GitBranch size={17} /></button>}<button className="icon-button" onClick={() => setFocusMode(!focusMode)} aria-label={focusMode ? 'Exit focus mode' : 'Enter focus mode'} title={focusMode ? 'Exit focus mode' : 'Focus mode'}>{focusMode ? <Minimize2 size={17} /> : <Expand size={17} />}</button></div></div>
+              {game.mode === 'zen' && branchWorld && <BranchExpeditionPanel world={branchWorld} game={game} act={adventureAction} openMap={()=>{setTreeMapOpen(false);setMapOpen(true);}} onContinue={continueAdventure} />}
+              <div className="game-panel-head"><div className="game-title"><div className={`mode-icon mode-${game.mode}`}><ModeIcon mode={game.mode} size={20} /></div><div><h2>{MODE_NAMES[game.mode]}<span className={`game-mode-tag ${game.mode === 'blitz' ? 'purple' : ''} ${game.mode === 'nightfall' || game.mode === 'riptide' || game.mode === 'contract' || game.mode === 'scan' || game.mode === 'custom' ? 'mint' : ''}`}>{game.mode === 'daily' ? 'DAILY #' + dailyIdx + (twist.id === 'standard' ? '' : ' · ' + twist.name.toUpperCase()) : MODE_TAG[game.mode]}</span></h2><p>{pageDescription}</p></div></div><div style={{ display: 'flex', gap: 6 }}>{game.mode === 'zen' && <button className="icon-button" onClick={() => {setTreeMapOpen(false);setMapOpen(true);}} aria-label="Open branch map" title="Branch map — zoom out"><GitBranch size={17} /></button>}<button className="icon-button" onClick={() => setFocusMode(!focusMode)} aria-label={focusMode ? 'Exit focus mode' : 'Enter focus mode'} title={focusMode ? 'Exit focus mode' : 'Focus mode'}>{focusMode ? <Minimize2 size={17} /> : <Expand size={17} />}</button></div></div>
               <div className="difficulty-row">
                 {game.mode === 'custom' ? <button className="resize-button" onClick={() => { setCustomDraft(customConfig); setModal('custom'); }}><Ruler size={14} />{game.cols} × {game.rows}<span>· {game.mines} mines · change size</span></button>
                   : <div className="difficulty-tabs" role="group" aria-label="Difficulty">{MODE_DIFFICULTIES[game.mode].map(diff => <button key={diff} className={`${game.difficulty === diff ? 'selected' : ''} ${diff === 'blackout' ? 'blackout-tab' : ''}`} aria-pressed={game.difficulty === diff} disabled={game.mode === 'daily' && !dailyAllowed.includes(diff)} title={game.mode === 'daily' && !dailyAllowed.includes(diff) ? `Today’s daily is locked to ${dailyAllowed.map(d => DIFFICULTIES[d].label).join(' / ')}` : diff === 'blackout' ? 'Blackout: a 1 in 3 chance a number goes missing, and it only gets worse' : undefined} onClick={() => { if (diff !== game.difficulty) requestGame(game.mode, diff); }}><span className={`difficulty-dot dot-${diff}`} />{DIFFICULTIES[diff].label}</button>)}</div>}
@@ -854,7 +861,7 @@ function App() {
 
             {view === 'daily' && <aside className="mode-column"><DailyHub idx={dailyIdx} dateLabel={dailyDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} twist={twist} countdown={nextDaily} finished={dailyFinished} streak={dailyStreak} best={dailyBest} solved={dailySolved} week={dailyWeek} lockNote="Locked to Medium every day" /></aside>}
           </div>
-          {mapOpen && branchWorld && <BranchMap world={branchWorld} onJump={jumpToArea} onClose={() => setMapOpen(false)} />}
+          {mapOpen && branchWorld && (treeMapOpen ? <BranchTreeMap world={branchWorld} onJump={jumpToArea} onClose={()=>setMapOpen(false)} onRoute={()=>setTreeMapOpen(false)} onContinue={()=>{continueAdventure();setTreeMapOpen(false);}}/> : <BranchRouteMap world={branchWorld} game={game} act={adventureAction} onClose={()=>setMapOpen(false)} onTree={()=>setTreeMapOpen(true)} onContinue={continueAdventure}/>)}
 
           <section className="progress-strip" aria-label="Your personal progress"><div className="progress-intro"><span className="progress-icon"><Flame size={21} strokeWidth={1.5} /></span><div><h3>Little games. Little wins.</h3><p>Your progress, one square at a time.</p></div></div><div className="progress-stat"><span>GAMES PLAYED</span><b>{String(records.length).padStart(2, '0')}</b></div><div className="progress-stat"><span>WIN RATE</span><b>{records.length ? winRate : '—'}<small>{records.length ? '%' : ''}</small></b></div><div className="progress-stat"><span>BEST TIME · EASY</span><b>{Number.isFinite(best) ? formatTime(best) : '—'}</b></div><button className="icon-button" onClick={() => navigate('stats')} title="View your statistics" aria-label="View your statistics"><ArrowUpRight size={19} /></button></section>
           <footer className="page-footer"><span><Heart size={12} />A classic game. A calmer kind of play.</span><span>Made for your next little break.<span className="footer-dot">✳</span></span></footer>

@@ -1,3 +1,9 @@
+# Visual Branch atlas (v1.3.1)
+
+The recorded failure flow is reproduced with a cleared root, a failed expedition child, and an open non-expedition sibling. Browser coverage dismisses the result using See the board, verifies the persistent recovery button, opens the map and continues, selects the open sibling in Whole tree, and actually reveals tiles there. No resets of currency, inventory or tree are needed. Map coverage also checks custom icon nodes/edges, rejected future-node clicks, keyboard node selection, zoom, focus restoration, mobile overflow and Escape. The prior expedition UI suite now navigates through the actual visual map for shop, event, bank and boss phase controls.
+
+All existing engine, service/volume mock, browser/mobile, restart-persistence and source-download checks are retained. Native installer builds and device tests still require a fresh workflow. No live Firebase or audible-device verification is claimed. No Firestore/database-side changes required. The full 50+ boss roster is still outside this map/failure fix.
+
 # Branch expedition foundation (v1.3.0)
 
 TypeScript, production web build, existing 240-game randomized engine suite, service/audio/volume mocks and old browser/mobile/persistence regressions are retained. New pure engine tests run real route and multi-phase boss clears, verify child unlocking and completed-ancestor replay, both 10–100% penalty endpoints, untouched bank funds, totem preservation, exact 10% recovery boundary, once-per-attempt recovery checks, equipment, shop pricing, upgrades and anti-farming. New browser tests exercise the actual route UI, purchases, equipment, charged abilities, banking, phase announcements, visible money drop/mine hit, reload during pending loss, explicit Continue and mobile inventory. The new engine and UI suites are included in CI.

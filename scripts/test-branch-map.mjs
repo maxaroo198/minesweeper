@@ -1,0 +1,62 @@
+import {chromium} from '@playwright/test';
+import assert from 'node:assert/strict';
+const browser=await chromium.launch({args:['--no-sandbox']});
+const BASE=`http://127.0.0.1:${process.env.TEST_PORT||4182}`;
+try {
+ const p=await browser.newPage({viewport:{width:1350,height:1000}}),errors=[];
+ p.on('pageerror',e=>errors.push(e.message));
+ await p.addInitScript(()=>{
+  Math.random=()=>.5;
+  const area=(id,parent,state,children=[])=>({id,depth:parent?1:0,parent,state,children,mines:null,revealed:[],flagged:[]});
+  if(!localStorage.getItem('map-fixture')){
+   localStorage.setItem('minefield-zen-v1',JSON.stringify({version:1,createdAt:1720000000000,current:'0.0',areas:{'0':area('0',null,'cleared',['0.0','0.1']),'0.0':area('0.0','0','open'),'0.1':area('0.1','0','open')}}));
+   localStorage.setItem('map-fixture','yes');
+  }
+ });
+ await p.goto(BASE,{waitUntil:'networkidle'});await p.waitForTimeout(2700);
+ const world=()=>p.evaluate(()=>JSON.parse(localStorage.getItem('minefield-zen-v1')));
+ await p.locator('.mode-card-zen').click();
+ await p.getByRole('button',{name:'Open branch map',exact:true}).click();
+ await p.getByRole('button',{name:'Begin expedition in this limb',exact:true}).click();
+ assert.equal(await p.locator('.atlas-node').count(),7);
+ assert.equal(await p.locator('.atlas-edge').count(),9);
+ assert.equal(await p.locator('.expedition-route').count(),0,'text route removed');
+ const before=JSON.stringify(await world());
+ await p.getByRole('button',{name:'Boss gate · stop 5 · locked',exact:true}).evaluate(el=>el.dispatchEvent(new MouseEvent('click',{bubbles:true})));
+ assert.equal(JSON.stringify(await world()),before,'clicking future node cannot skip progression');
+ await p.getByRole('button',{name:'Zoom in route',exact:true}).click();
+ assert.equal(await p.getByRole('button',{name:'Reset route zoom'}).innerText(),'120%');
+ await p.getByRole('button',{name:'Reset route zoom'}).click();
+ await p.getByRole('button',{name:'Minefield · stop 1 · available',exact:true}).focus();
+ await p.keyboard.press('Enter');
+ await p.getByRole('button',{name:'Enter minefield',exact:true}).click();
+ assert.equal(await p.getByRole('dialog',{name:'Branch route map',exact:true}).count(),0,'starting encounter returns to board');
+ await p.getByRole('button',{name:/Inventory ·/}).click();
+ await p.getByRole('checkbox',{name:/Use a Return Totem/}).uncheck();
+ await p.getByRole('button',{name:'Close inventory',exact:true}).click();
+ await p.locator('.tile').nth(40).click();
+ let w=await world();const r=w.expeditions.routes['0.0'];
+ await p.locator('.tile').nth(r.stops[0].board.cells.findIndex(c=>c.mine)).click();
+ await p.locator('.result-card').waitFor();
+ await p.getByRole('button',{name:'See the board',exact:true}).click();
+ assert.ok(await p.locator('.expedition-hud').getByRole('button',{name:'Continue after the mine hit',exact:true}).isVisible(),'dismissing result never hides required recovery');
+ w=await world();assert.equal(w.current,'0.1');assert.equal(w.areas['0.0'].state,'locked');assert.equal(w.areas['0.1'].state,'open');
+ await p.getByRole('button',{name:'Open branch map',exact:true}).click();
+ await p.getByRole('button',{name:'Continue to an open limb →',exact:true}).click();
+ assert.equal((await world()).expeditions.pendingLoss,undefined);
+ await p.getByRole('button',{name:'Whole tree',exact:true}).click();
+ await p.getByRole('button',{name:'Limb 0.1 · open',exact:true}).click();
+ assert.equal(await p.getByRole('dialog',{name:'Branch map',exact:true}).count(),0);
+ assert.equal(await p.locator('.tile.exploded').count(),0,'open sibling is playable, not the stale lost board');
+ await p.locator('.tile').nth(40).click();
+ assert.ok(await p.locator('.tile.revealed').count()>0,'video reproduction: sibling really accepts moves');
+ await p.getByRole('button',{name:'Open branch map',exact:true}).click();
+ await p.getByRole('button',{name:'Close map',exact:true}).click();
+ assert.equal(await p.getByRole('button',{name:'Open branch map',exact:true}).evaluate(el=>el===document.activeElement),true,'closing map restores focus');
+ await p.setViewportSize({width:390,height:844});
+ await p.getByRole('button',{name:'Open branch map',exact:true}).click();
+ assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await p.keyboard.press('Escape');assert.equal(await p.locator('.route-map-modal').count(),0);
+ assert.deepEqual(errors,[]);
+ console.log('Visual map passed: custom icon graph, linked paths, locked-node guard, keyboard choice, zoom, focus/mobile; video regression: See board → map Continue → playable open sibling.');
+}finally{await browser.close();}
