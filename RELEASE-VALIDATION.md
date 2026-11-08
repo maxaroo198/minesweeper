@@ -1,3 +1,29 @@
+# Playability and Custom update — v1.8.0
+
+New pure coverage checks uncapped Custom normalization, zero-mine 1×1 and large fields, thin strips,
+exact requested high-density mine counts and one-safe-cell wins. The dense opening reserves only
+the clicked cell when neighboring protection would reduce the requested mines. Base randomized
+engine/Branch/extra-mode regressions are retained. Source/module portability and native-web prebuild
+checks remain part of validation; the Windows case-collision fix stays intact.
+
+New browser regression runs actual clicks/taps in Linux, Windows and Android profiles: the first
+Branch stop uses an HTML button and reaches a playable minefield; all twelve item icons are present;
+Easy/Medium/Hard focus tiles start at 44px with working zoom/flag/pan; dragging suppresses accidental
+reveal/flag; long press plus native context menu flags exactly once; and 53×41 with 2172 mines wins
+on its sole safe opening. Page overflow remains bounded. Prior fit-all/no-scroll expectations are
+explicitly superseded by readable minimum tiles and managed board scrolling. The entire previous
+browser suite remains, including persistence simulations, mode/leaderboard limits, charged tools,
+loss/Continue/sibling fallback, bank amounts, backpack, map navigation, Puzzle and Survival.
+
+These platform profiles run in Chromium on Linux: they are NOT native Windows/Android builds or
+installed-device lifecycle tests. Native installers and actual devices still need release testing.
+Source downloads/build/tag checks use sandbox configuration, not live Firebase. No Firestore rules,
+indexes, database changes or Firebase deployment required. No assistant push/release. Large Custom
+boards have no fixed gameplay cap but are subject to actual number precision, allocation and rendering
+limits; huge requests can freeze/exhaust memory despite the warning and confirmation.
+
+## Previous validation records
+
 # Windows build repair — v1.7.1
 
 The exact `ExtraModes.tsx` / `extraModes.ts` case-insensitive extensionless-import collision is now

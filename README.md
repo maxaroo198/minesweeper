@@ -54,6 +54,27 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
 - No accounts, advertising, or analytics. Public Classic/Blitz scores optionally use Firebase.
 - Leaderboards exist only for Classic and Blitz. Failed submissions remain in a device-local retry queue; the public board shows the latest confirmed submission separately from the fastest 20.
 
+## Comfortable play and Custom freedom — v1.8.0
+
+**Focus/fullscreen** now starts at **44px tiles**, not a shrunken whole-board overview. Use **+ / −**,
+**Fit board**, **Comfort size**, directional pan buttons and the top **Flagging / Revealing** switch.
+Swipe/scroll inside the board to reach every row and column. Normal view retains at least 24px tiles.
+Dragging does not reveal or long-press flag a square; native touch context menus cannot double-toggle flags.
+
+**Custom** has numeric width/height/mine fields with no fixed game size or mine-density cap. Positive
+whole-number dimensions, zero or more mines and **at least one safe cell** are required. Counts must be
+exactly representable by the browser. Actual memory/rendering limits still apply: huge boards can
+freeze or exhaust device memory, and large requests ask for confirmation. High-density boards now
+place the exact requested mine count while keeping the clicked opening safe, including one-safe-cell wins.
+
+Every **Branch item** has a bundled vector icon. Branch node interaction uses native HTML hit targets,
+not nested SVG paint hit-testing. Select a node to bring its actions into view or return to its saved
+minefield. Existing loss/loot locks remain intentional. These interactions are regression tested with
+Linux/Windows/Android browser profiles, not native installed-device tests.
+
+Version **1.8.0 / Android code 14**. Logic stays removed. Existing local saves, signing keys and IDs remain.
+**No Firestore rules, indexes, database changes or Firebase deployment required.**
+
 ## Windows build fix — v1.7.1
 
 Renames the new-mode UI to `AdditionalModesPanel.tsx` to avoid Windows resolving `ExtraModes`

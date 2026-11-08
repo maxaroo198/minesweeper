@@ -1,3 +1,18 @@
+# v1.8.0 — Item icons and reliable node targets
+
+Every item has a consistent offline vector icon in the backpack, equipment/passive badges, active
+dock, shop, loot, replacement list and legacy bank storage. Labels and descriptions are retained.
+The illustrated route now uses native HTML button hit targets aligned over each node. A selected
+node brings its action panel into view; an existing live board opens directly. Locked future stops,
+outstanding rewards and unacknowledged mine hits still block travel intentionally.
+
+Focus/fullscreen offers 44px default tiles, zoom, fit/comfort controls, directional pan and a flag-mode
+switch. Scroll/swipe within the board; dragging cancels flag timers, and long press plus native touch
+context menu cannot flip a flag twice. No Branch economy, equipment capacity, Totem or retry rules
+were changed. No Firestore rules, indexes, database changes or Firebase deployment required.
+
+---
+
 # v1.7.0 — Map and actions navigation
 
 The Branch atlas stays visible when choosing encounters, shopping, banking and claiming loot.

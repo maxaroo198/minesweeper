@@ -84,7 +84,7 @@ export const MODE_DIFFICULTIES: Record<Mode, Difficulty[]> = {
 };
 /** Nightfall is always 12 × 12; the difficulty only changes how many mines are in it. */
 export const NIGHTFALL_MINES: Record<string, number> = { easy: 14, medium: 18, hard: 26, blackout: 22 };
-export const CUSTOM_LIMITS = { min: 5, max: 40, minMines: 1, maxDensity: 0.45 };
+export const CUSTOM_LIMITS = { min: 1, minMines: 0 };
 export const MODE_NAMES: Record<Mode, string> = {
   classic: 'Classic', blitz: 'Blitz', zen: 'Branch', daily: 'Daily challenge',
   nightfall: 'Nightfall', custom: 'Custom', riptide: 'Riptide', contract: 'Contract', scan: 'Scan',
@@ -108,18 +108,15 @@ export function seededRandom(seed: string) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-/** Clamp a player's custom size into something the board can actually draw. */
+/** No gameplay size/density cap. Positive integer dimensions and at least one safe cell. */
 export function clampCustom(config: Partial<CustomConfig> = {}): CustomConfig {
-  const clamp = (value: unknown, fallback: number) => {
-    const n = Math.round(Number(value));
-    return Number.isFinite(n) ? Math.min(CUSTOM_LIMITS.max, Math.max(CUSTOM_LIMITS.min, n)) : fallback;
+  const integer=(value:unknown,fallback:number,min:number)=>{
+    if(value===undefined||value===null||value==='')return fallback;
+    const n=Math.floor(Number(value));return Number.isSafeInteger(n)?Math.max(min,n):fallback;
   };
-  const rows = clamp(config.rows, DIFFICULTIES.custom.rows);
-  const cols = clamp(config.cols, DIFFICULTIES.custom.cols);
-  const ceiling = Math.max(CUSTOM_LIMITS.minMines, Math.floor(rows * cols * CUSTOM_LIMITS.maxDensity));
-  const wanted = Math.round(Number(config.mines));
-  const mines = Number.isFinite(wanted) ? Math.min(ceiling, Math.max(CUSTOM_LIMITS.minMines, wanted)) : Math.min(ceiling, DIFFICULTIES.custom.mines);
-  return { rows, cols, mines };
+  const rows=integer(config.rows,DIFFICULTIES.custom.rows,1),cols=integer(config.cols,DIFFICULTIES.custom.cols,1);
+  const mines=Math.min(rows*cols-1,integer(config.mines,DIFFICULTIES.custom.mines,0));
+  return {rows,cols,mines};
 }
 /** The shape a mode + difficulty plays on, custom sizes included. */
 export function boardConfig(mode: Mode, difficulty: Difficulty, custom?: CustomConfig) {
@@ -153,7 +150,8 @@ export function freshGame(mode: Mode, difficulty: Difficulty, custom?: CustomCon
 export function plantBoard(state: BoardState, first: number): BoardState {
   const { rows, cols, mines } = state;
   const cells = state.cells.map(c => ({ ...c, mine: false, adjacent: 0 }));
-  const safe = new Set([first, ...neighbors(first, rows, cols)]);
+  const opening=[first,...neighbors(first,rows,cols)];
+  const safe=new Set(mines<=cells.length-opening.length?opening:[first]);
   const candidates = cells.map((_, i) => i).filter(i => !safe.has(i));
   const random = state.mode === 'daily' ? seededRandom(`minefield-v1-${state.dailyDay ?? dayKey()}-${state.difficulty}`) : (state.mode === 'contract' || (state.mode === 'classic' && state.objectives.length>0)) ? seededRandom(`contract-board-${state.id}-${state.difficulty}`) : Math.random;
   for (let i = candidates.length - 1; i > 0; i--) {
@@ -179,8 +177,8 @@ export function openCells(cells: Cell[], indexes: number[], rows: number, cols: 
   const opened: number[] = [];
   const wave: Record<number, number> = {};
   let hit: number | null = null;
-  while (queue.length) {
-    const { index: i, depth } = queue.shift()!;
+  for(let cursor=0;cursor<queue.length;cursor++){
+    const {index:i,depth}=queue[cursor];
     const cell = next[i];
     if (cell.revealed || cell.flagged) continue;
     cell.revealed = true;

@@ -141,3 +141,18 @@
 @media(max-width:560px){.extra-mode-picker{grid-template-columns:repeat(3,minmax(0,1fr))}.extra-mode-picker button{padding:9px 7px;min-height:76px}.extra-mode-picker strong{font-size:11px}.extra-mode-picker span{font-size:9px;line-height:1.4}}
 .branch-full-tree .route-map-tabs button[aria-current=page]{background:#393027;color:#ffb16b;border-color:#d58c4c}
 .extra-mode-picker{grid-template-columns:repeat(2,minmax(0,1fr))}
+/* Consistent Branch item illustrations, rendered locally on every platform. */
+.branch-item-icon{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#f4aa68;background:#bb743318;border:1px solid #a7784b55;border-radius:9px;width:34px;height:34px;vertical-align:middle;margin-right:8px}
+.backpack-card h4,.expedition-shop h4,.passive-item b{display:flex;align-items:center;gap:3px}.passive-item .branch-item-icon{width:27px;height:27px;margin-right:4px}.active-tool-icon .branch-item-icon{margin:0;border:0;background:none}.loot-replacement .branch-item-icon{width:27px;height:27px;margin-right:0}
+/* Native HTML hit targets avoid nested SVG hit-test differences in Linux/WebViews. */
+.atlas-scene{position:relative;flex-shrink:0}.atlas-scene>.route-atlas{position:absolute;inset:0;min-width:0;pointer-events:none}.atlas-node-hitbox{position:absolute;border:0;background:transparent;border-radius:12px;cursor:pointer;touch-action:manipulation;padding:0;z-index:1}.atlas-node-hitbox:disabled{cursor:default}.atlas-node-hitbox:focus-visible{outline:2px solid #ffa55d;outline-offset:-3px}.atlas-node-hitbox:not(:disabled):hover{background:#ffb0610a}
+/* Readable tiles take priority over shrinking a large board to fit. */
+.board-scroll{overflow:auto;max-height:65dvh;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+.mine-board:not(.dense-board),.mine-board.dense-board,.focus-mode .mine-board:not(.dense-board){max-width:none;width:max-content}
+.focus-mode .mode-bar,.focus-mode .extra-mode-picker{display:none}
+.focus-mode .board-scroll{height:min(62dvh,760px);max-height:62dvh;padding:8px 12px 14px;scrollbar-width:auto;scrollbar-gutter:stable;background:#15191f}
+.focus-mode .mine-board{margin:0 auto}.focus-mode .tile{font-size:clamp(13px,calc(var(--tile-size)*.4),28px);touch-action:pan-x pan-y}
+.board-zoom-controls{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:0 14px 12px;padding:10px;border:1px solid #434c59;border-radius:12px;background:#252b34;position:sticky;top:0;z-index:9}
+.board-zoom-controls button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:44px;min-height:44px;padding:7px 11px;border:1px solid #576171;border-radius:8px;font-size:12px;color:#f3f1ed}.board-zoom-controls button[aria-pressed=true]{color:#ffb36d;border-color:#f4a45c;background:#563c28}.board-zoom-controls>span{font-size:12px}.board-pan-controls{display:flex;gap:6px}.board-zoom-controls button:disabled{opacity:.4}
+.custom-fields input[type=number]{width:100%;min-height:44px;background:#20252d;border:1px solid #596373;border-radius:8px;padding:10px;color:inherit;font-size:16px;box-sizing:border-box}
+@media(max-width:650px){.focus-mode .main-content{padding:8px 8px 90px}.focus-mode .game-panel-head{padding:12px}.focus-mode .difficulty-row{padding:0 12px;margin-top:12px}.focus-mode .board-scroll{height:53dvh;max-height:53dvh}.board-zoom-controls{margin:0 8px 10px;padding:7px;gap:5px}.board-zoom-controls button{padding:6px 9px}.focus-mode .game-controls{position:sticky;bottom:0;background:#242a33;z-index:9;padding:10px}.focus-mode .expedition-abilities{bottom:0}}

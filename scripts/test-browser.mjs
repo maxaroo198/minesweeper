@@ -114,7 +114,7 @@ await page.locator('.nav-item').filter({ hasText: 'How to play' }).click();
 await page.getByRole('button', { name: 'Find your mode', exact: true }).click();
 assert.equal(await page.locator('.mode-guide-card').count(), 8);
 
-// Every board is a square grid that fits without scrolling inside the board box.
+// Keep square, readable tiles; larger boards scroll inside their viewport instead of shrinking to tiny targets.
 const layoutPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 layoutPage.on('pageerror', e => errors.push(e.message));
 await layoutPage.goto(BASE, { waitUntil: 'networkidle' });
@@ -134,6 +134,7 @@ for (const [label, count, size] of [['Easy', 81, 9], ['Medium', 121, 11], ['Hard
       columns: getComputedStyle(board).gridTemplateColumns.split(' ').length,
       squareTile: Math.abs(tile.width - tile.height) < 0.6,
       squareBoard: Math.abs(rect.width - rect.height) < 2,
+      tileWidth:tile.width,managedOverflow:['auto','scroll'].includes(getComputedStyle(scroll).overflowX),
       innerScrollY: scroll.scrollHeight - scroll.clientHeight,
       innerScrollX: scroll.scrollWidth - scroll.clientWidth,
     };
@@ -142,7 +143,8 @@ for (const [label, count, size] of [['Easy', 81, 9], ['Medium', 121, 11], ['Hard
   assert.equal(grid.columns, size, `${label} has ${size} columns`);
   assert.ok(grid.squareTile, `${label} tiles are square`);
   assert.ok(grid.squareBoard, `${label} board is square`);
-  assert.ok(grid.innerScrollY <= 0 && grid.innerScrollX <= 0, `${label} board needs no scrolling`);
+  assert.ok(grid.tileWidth>=24, `${label} tiles stay readable rather than shrinking to fit`);
+  assert.ok(grid.managedOverflow, `${label} overflow stays inside the pannable board viewport`);
 }
 
 // A flag looks identical whether or not a mine sits under it.

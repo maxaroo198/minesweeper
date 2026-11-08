@@ -114,8 +114,8 @@ assert.ok(MODE_DIFFICULTIES.nightfall.includes('blackout'), 'Blackout sits besid
 assert.ok(!MODE_DIFFICULTIES.classic.includes('blackout'), 'Blackout only exists inside Nightfall');
 for (const bad of [{ rows: 1, cols: 100, mines: 9999 }, { rows: -4, cols: 0, mines: -2 }, {}]) {
   const sized = clampCustom(bad);
-  assert.ok(sized.rows >= 5 && sized.rows <= 40 && sized.cols >= 5 && sized.cols <= 40, 'custom sizes clamp into range');
-  assert.ok(sized.mines >= 1 && sized.mines < sized.rows * sized.cols, 'custom always leaves squares to clear');
+  assert.ok(sized.rows >= 1 && sized.cols >= 1, 'custom dimensions stay positive without fixed size caps');
+  assert.ok(sized.mines >= 0 && sized.mines < sized.rows * sized.cols, 'custom always leaves squares to clear');
 }
 const customBoard = freshGame('custom', 'custom', { rows: 7, cols: 21, mines: 20 });
 assert.deepEqual([customBoard.rows, customBoard.cols, customBoard.mines], [7, 21, 20], 'custom plays the size asked for');

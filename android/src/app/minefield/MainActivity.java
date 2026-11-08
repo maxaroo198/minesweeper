@@ -85,7 +85,7 @@ public final class MainActivity extends Activity {
             settings.setUseWideViewPort(true);
             settings.setLoadWithOverviewMode(true);
             String baseUa = settings.getUserAgentString();
-            settings.setUserAgentString((baseUa != null ? baseUa : "") + " MinefieldAndroid/1.7.1");
+            settings.setUserAgentString((baseUa != null ? baseUa : "") + " MinefieldAndroid/1.8.0");
 
             webView.addJavascriptInterface(new AndroidBridge(), "MinefieldAndroid");
             webView.setWebViewClient(new LocalAssetWebViewClient());
