@@ -1,11 +1,11 @@
 {
   "name": "react-vite-tailwind",
   "private": true,
-  "version": "1.7.0",
+  "version": "1.7.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/check-module-paths.mjs && vite build",
     "preview": "vite preview",
     "desktop:dev": "cd desktop && tauri dev",
     "desktop:build": "cd desktop && tauri build",

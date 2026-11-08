@@ -1,3 +1,16 @@
+# Windows build repair — v1.7.1
+
+The exact `ExtraModes.tsx` / `extraModes.ts` case-insensitive extensionless-import collision is now
+an executable regression fixture. `AdditionalModesPanel.tsx` is unambiguous. The check scans both
+filesystem and Git paths and runs in npm build, Tauri native-web prebuild and installer verification.
+Validated TypeScript, new-mode/banking engine tests, normal Vite build and `node scripts/build-native-web.mjs`
+on Linux. Refreshes and checks the embedded source archive. This validates the prebuild that failed,
+not a Windows Rust/NSIS build: actual Windows installer compilation and native installation remain
+for GitHub/device validation. No gameplay changes; Logic remains removed. No Firestore rules,
+indexes, database changes or Firebase deploy required. No assistant push or release.
+
+## Previous validation records
+
 # Navigation and new modes — v1.7.0
 
 Tests include TypeScript, production build, the base engine and existing Branch economy/backpack

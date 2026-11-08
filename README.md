@@ -54,6 +54,14 @@ A calm, distinctive Minesweeper playground with an Arena-inspired, warm-minimal 
 - No accounts, advertising, or analytics. Public Classic/Blitz scores optionally use Firebase.
 - Leaderboards exist only for Classic and Blitz. Failed submissions remain in a device-local retry queue; the public board shows the latest confirmed submission separately from the fastest 20.
 
+## Windows build fix — v1.7.1
+
+Renames the new-mode UI to `AdditionalModesPanel.tsx` to avoid Windows resolving `ExtraModes`
+to the lowercase `extraModes.ts` engine. Both web and native-web builds now reject ambiguous
+case-insensitive module names before compilation. Logic remains removed; Puzzle and Survival remain.
+Use tag **v1.7.1** (Android code 13), leaving the failed v1.7.0 tag alone. Same app IDs and signing keys.
+No Firestore rules, indexes, database changes or Firebase deployment required.
+
 ## Navigation and new modes — v1.7.0
 
 Branch now keeps its map visible with a dedicated actions rail, clear **Inside limb / Full tree**

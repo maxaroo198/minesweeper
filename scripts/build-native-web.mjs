@@ -2,6 +2,7 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
+execFileSync(process.execPath, ['scripts/check-module-paths.mjs'], {cwd:root,stdio:'inherit'});
 execFileSync(process.execPath, ['node_modules/vite/bin/vite.js', 'build'], {
   cwd: root, stdio: 'inherit', env: { ...process.env, MINEFIELD_NATIVE_BUILD: '1' },
 });

@@ -1,3 +1,11 @@
+## v1.7.1 — Windows module-resolution build fix
+
+- Fixes the Windows native-web build failure: `ExtraModes.tsx` and `extraModes.ts` differed only by case in their extensionless module names. Windows resolved the UI import to the engine file, which has no default export. The UI is now `AdditionalModesPanel.tsx`; the engine remains `extraModes.ts`.
+- Adds a dependency-free module-path regression check, including the exact failing filename pair, to web builds, Tauri's native-web prebuild and installer verification. It checks both filesystem and tracked paths so case-insensitive checkouts cannot hide collisions.
+- No gameplay/UI changes: Logic stays removed. Puzzle, Survival and Branch changes remain. Native app identifiers and signing configuration are unchanged; the `.app` identifier warning is not the build failure.
+- Version 1.7.1 / Android code 13, using a fresh release tag rather than moving v1.7.0. No Firestore rules, indexes, database changes or Firebase deployment required.
+- Validated TypeScript, the module-name regression check, extra-mode/banking engine tests, normal Vite build and the actual Tauri native-web prebuild entry point on Linux. Windows Rust/NSIS compilation and device installation still require the GitHub workflow; they were not run in the sandbox.
+
 ## v1.7.0 — Branch navigation, amount banking and two new modes
 
 - Keeps the dark charcoal/orange Branch map visible alongside a dedicated actions rail rather than replacing the map with encounter screens. Inside limb / Full tree navigation is explicit; both views expose the current kit/actions. Mobile uses a collapsible below-map actions sheet. Backpack, equipment, loot, shop and bank actions remain available; no systems removed.

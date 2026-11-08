@@ -6,7 +6,7 @@ function load(kind:ExtraMode):ExtraRun {
  try{const s=JSON.parse(localStorage.getItem(`minefield-extra-${kind}-v1`)??'null') as ExtraRun;if(s?.version===1&&s.kind===kind&&Number.isInteger(s.stage)&&s.stage>=0&&(kind!=='puzzle'||s.stage<PUZZLES.length)&&Array.isArray(s.board?.cells)&&s.board.rows>=1&&s.board.rows<=15&&s.board.cols>=1&&s.board.cols<=15&&s.board.cells.length===s.board.rows*s.board.cols&&Array.isArray(s.completed))return s;}catch{}
  return newExtraRun(kind);
 }
-export default function ExtraModes({kind,onClose}:{kind:ExtraMode;onClose:()=>void}){
+export default function AdditionalModesPanel({kind,onClose}:{kind:ExtraMode;onClose:()=>void}){
  const [s,set]=useState(()=>load(kind)),[flagMode,setFlagMode]=useState(false),dialog=useRef<HTMLElement>(null),close=useRef<HTMLButtonElement>(null);
  useEffect(()=>{const previous=document.activeElement as HTMLElement;close.current?.focus();return()=>previous?.focus();},[]);
  useEffect(()=>{try{localStorage.setItem(`minefield-extra-${kind}-v1`,JSON.stringify(s));}catch{}},[s,kind]);

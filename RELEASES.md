@@ -10,7 +10,7 @@ website, or separately installed Linux profiles.
 
 `.github/workflows/installers.yml` builds on GitHub's Windows and Linux runners:
 
-- `minefield-android.apk`: Android 8+; package `app.minefield`, version 1.7.0/code 12.
+- `minefield-android.apk`: Android 8+; package `app.minefield`, version 1.7.1/code 13.
 - `minefield-windows-x64-setup.exe`: x64 NSIS installer, Tauri 2 / WebView2.
 - `minefield-linux-x86_64.AppImage`: x86_64 AppImage, may need FUSE.
 - `minefield-linux-amd64.deb`: Debian/Ubuntu-compatible package.
